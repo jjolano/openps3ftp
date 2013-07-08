@@ -81,7 +81,7 @@ clean		: mostlyclean
 		  $(VERB) rm -f $(addsuffix .o,$(TTFFILES)) $(TTFFILES:.ttf=_ttf.h)
 
 distclean	: clean
-		  $(VERB) rm -rf $(DISTDIR) $(TARGET).pkg
+		  $(VERB) rm -rf $(DISTDIR) $(TARGET).pkg $(TARGET).zip
 
 pkg-struct	: 
 		  $(VERB) echo building pkg structure ... 
@@ -90,7 +90,7 @@ pkg-struct	:
 		  $(VERB) $(SFO) -f $(SFOXML) $(BUILDDIR)/pkg/PARAM.SFO
 		  $(VERB) if [ -n "$(PKGFILES)" -a -d "$(PKGFILES)" ]; then cp -rf $(PKGFILES)/* $(BUILDDIR)/pkg/; fi
 
-dist		: dist-retail
+dist		: $(TARGET).zip
 
 prep-srcdist	: 
 		  $(VERB) find . -exec touch -t 197001010000.00 {} \;
@@ -137,6 +137,10 @@ $(TARGET).pkg	: EBOOT.BIN
 		  $(VERB) cp -f $< $(BUILDDIR)/pkg/USRDIR/EBOOT.BIN
 		  $(VERB) $(PKG) --contentid $(CID) $(BUILDDIR)/pkg/ $@ > /dev/null
 		  $(VERB) $(PACKAGE_FINALIZE) $@
+
+$(TARGET).zip	: distclean dist-retail
+		  $(VERB) echo building zip ... $(notdir $@)
+		  $(VERB) zip -lr $@ README ChangeLog COPYING dist/ > /dev/null
 
 # Just a small workaround
 %.ttf		: 
