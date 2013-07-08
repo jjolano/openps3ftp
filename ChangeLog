@@ -1,0 +1,109 @@
+[Version 2.3 - May 29, 2011]
+- Fixed some minor issues in the client code
+- Socket handling improvements
+- Fixed an epic fail in the client code
+- Perfected the UNIX-style LIST output
+- Improved passive mode function
+- Added an experimental queue system to prevent some io crashes
+- Stability improvements
+
+[Version 2.2 - May 10, 2011]
+- Added more compatibility for older FTP clients
+- Rewrote code for PSL1GHT v2
+- Changed UI to a simple message box (was lazy)
+- More RFC compliance
+- Improved overall connection handling
+- Fixed a bunch of minor file transfer problems
+
+[Version 2.1.1 - April 3, 2011]
+- More optimizations (improved response times)
+- Reverted LIST format to support old clients
+- Squished some bugs
+
+[Version 2.1 - April 2, 2011]
+- Code optimizations
+- Some caching improvements (better response time)
+- File transfer code rewritten
+- More RFC compliance
+- Added more FTP commands
+- Changed LIST output format to EPLF
+
+[Version 2.0 - March 23, 2011]
+- Changed ICON0.PNG
+- Moved to a different XMB category (now under Network)
+- Fixed another possible memory leak
+- Added "dev_dragon" to mount detection and warning list
+- Changed LIST command output format (again)
+- Added new algorithms and methods
+- Should support Remote Play (untested)
+- Added a better way to get the IP (no internet required anymore - thanks andoma)
+- Added /app_home and /host_root to listing exceptions as they cause problems
+- Now uses Hermes' sysfs sprx link instead of lv2 syscalls
+- Tweaks made to improve internal performance, stability, and reliability
+- Added a "screen saver" (simply blanks screen after 60 sec of no controller input)
+- Added an exit application button combination shortcut (SELECT + START)
+- Added an internal "retry system" designed to reduce failed transfers for small files
+- New git for v2.0 and later: http://git-hacks.com/openps3ftp
+
+[Version 1.5 - March 4, 2011]
+- Improved performance and stability
+- In-game XMB performance increased
+- Better syscall usage
+- Fixed a possible memory leak
+- Fixed a couple of bugs
+- Added support for commands: MDTM, ABOR
+- nopass: now does normal login procedure (to ensure compatibility) but ignores password value
+- Added new build.sh file for developers (creates nopass and normal versions)
+
+[Version 1.4 - February 26, 2011]
+- Added more return codes
+- Another new command parser (even better)
+- Moved IP retrieval function to its own thread (no more hanging; method still requires internet)
+- Now detects all known dev_flash writable mount points
+- Rewrote/reengineered alot of functions
+- Added a little more user-friendly information on the screen
+- Moved PASSWD and EXITAPP commands under SITE-specific commands (see SITE HELP)
+- Changed LIST format to somewhat match "ls -a -l"
+- Greatly shortened code
+- Improved performance and stability
+- Fixed some bugs
+- More FTP client compatibility
+
+[Version 1.3 - February 15, 2011]
+- New command parser
+- New readme format
+- Prints a warning message if dev_blind is mounted
+- Fixed a bunch of bugs
+- Much more stable compared to previous versions
+- Much better performance compared to previous versions
+- On-screen text is coloured green instead of white
+- File transfers are more reliable
+- Exit to XMB function is more reliable
+- Removed "Press X to quit", use XMB Quit Game
+- Corrected and added some FTP return codes
+- Local IP address of the PS3 now displays on-screen
+- Added password change command (PASSWD <newpassword>)
+- Added force exit command (EXITAPP)
+- Greatly optimized code
+- Removed pointless/useless code
+- Simplified most functions
+- CHMOD function now works properly
+- File permissions now show correctly in directory listings
+- Now licensed under the GPL
+- Support for MLSD, MLST, and NLST commands
+
+[Version 1.2 - January 30, 2011]
+- Added XMB exit event handling (thanks facanferff)
+- Cleaned up and shortened some code
+- Fixed up the last modified date in directory listings
+- Added an option to disable the login checking (at compile time)
+- Fixed a small bug in passive mode which made the transfer fail
+
+[Version 1.1 - January 29, 2011]
+- More stability and better performance
+- Cleaned up some code
+- Fixed active ftp (PORT command)
+- Removed connection limiter (kinda useless)
+
+[Version 1.0 - January 29, 2011]
+- Initial Release
