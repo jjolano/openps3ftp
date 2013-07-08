@@ -142,6 +142,10 @@ $(TARGET).zip	: distclean dist-retail
 		  $(VERB) echo building zip ... $(notdir $@)
 		  $(VERB) zip -lr $@ README ChangeLog COPYING dist/ > /dev/null
 
+$(TARGET)%.zip	: $(TARGET).zip
+		  $(VERB) echo renaming zip ... $(notdir $@)
+		  $(VERB) mv -f $< $@
+
 # Just a small workaround
 %.ttf		: 
 
