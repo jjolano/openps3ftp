@@ -33,7 +33,7 @@ endif
 # Libraries
 #
 LIBPATHS	:= -L$(PORTLIBS)/lib $(LIBPSL1GHT_LIB)
-LIBS		:= -lNoRSX -lnet -lnetctl -lio -lfreetype -lpixman-1 -lz -lrt -llv2 -lrsx -lgcm_sys -lsysutil -lsysmodule
+LIBS		:= -lNoRSX -lnet -lnetctl -lio -lsysfs -lfreetype -lpixman-1 -lz -lrt -llv2 -lrsx -lgcm_sys -lsysutil -lsysmodule
 
 # Includes
 #
@@ -43,11 +43,8 @@ INCLUDE		:= -I$(CURDIR)/include -I$(PORTLIBS)/include/freetype2 -I$(PORTLIBS)/in
 #
 CFILES		:= $(foreach dir,$(CURDIR),$(notdir $(wildcard $(dir)/*.c)))
 CPPFILES	:= $(foreach dir,$(CURDIR),$(notdir $(wildcard $(dir)/*.cpp)))
-TTFFILES	:= $(foreach dir,$(CURDIR),$(notdir $(wildcard $(dir)/*.ttf)))
 
-OFILES		:= $(addsuffix .o,$(TTFFILES)) \
-		   $(CPPFILES:.cpp=.o) \
-		   $(CFILES:.c=.o)
+OFILES		:= $(CPPFILES:.cpp=.o) $(CFILES:.c=.o)
 
 # Define compilation options
 #
@@ -67,18 +64,15 @@ DEPENDS		:= $(OFILES:.o=.d)
 
 # Make rules
 #
-.PHONY		: all pkg-struct dist dist-debug dist-retail mostlyclean clean distclean
+.PHONY		: all pkg-struct dist dist-debug dist-retail clean distclean
 
 all		: $(TARGET).elf
 
-mostlyclean	:
+clean		: 
 		  $(VERB) rm -f $(CFILES:.c=.o) $(CPPFILES:.cpp=.o) $(DEPENDS)
-		  $(VERB) rm -f $(TARGET).self $(TARGET).npdrm.self EBOOT.BIN
+		  $(VERB) rm -f $(TARGET).self EBOOT.BIN
 		  $(VERB) rm -f $(TARGET).elf $(TARGET).elf.map
 		  $(VERB) rm -rf $(BUILDDIR)
-
-clean		: mostlyclean
-		  $(VERB) rm -f $(addsuffix .o,$(TTFFILES)) $(TTFFILES:.ttf=_ttf.h)
 
 distclean	: clean
 		  $(VERB) rm -rf $(DISTDIR) $(TARGET).pkg $(TARGET).zip
@@ -99,7 +93,7 @@ prep-srcdist	:
 dist-debug	: $(TARGET).self pkg-struct
 		  $(VERB) echo building pkg ... $(CID).pkg
 		  $(VERB) [ -d $(DISTDIR)/debug ] || mkdir -p $(DISTDIR)/debug
-		  $(VERB) cp -f $(basename $<).npdrm.self $(BUILDDIR)/pkg/USRDIR/EBOOT.BIN
+		  $(VERB) cp -f $(basename $<).self $(BUILDDIR)/pkg/USRDIR/EBOOT.BIN
 		  $(VERB) $(PKG) --contentid $(CID) $(BUILDDIR)/pkg/ $(DISTDIR)/debug/$(CID).pkg > /dev/null
 
 dist-retail	: EBOOT.BIN pkg-struct
@@ -119,8 +113,6 @@ $(TARGET).elf	: $(OFILES)
 $(TARGET).self	: $(TARGET).elf
 		  $(VERB) echo encrypting [fself] ... $(notdir $@)
 		  $(VERB) $(FSELF) $(BUILDDIR)/$(notdir $<) $@
-		  $(VERB) echo encrypting [fself-npdrm] ... $(basename $@).npdrm.self
-		  $(VERB) $(FSELF_NPDRM) $(BUILDDIR)/$(notdir $<) $(basename $@).npdrm.self
 
 EBOOT.BIN	: $(TARGET).elf
 		  $(eval CID := UP0001-$(APPID)_00-$(shell openssl md5 < $(BUILDDIR)/$(notdir $<) | head -c16 | tr '[:lower:]' '[:upper:]'))
@@ -145,8 +137,5 @@ $(TARGET).zip	: distclean dist-retail
 $(TARGET)%.zip	: $(TARGET).zip
 		  $(VERB) echo renaming zip ... $(notdir $@)
 		  $(VERB) mv -f $< $@
-
-# Just a small workaround
-%.ttf		: 
 
 -include $(DEPENDS)

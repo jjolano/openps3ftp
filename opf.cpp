@@ -1,94 +1,135 @@
 #include <iostream>
+#include <cstdlib>
 
+#include <NoRSX.h>
 #include <net/net.h>
 #include <net/netctl.h>
 #include <io/pad.h>
 #include <sys/thread.h>
 
-#include "Sans_ttf.h"
 #include "ftp.h"
 #include "opf.h"
+
+#define Pad_onPress(paddata, paddata_old, button) (paddata.button == 1 && paddata_old.button == 0)
 
 msgType MSG_OK = (msgType)(MSG_DIALOG_NORMAL | MSG_DIALOG_BTN_TYPE_OK | MSG_DIALOG_DISABLE_CANCEL_ON);
 
 NoRSX* GFX;
 
-int main()
+void _unload(void)
 {
-	// start required modules
+	ioPadEnd();
+	GFX->NoRSX_Exit();
+	netCtlTerm();
+	netDeinitialize();
+}
+
+int main(s32 argc, char* argv[])
+{
+	atexit(_unload);
+
+	// Initialize graphics
+	GFX = new NoRSX();
+	MsgDialog MSG(GFX);
+
+	// Initialize required libraries: net, netctl, io
 	netInitialize();
 	netCtlInit();
-
-	padInfo padinfo;
-	padData paddata;
 	ioPadInit(7);
 
-	// start NoRSX
-	//GFX = new NoRSX(RESOLUTION_1920x1080);
-	GFX = new NoRSX();
+	// Verify connection state
+	s32 state;
+	netCtlGetState(&state);
 
+	if(state != NET_CTL_STATE_IPObtained)
+	{
+		// not connected to network - terminate program
+		MSG.Dialog(MSG_OK, "Could not verify connection status. OpenPS3FTP will now exit.");
+		exit(EXIT_FAILURE);
+	}
+
+	// Set application running state
+	GFX->AppStart();
+
+	// Create thread for server
+	sys_ppu_thread_t id;
+	sysThreadCreate(&id, ftp_main, GFX, 1001, 1024, THREAD_JOINABLE, const_cast<char*>("opf_ftp_main"));
+
+	// Set up graphics
+	Font F1(LATIN2, GFX);
 	Background BG(GFX);
 	Bitmap BM(GFX);
-	MsgDialog MSG(GFX);
 
 	NoRSX_Bitmap PCL;
 	BM.GenerateBitmap(&PCL);
-
-	// load fonts
-	Font F1(Sans_ttf, Sans_ttf_size, GFX);
-
-	// set background
 	BG.MonoBitmap(COLOR_BLACK, &PCL);
 
-	// obtain connection information
-	union net_ctl_info info;
-	s32 noip = netCtlGetInfo(NET_CTL_INFO_IP_ADDRESS, &info);
+	// Retrieve detailed connection information (ip address)
+	net_ctl_info info;
+	netCtlGetInfo(NET_CTL_INFO_IP_ADDRESS, &info);
 
-	// don't need netctl anymore
-	netCtlTerm();
+	// Draw bitmap layer
+	// Not sure how this will actually look.
+	F1.PrintfToBitmap(50, 50, &PCL, COLOR_WHITE, "OpenPS3FTP version %s", OFTP_VERSION);
+	F1.PrintfToBitmap(50, 100, &PCL, COLOR_WHITE, "Written by John Olano (twitter: @jjolano)");
 
-	// check if we are connected (have IP address)
-	if(noip == 0)
+	F1.PrintfToBitmap(50, 200, &PCL, COLOR_WHITE, "IP Address: %s (port 21)", info.ip_address);
+
+	F1.PrintfToBitmap(50, 300, &PCL, COLOR_WHITE, "L1+R1: Mount /dev_blind");
+	F1.PrintfToBitmap(50, 350, &PCL, COLOR_WHITE, "SELECT+START: Exit OpenPS3FTP");
+
+	// Pad IO variables
+	padInfo padinfo;
+	padData paddata;
+	padData paddata_old;
+
+	// Main thread loop
+	while(GFX->GetAppStatus() != APP_EXIT)
 	{
-		// start server thread
-		sys_ppu_thread_t id;
-		sysThreadCreate(&id, fsthread, NULL, 1500, 0x400, 0, const_cast<char *>("oftp"));
+		// Get Pad Status
+		ioPadGetInfo(&padinfo);
 
-		// print text to screen
-		F1.PrintfToBitmap(150, 200, &PCL, COLOR_WHITE, "OpenPS3FTP version %s", OFTP_VERSION);
-		F1.PrintfToBitmap(150, 250, &PCL, COLOR_WHITE, "IP Address: %s - Port: 21", info.ip_address);
-		F1.PrintfToBitmap(150, 300, &PCL, COLOR_WHITE, "Developed by John Olano (@jjolano)");
-		F1.PrintfToBitmap(150, 350, &PCL, COLOR_WHITE, "Press X to exit");
-
-		GFX->AppStart();
-
-		while(GFX->GetAppStatus())
+		for(int i = 0; i < MAX_PADS; i++)
 		{
-			ioPadGetInfo(&padinfo);
-
-			if(padinfo.status[0])
+			if(padinfo.status[i])
 			{
-				ioPadGetData(0, &paddata);
+				// Get Pad Data
+				ioPadGetData(i, &paddata);
 
-				if(paddata.BTN_CROSS)
+				// Parse Pad Data
+				if(Pad_onPress(paddata, paddata_old, BTN_L1)
+				&& Pad_onPress(paddata, paddata_old, BTN_R1))
 				{
+					// dev_blind stuff
+
+				}
+
+				if(Pad_onPress(paddata, paddata_old, BTN_SELECT)
+				&& Pad_onPress(paddata, paddata_old, BTN_START))
+				{
+					// Exit application
 					GFX->AppExit();
 				}
+
+				paddata_old = paddata;
 			}
-
-			BM.DrawBitmap(&PCL);
-			GFX->Flip();
 		}
-	}
-	else
-	{
-		// not connected to network
-		MSG.Dialog(MSG_OK, "Your console is not connected to a network. Please connect to a network and launch OpenPS3FTP again.\n\nOpenPS3FTP will now exit.");
+
+		// Draw bitmap->screenbuffer
+		BM.DrawBitmap(&PCL);
+		GFX->Flip();
 	}
 
-	// stop modules
-	netDeinitialize();
-	GFX->NoRSX_Exit();
-	ioPadEnd();
+	// Wait for server thread to complete
+	u64 retval;
+	sysThreadJoin(id, &retval);
+
+	// Parse thread return value if application is not exiting
+	if(GFX->ExitSignalStatus() == NO_SIGNAL && retval != 0)
+	{
+		MSG.ErrorDialog((u32)retval);
+		exit(EXIT_FAILURE);
+	}
+
 	return 0;
 }

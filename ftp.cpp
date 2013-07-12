@@ -2,6 +2,7 @@
 #include <map>
 #include <vector>
 
+#include <NoRSX.h>
 #include <ppu-types.h>
 #include <lv2/sysfs.h>
 #include <sys/socket.h>
@@ -16,7 +17,7 @@ using namespace std;
 
 map<pollfd,pollfd> pfd_pasv;
 
-void fsthread(void *unused)
+void ftp_main(void *arg)
 {
 	vector<pollfd> pfd;
 }
