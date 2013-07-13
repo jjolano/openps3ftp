@@ -9,13 +9,13 @@
 
 #include <net/poll.h>
 
-typedef struct {
+class ftp_client {
+public:
 	int fd;
 	std::string last_cmd;
-
 	void response(unsigned int code, std::string message);
 	void multiresponse(unsigned int code, std::string message);
-} ftp_client;
+};
 
 typedef void (*datahandler)(ftp_client* clnt, int data_fd);
 

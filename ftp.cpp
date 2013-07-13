@@ -269,6 +269,8 @@ void ftp_main(void *arg)
 
 					if(bytes <= 0)
 					{
+						delete [] data;
+
 						// connection dropped
 						sock_close(fd);
 						m_clnt.erase(fd);
@@ -280,18 +282,24 @@ void ftp_main(void *arg)
 						// find command handler or return error
 						string ftpstr(data);
 
+						delete [] data;
+
 						// check \r\n
 						string::reverse_iterator rit = ftpstr.rbegin();
 
 						if(*rit != '\n' || (*rit+1) != '\r')
 						{
 							client->response(500, "Invalid command");
-							delete [] data;
 							continue;
 						}
 						else
 						{
 							ftpstr.resize(ftpstr.size() - 2);
+						}
+
+						if(ftpstr.size() == 0)
+						{
+							continue;
 						}
 
 						string::size_type pos = ftpstr.find(' ', 0);
@@ -322,8 +330,6 @@ void ftp_main(void *arg)
 							client->last_cmd = cmd;
 						}
 					}
-
-					delete [] data;
 				}
 			}
 		}

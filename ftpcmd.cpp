@@ -10,6 +10,7 @@
 #include <iostream>
 #include <map>
 #include <string>
+#include <sstream>
 
 #include "ftp.h"
 #include "opf.h"
@@ -17,7 +18,15 @@
 
 using namespace std;
 
+void cmd_generic_success(ftp_client* clnt, string cmd, string args)
+{
+	ostringstream out;
+	out << cmd << " command successful";
+	clnt->response(1, "");
+}
+
 void register_ftp_cmds(ftpcmd_handler* m)
 {
 	// m->insert(make_pair("CMD", &function));
+	m->insert(make_pair("NOOP", &cmd_generic_success));
 }
