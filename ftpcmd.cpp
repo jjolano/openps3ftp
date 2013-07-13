@@ -22,7 +22,7 @@ void cmd_generic_success(ftp_client* clnt, string cmd, string args)
 {
 	ostringstream out;
 	out << cmd << " command successful";
-	clnt->response(1, "");
+	clnt->response(200, out);
 }
 
 void register_ftp_cmds(ftpcmd_handler* m)
