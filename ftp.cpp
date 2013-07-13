@@ -1,7 +1,17 @@
+/*
+ * ----------------------------------------------------------------------------
+ * "THE BEER-WARE LICENSE" (Revision 42):
+ * <jjolano@me.com> wrote this file. As long as you retain this notice you
+ * can do whatever you want with this stuff. If we meet some day, and you think
+ * this stuff is worth it, you can buy me a beer in return John Olano
+ * ----------------------------------------------------------------------------
+ */
+
 #include <iostream>
 #include <map>
 #include <vector>
 #include <string>
+#include <sstream>
 #include <algorithm>
 
 #include <NoRSX.h>
@@ -18,12 +28,14 @@
 #include "opf.h"
 #include "ftpcmd.h"
 
-#define CMDBUFFER			8192
+#define CMDBUFFER			1024
 #define OFTP_LISTEN_BACKLOG	10
 #define FD(socket)			((socket)&~SOCKET_FD_MASK)
-#define CLNTEV				(POLLIN|POLLRDNORM)
 
 using namespace std;
+
+vector<pollfd> pfd;
+map<int,datahandler> m_datahndl;
 
 void sock_close(int socket)
 {
@@ -40,7 +52,44 @@ void closeAll(vector<pollfd> &pfd)
 
 void ftp_client::response(unsigned int code, string message)
 {
-	
+	ostringstream out;
+	out << code << ' ' << message << '\r' << '\n';
+
+	string str = out.str();
+	const char* p = str.c_str();
+	send(fd, p, out.tellp(), 0);
+}
+
+void ftp_client::multiresponse(unsigned int code, string message)
+{
+	ostringstream out;
+	out << code << '-' << message << '\r' << '\n';
+
+	string str = out.str();
+	const char* p = str.c_str();
+	send(fd, p, out.tellp(), 0);
+}
+
+void register_data_handler(int data_fd, datahandler data_handler, int event)
+{
+	// add to pollfds
+	pollfd data_pfd;
+	data_pfd.fd = data_fd;
+
+	if(event == FTP_DATA_EVENT_SEND)
+	{
+		data_pfd.events = POLLWRNORM;
+	}
+
+	if(event == FTP_DATA_EVENT_RECV)
+	{
+		data_pfd.events = POLLRDNORM;
+	}
+
+	pfd.push_back(data_pfd);
+
+	// add handler
+	m_datahndl[data_fd] = data_handler;
 }
 
 void ftp_main(void *arg)
@@ -49,9 +98,9 @@ void ftp_main(void *arg)
 	NoRSX* GFX = static_cast<NoRSX*>(arg);
 
 	// Maps and vectors
-	vector<pollfd> pfd;
 	ftpcmd_handler m_cmd;
 	map<int,ftp_client> m_clnt;
+	map<int,ftp_client*> m_dataclnt;
 
 	// Create server socket
 	sockaddr_in myaddr;
@@ -81,7 +130,7 @@ void ftp_main(void *arg)
 	listen(sockfd, OFTP_LISTEN_BACKLOG);
 
 	// Register FTP command handlers
-	//register_ftp_cmds(&m);
+	register_ftp_cmds(&m_cmd);
 
 	// Main thread loop
 	while(GFX->GetAppStatus() != APP_EXIT)
@@ -125,13 +174,23 @@ void ftp_main(void *arg)
 					// add to poll
 					pollfd new_pfd;
 					new_pfd.fd = nfd;
-					new_pfd.events = CLNTEV;
+					new_pfd.events = POLLRDNORM;
 					pfd.push_back(new_pfd);
 
 					// add to clients
 					ftp_client client;
-					
+					client.fd = nfd;
 					m_clnt[fd] = client;
+
+					// welcome
+					ostringstream out;
+					out << "OpenPS3FTP version " << OFTP_VERSION;
+					client.multiresponse(220, out.str());
+
+					out.str("");
+					out.clear();
+					out << "by John Olano (twitter: @jjolano)";
+					client.response(220, out.str());
 					continue;
 				}
 			}
@@ -141,28 +200,67 @@ void ftp_main(void *arg)
 				// Remove useless socket
 				sock_close(fd);
 				m_clnt.erase(fd);
+				m_dataclnt.erase(fd);
+				m_datahndl.erase(fd);
 				pfd.erase(pfd.begin() + i);
 				nfds--;
 				continue;
 			}
 
-			// Probably a client event.
-			ftp_client* client = &m_clnt[fd];
-
-			if(pfd[i].revents & CLNTEV)
+			if(pfd[i].revents & POLLWRNORM)
 			{
-				// client socket event
-				bool isDataSocket = false;
+				// data socket event
+				// try to call data handler
+				map<int,ftp_client*>::const_iterator cit = m_dataclnt.find(fd);
+				map<int,datahandler>::const_iterator dit = m_datahndl.find(fd);
 
-				// check if socket is a data socket
-
-				if(isDataSocket)
+				if(cit != m_dataclnt.end() && dit != m_datahndl.end())
 				{
-					// incoming data -> file
-					
+					// call data handler
+					(dit->second)(cit->second, fd);
 				}
 				else
 				{
+					// disconnect orphaned socket
+					sock_close(fd);
+					m_dataclnt.erase(fd);
+					m_datahndl.erase(fd);
+					pfd.erase(pfd.begin() + i);
+					nfds--;
+				}
+			}
+
+			if(pfd[i].revents & POLLRDNORM)
+			{
+				// client socket event
+				// attempt to call data handler
+				map<int,ftp_client*>::const_iterator cit = m_dataclnt.find(fd);
+
+				if(cit != m_dataclnt.end())
+				{
+					// Data socket - get data handler
+					map<int,datahandler>::const_iterator dit = m_datahndl.find(fd);
+
+					if(dit != m_datahndl.end())
+					{
+						// call data handler
+						(dit->second)(cit->second, fd);
+					}
+					else
+					{
+						// disconnect unhandled data socket
+						sock_close(fd);
+						m_dataclnt.erase(fd);
+						m_datahndl.erase(fd);
+						pfd.erase(pfd.begin() + i);
+						nfds--;
+					}
+				}
+				else
+				{
+					// Command socket
+					ftp_client* client = &m_clnt[fd];
+
 					// Parse FTP command from command socket
 					char *data;
 					data = new char[CMDBUFFER];
@@ -182,18 +280,27 @@ void ftp_main(void *arg)
 						// find command handler or return error
 						string ftpstr(data);
 
-						string::size_type pos = ftpstr.find(' ', 0);
+						// check \r\n
+						string::reverse_iterator rit = ftpstr.rbegin();
 
-						string cmd;
-						string args;
-
-						if(pos == string::npos)
+						if(*rit != '\n' || (*rit+1) != '\r')
 						{
-							cmd = ftpstr;
+							client->response(500, "Invalid command");
+							delete [] data;
+							continue;
 						}
 						else
 						{
-							cmd = ftpstr.substr(0, pos);
+							ftpstr.resize(ftpstr.size() - 2);
+						}
+
+						string::size_type pos = ftpstr.find(' ', 0);
+
+						string cmd = ftpstr.substr(0, pos);
+						string args;
+
+						if(pos != string::npos)
+						{
 							args = ftpstr.substr(pos + 1);
 						}
 
@@ -210,6 +317,9 @@ void ftp_main(void *arg)
 						{
 							// call handler
 							(it->second)(client, cmd, args);
+
+							// set last cmd (for command handler usage)
+							client->last_cmd = cmd;
 						}
 					}
 

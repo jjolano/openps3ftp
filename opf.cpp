@@ -1,18 +1,32 @@
+/*
+ * ----------------------------------------------------------------------------
+ * "THE BEER-WARE LICENSE" (Revision 42):
+ * <jjolano@me.com> wrote this file. As long as you retain this notice you
+ * can do whatever you want with this stuff. If we meet some day, and you think
+ * this stuff is worth it, you can buy me a beer in return John Olano
+ * ----------------------------------------------------------------------------
+ */
+
 #include <iostream>
 #include <cstdlib>
 
 #include <NoRSX.h>
+#include <ppu-lv2.h>
 #include <net/net.h>
 #include <net/netctl.h>
 #include <io/pad.h>
 #include <sys/thread.h>
+#include <sysutil/msg.h>
+#include <lv2/sysfs.h>
 
 #include "ftp.h"
 #include "opf.h"
 
 #define Pad_onPress(paddata, paddata_old, button) (paddata.button == 1 && paddata_old.button == 0)
 
-msgType MSG_OK = (msgType)(MSG_DIALOG_NORMAL | MSG_DIALOG_BTN_TYPE_OK | MSG_DIALOG_DISABLE_CANCEL_ON);
+msgType MSG_OK = (msgType)(MSG_DIALOG_NORMAL|MSG_DIALOG_BTN_TYPE_OK|MSG_DIALOG_DISABLE_CANCEL_ON);
+
+msgType MSG_YESNO = (msgType)(MSG_DIALOG_NORMAL|MSG_DIALOG_BTN_TYPE_YESNO);
 
 NoRSX* GFX;
 
@@ -53,7 +67,7 @@ int main(s32 argc, char* argv[])
 
 	// Create thread for server
 	sys_ppu_thread_t id;
-	sysThreadCreate(&id, ftp_main, GFX, 1001, 1024, THREAD_JOINABLE, const_cast<char*>("opf_ftp_main"));
+	sysThreadCreate(&id, ftp_main, GFX, 1001, 0x800, THREAD_JOINABLE, const_cast<char*>("opf_ftp_main"));
 
 	// Set up graphics
 	Font F1(LATIN2, GFX);
@@ -101,7 +115,37 @@ int main(s32 argc, char* argv[])
 				&& Pad_onPress(paddata, paddata_old, BTN_R1))
 				{
 					// dev_blind stuff
+					sysFSStat stat;
+					int ret = sysFsStat("/dev_blind", &stat);
 
+					if(ret == 0)
+					{
+						// dev_blind exists - ask to unmount
+						MSG.Dialog(MSG_YESNO, "Do you want to unmount dev_blind?");
+
+						if(MSG.GetResponse(MSG_DIALOG_BTN_YES) == 1)
+						{
+							// syscall unmount
+							lv2syscall1(838, (u64)"/dev_blind");
+
+							// display success
+							MSG.Dialog(MSG_OK, "dev_blind was successfully unmounted.");
+						}
+					}
+					else
+					{
+						// dev_blind does not exist - ask to mount
+						MSG.Dialog(MSG_YESNO, "Do you want to mount dev_blind?");
+
+						if(MSG.GetResponse(MSG_DIALOG_BTN_YES) == 1)
+						{
+							// syscall mount
+							lv2syscall8(837, (u64)"CELL_FS_IOS:BUILTIN_FLSH1", (u64)"CELL_FS_FAT", (u64)"/dev_blind", 0, 0 /* readonly */, 0, 0, 0);
+
+							// display success with info
+							MSG.Dialog(MSG_OK, "dev_blind was successfully mounted. Please note that dev_blind will not automatically unmount upon exiting OpenPS3FTP.");
+						}
+					}
 				}
 
 				if(Pad_onPress(paddata, paddata_old, BTN_SELECT)
