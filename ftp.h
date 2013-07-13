@@ -1,7 +1,13 @@
 #ifndef OPF_FTP_H
 #define OPF_FTP_H
 
-#define OFTP_LISTEN_BACKLOG	32
+#include <string>
+
+#include <net/poll.h>
+
+typedef struct {
+	void response(unsigned int code, std::string message);
+} ftp_client;
 
 void ftp_main(void *arg);
 

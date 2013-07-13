@@ -89,7 +89,7 @@ int main(s32 argc, char* argv[])
 		// Get Pad Status
 		ioPadGetInfo(&padinfo);
 
-		for(int i = 0; i < MAX_PADS; i++)
+		for(unsigned int i = 0; i < MAX_PADS; i++)
 		{
 			if(padinfo.status[i])
 			{
@@ -127,6 +127,7 @@ int main(s32 argc, char* argv[])
 	// Parse thread return value if application is not exiting
 	if(GFX->ExitSignalStatus() == NO_SIGNAL && retval != 0)
 	{
+		// Error - see ftp.cpp
 		MSG.ErrorDialog((u32)retval);
 		exit(EXIT_FAILURE);
 	}
