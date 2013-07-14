@@ -33,7 +33,7 @@ endif
 # Libraries
 #
 LIBPATHS	:= -L$(PORTLIBS)/lib $(LIBPSL1GHT_LIB)
-LIBS		:= -lNoRSX -lnet -lnetctl -lio -lsysfs -lfreetype -lpixman-1 -lz -lrt -llv2 -lrsx -lgcm_sys -lsysutil -lsysmodule
+LIBS		:= -lNoRSX -lnet -lnetctl -lio -lsysfs -lm -lfreetype -lpixman-1 -lz -lrt -llv2 -lrsx -lgcm_sys -lsysutil -lsysmodule
 
 # Includes
 #

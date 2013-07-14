@@ -10,5 +10,6 @@ typedef void (*ftpcmd)(ftp_client* clnt, std::string cmd, std::string args);
 typedef std::map<std::string, ftpcmd> ftpcmd_handler;
 
 void register_ftp_cmds(ftpcmd_handler* m);
+void event_client_drop(ftp_client* clnt);
 
 #endif /* OPF_FTPCMD_H */

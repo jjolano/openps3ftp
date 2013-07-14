@@ -24,8 +24,10 @@ As of version 3.0:
 	complaint. Don't know why I designed it like that.
 
 =============================
-GitHub: https://github.com/jjolano/openps3ftp
-License: Beerware
+GitHub (v3.0+): https://github.com/jjolano/openps3ftp
+GitHub (v2.x): https://github.com/jjolano/openps3ftp-v2
+GitHub (v1.x): https://github.com/jjolano/openps3ftp-v1
+License: Beerware (as of version 3.0), GNU GPL (versions <=2.3)
 =============================
 
 Thank you for using OpenPS3FTP!

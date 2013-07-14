@@ -16,7 +16,6 @@
 
 #include <NoRSX.h>
 #include <ppu-types.h>
-#include <lv2/sysfs.h>
 #include <sys/socket.h>
 #include <sys/thread.h>
 #include <netinet/in.h>
@@ -29,7 +28,7 @@
 #include "ftpcmd.h"
 
 #define CMDBUFFER			1024
-#define OFTP_LISTEN_BACKLOG	10
+#define LISTEN_BACKLOG		10
 #define FD(socket)			((socket)&~SOCKET_FD_MASK)
 
 using namespace std;
@@ -39,7 +38,10 @@ map<int,datahandler> m_datahndl;
 
 void sock_close(int socket)
 {
-	netClose(FD(socket));
+	if(socket > -1)
+	{
+		netClose(FD(socket));
+	}
 }
 
 void closeAll(vector<pollfd> &pfd)
@@ -53,17 +55,23 @@ void closeAll(vector<pollfd> &pfd)
 void ftp_client::response(unsigned int code, string message)
 {
 	ostringstream out;
-	out << code << ' ' << message << '\r' << '\n';
+	out << code << ' ' << message;
 
-	string str = out.str();
-	const char* p = str.c_str();
-	send(fd, p, out.tellp(), 0);
+	custresponse(out.str());
 }
 
 void ftp_client::multiresponse(unsigned int code, string message)
 {
 	ostringstream out;
-	out << code << '-' << message << '\r' << '\n';
+	out << code << '-' << message;
+
+	custresponse(out.str());
+}
+
+void ftp_client::custresponse(string message)
+{
+	ostringstream out;
+	out << message << '\r' << '\n';
 
 	string str = out.str();
 	const char* p = str.c_str();
@@ -127,7 +135,7 @@ void ftp_main(void *arg)
 		sysThreadExit(0x1337BEEF);
 	}
 
-	listen(sockfd, OFTP_LISTEN_BACKLOG);
+	listen(sockfd, LISTEN_BACKLOG);
 
 	// Register FTP command handlers
 	register_ftp_cmds(&m_cmd);
@@ -198,6 +206,7 @@ void ftp_main(void *arg)
 			if(pfd[i].revents & (POLLNVAL|POLLHUP|POLLERR))
 			{
 				// Remove useless socket
+				event_client_drop(&m_clnt[fd]);
 				sock_close(fd);
 				m_clnt.erase(fd);
 				m_dataclnt.erase(fd);
@@ -211,8 +220,8 @@ void ftp_main(void *arg)
 			{
 				// data socket event
 				// try to call data handler
-				map<int,ftp_client*>::const_iterator cit = m_dataclnt.find(fd);
-				map<int,datahandler>::const_iterator dit = m_datahndl.find(fd);
+				map<int,ftp_client*>::iterator cit = m_dataclnt.find(fd);
+				map<int,datahandler>::iterator dit = m_datahndl.find(fd);
 
 				if(cit != m_dataclnt.end() && dit != m_datahndl.end())
 				{
@@ -234,12 +243,12 @@ void ftp_main(void *arg)
 			{
 				// client socket event
 				// attempt to call data handler
-				map<int,ftp_client*>::const_iterator cit = m_dataclnt.find(fd);
+				map<int,ftp_client*>::iterator cit = m_dataclnt.find(fd);
 
 				if(cit != m_dataclnt.end())
 				{
 					// Data socket - get data handler
-					map<int,datahandler>::const_iterator dit = m_datahndl.find(fd);
+					map<int,datahandler>::iterator dit = m_datahndl.find(fd);
 
 					if(dit != m_datahndl.end())
 					{
@@ -272,6 +281,7 @@ void ftp_main(void *arg)
 						delete [] data;
 
 						// connection dropped
+						event_client_drop(&m_clnt[fd]);
 						sock_close(fd);
 						m_clnt.erase(fd);
 						pfd.erase(pfd.begin() + i);
@@ -297,7 +307,7 @@ void ftp_main(void *arg)
 							ftpstr.resize(ftpstr.size() - 2);
 						}
 
-						if(ftpstr.size() == 0)
+						if(ftpstr.empty())
 						{
 							continue;
 						}
@@ -314,7 +324,7 @@ void ftp_main(void *arg)
 
 						transform(cmd.begin(), cmd.end(), cmd.begin(), ::toupper);
 						
-						ftpcmd_handler::const_iterator it = m_cmd.find(cmd);
+						ftpcmd_handler::iterator it = m_cmd.find(cmd);
 
 						if(it == m_cmd.end())
 						{

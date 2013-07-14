@@ -17,7 +17,7 @@
 #include <io/pad.h>
 #include <sys/thread.h>
 #include <sysutil/msg.h>
-#include <lv2/sysfs.h>
+#include <sys/file.h>
 
 #include "ftp.h"
 #include "opf.h"
@@ -45,6 +45,9 @@ int main(s32 argc, char* argv[])
 	// Initialize graphics
 	GFX = new NoRSX();
 	MsgDialog MSG(GFX);
+
+	// Release message
+	MSG.Dialog(MSG_OK, "This build of OpenPS3FTP has not been tested by the author. Please report any issues found to the OpenPS3FTP GitHub repository. See README.txt for more details.");
 
 	// Initialize required libraries: net, netctl, io
 	netInitialize();
@@ -163,6 +166,8 @@ int main(s32 argc, char* argv[])
 		BM.DrawBitmap(&PCL);
 		GFX->Flip();
 	}
+
+	BM.ClearBitmap(&PCL);
 
 	// Wait for server thread to complete
 	u64 retval;
