@@ -48,7 +48,7 @@ OFILES		:= $(CPPFILES:.cpp=.o) $(CFILES:.c=.o)
 
 # Define compilation options
 #
-CFLAGS		= -O3 -Wall -mcpu=cell $(MACHDEP) $(INCLUDE)
+CFLAGS		= -O2 -Wall -mcpu=cell $(MACHDEP) $(INCLUDE)
 CXXFLAGS	= $(CFLAGS)
 LDFLAGS		= $(MACHDEP) -Wl,-Map,$(notdir $@).map
 
