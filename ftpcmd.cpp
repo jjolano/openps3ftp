@@ -289,7 +289,7 @@ void data_handler(ftp_client* clnt, int data_fd)
 				m_cvars[clnt].rest = 0;
 			}
 
-			read = (u64)recv(data_fd, m_dvars[clnt].buffer, DATA_BUFFER, MSG_WAITALL);
+			read = (u64)recv(data_fd, m_dvars[clnt].buffer, DATA_BUFFER - 1, MSG_WAITALL);
 
 			if(read > 0)
 			{
@@ -438,7 +438,7 @@ void cmd_feat(ftp_client* clnt, string cmd, string args)
 	feat.push_back("APPE");
 	feat.push_back("MLST type*;size*;sizd*;modify*;UNIX.mode*;UNIX.uid*;UNIX.gid*;");
 
-	clnt->multiresponse(211, "Features:");
+	clnt->response(211, "Features:", true);
 
 	ostringstream out;
 
@@ -448,7 +448,7 @@ void cmd_feat(ftp_client* clnt, string cmd, string args)
 		out.clear();
 		out << ' ' << *it;
 
-		clnt->custresponse(out.str());
+		clnt->cresponse(out.str());
 	}
 
 	clnt->response(211, "End");
@@ -746,7 +746,7 @@ void cmd_list(ftp_client* clnt, string cmd, string args)
 				// register data handler and set type dvar
 				m_dvars[clnt].type = DATA_TYPE_LIST;
 				m_dvars[clnt].buffer = new char[DATA_BUFFER];
-				register_data_handler(data, data_handler, FTP_DATA_EVENT_SEND);
+				register_data_handler(clnt, data, data_handler, FTP_DATA_EVENT_SEND);
 				clnt->response(150, "Accepted data connection");
 			}
 			else
@@ -784,7 +784,7 @@ void cmd_mlsd(ftp_client* clnt, string cmd, string args)
 				// register data handler and set type dvar
 				m_dvars[clnt].type = DATA_TYPE_MLSD;
 				m_dvars[clnt].buffer = new char[DATA_BUFFER];
-				register_data_handler(data, data_handler, FTP_DATA_EVENT_SEND);
+				register_data_handler(clnt, data, data_handler, FTP_DATA_EVENT_SEND);
 				clnt->response(150, "Accepted data connection");
 			}
 			else
@@ -822,7 +822,7 @@ void cmd_nlst(ftp_client* clnt, string cmd, string args)
 				// register data handler and set type dvar
 				m_dvars[clnt].type = DATA_TYPE_NLST;
 				m_dvars[clnt].buffer = new char[DATA_BUFFER];
-				register_data_handler(data, data_handler, FTP_DATA_EVENT_SEND);
+				register_data_handler(clnt, data, data_handler, FTP_DATA_EVENT_SEND);
 				clnt->response(150, "Accepted data connection");
 			}
 			else
@@ -878,7 +878,7 @@ void cmd_stor(ftp_client* clnt, string cmd, string args)
 					// register data handler and set type dvar
 					m_dvars[clnt].type = DATA_TYPE_STOR;
 					m_dvars[clnt].buffer = new char[DATA_BUFFER];
-					register_data_handler(data, data_handler, FTP_DATA_EVENT_RECV);
+					register_data_handler(clnt, data, data_handler, FTP_DATA_EVENT_RECV);
 					clnt->response(150, "Accepted data connection");
 				}
 				else
@@ -926,7 +926,7 @@ void cmd_retr(ftp_client* clnt, string cmd, string args)
 					// register data handler and set type dvar
 					m_dvars[clnt].type = DATA_TYPE_RETR;
 					m_dvars[clnt].buffer = new char[DATA_BUFFER];
-					register_data_handler(data, data_handler, FTP_DATA_EVENT_SEND);
+					register_data_handler(clnt, data, data_handler, FTP_DATA_EVENT_SEND);
 					clnt->response(150, "Accepted data connection");
 				}
 				else

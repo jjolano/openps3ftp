@@ -16,12 +16,12 @@
 #include <net/netctl.h>
 #include <io/pad.h>
 #include <sys/thread.h>
-#include <sysutil/msg.h>
 #include <sys/file.h>
 
 #include "ftp.h"
 #include "opf.h"
 
+// This probably only works for single-button events.
 #define Pad_onPress(paddata, paddata_old, button) (paddata.button == 1 && paddata_old.button == 0)
 
 msgType MSG_OK = (msgType)(MSG_DIALOG_NORMAL|MSG_DIALOG_BTN_TYPE_OK|MSG_DIALOG_DISABLE_CANCEL_ON);
@@ -47,7 +47,7 @@ int main(s32 argc, char* argv[])
 	MsgDialog MSG(GFX);
 
 	// Release message
-	MSG.Dialog(MSG_OK, "This build of OpenPS3FTP has not been tested by the author. Please report any issues found to the OpenPS3FTP GitHub repository. See README.txt for more details.");
+	MSG.Dialog(MSG_OK, "This build of OpenPS3FTP has not been tested by the author. As such, you use this software at your own risk. Please report any issues found to the OpenPS3FTP GitHub repository or send a tweet to @jjolano. See README.txt for more details.");
 
 	// Initialize required libraries: net, netctl, io
 	netInitialize();
@@ -70,7 +70,7 @@ int main(s32 argc, char* argv[])
 
 	// Create thread for server
 	sys_ppu_thread_t id;
-	sysThreadCreate(&id, ftp_main, GFX, 1001, 0x800, THREAD_JOINABLE, const_cast<char*>("opf_ftp_main"));
+	sysThreadCreate(&id, ftp_main, GFX, 1001, 0x1000, THREAD_JOINABLE, const_cast<char*>("opf_ftp_main"));
 
 	// Set up graphics
 	Font F1(LATIN2, GFX);
@@ -92,13 +92,13 @@ int main(s32 argc, char* argv[])
 
 	F1.PrintfToBitmap(50, 200, &PCL, COLOR_WHITE, "IP Address: %s (port 21)", info.ip_address);
 
-	F1.PrintfToBitmap(50, 300, &PCL, COLOR_WHITE, "L1+R1: Mount /dev_blind");
-	F1.PrintfToBitmap(50, 350, &PCL, COLOR_WHITE, "SELECT+START: Exit OpenPS3FTP");
+	F1.PrintfToBitmap(50, 300, &PCL, COLOR_WHITE, "SELECT: Execute dev_blind");
+	F1.PrintfToBitmap(50, 350, &PCL, COLOR_WHITE, "START: Exit OpenPS3FTP");
 
 	// Pad IO variables
 	padInfo padinfo;
 	padData paddata;
-	padData paddata_old;
+	padData paddata_old[MAX_PADS];
 
 	// Main thread loop
 	while(GFX->GetAppStatus() != APP_EXIT)
@@ -114,12 +114,11 @@ int main(s32 argc, char* argv[])
 				ioPadGetData(i, &paddata);
 
 				// Parse Pad Data
-				if(Pad_onPress(paddata, paddata_old, BTN_L1)
-				&& Pad_onPress(paddata, paddata_old, BTN_R1))
+				if(Pad_onPress(paddata, paddata_old[i], BTN_SELECT))
 				{
 					// dev_blind stuff
 					sysFSStat stat;
-					int ret = sysFsStat("/dev_blind", &stat);
+					s32 ret = sysFsStat("/dev_blind", &stat);
 
 					if(ret == 0)
 					{
@@ -151,14 +150,13 @@ int main(s32 argc, char* argv[])
 					}
 				}
 
-				if(Pad_onPress(paddata, paddata_old, BTN_SELECT)
-				&& Pad_onPress(paddata, paddata_old, BTN_START))
+				if(Pad_onPress(paddata, paddata_old[i], BTN_START))
 				{
 					// Exit application
 					GFX->AppExit();
 				}
 
-				paddata_old = paddata;
+				paddata_old[i] = paddata;
 			}
 		}
 

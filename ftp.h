@@ -4,26 +4,26 @@
 #define FTP_DATA_EVENT_SEND	1
 #define FTP_DATA_EVENT_RECV	2
 
-#include <map>
 #include <string>
 
-#include <net/net.h>
-#include <net/poll.h>
-
-class ftp_client {
-public:
+struct ftp_client {
 	int fd;
 	std::string last_cmd;
+	void response(unsigned int code, std::string message, bool multi);
 	void response(unsigned int code, std::string message);
-	void multiresponse(unsigned int code, std::string message);
-	void custresponse(std::string message);
+	void cresponse(std::string message);
 };
 
+// This function will be called by sysThreadCreate
+void ftp_main(void *arg);
+
+// data connection handler callback
 typedef void (*datahandler)(ftp_client* clnt, int data_fd);
 
-void ftp_main(void *arg);
-void register_data_handler(int data_fd, datahandler data_handler, int event);
+// used for data connections
+void register_data_handler(ftp_client* clnt, int data_fd, datahandler data_handler, int event);
 
+// basically closesocket from libnet/socket.c
 void sock_close(int socket);
 
 #endif /* OPF_FTP_H */

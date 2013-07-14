@@ -33,8 +33,12 @@
 
 using namespace std;
 
+// poll vector
 vector<pollfd> pfd;
+
+// data connection/handler maps
 map<int,datahandler> m_datahndl;
+map<int,ftp_client*> m_dataclnt;
 
 void sock_close(int socket)
 {
@@ -52,52 +56,50 @@ void closeAll(vector<pollfd> &pfd)
 	}
 }
 
+void ftp_client::response(unsigned int code, string message, bool multi)
+{
+	ostringstream out;
+	out << code << (multi ? '-' : ' ') << message << '\r' << '\n';
+
+	send(fd, out.str().c_str(), out.tellp(), 0);
+}
+
 void ftp_client::response(unsigned int code, string message)
 {
-	ostringstream out;
-	out << code << ' ' << message;
-
-	custresponse(out.str());
+	response(code, message, false);
 }
 
-void ftp_client::multiresponse(unsigned int code, string message)
-{
-	ostringstream out;
-	out << code << '-' << message;
-
-	custresponse(out.str());
-}
-
-void ftp_client::custresponse(string message)
+void ftp_client::cresponse(string message)
 {
 	ostringstream out;
 	out << message << '\r' << '\n';
 
-	string str = out.str();
-	const char* p = str.c_str();
-	send(fd, p, out.tellp(), 0);
+	send(fd, out.str().c_str(), out.tellp(), 0);
 }
 
-void register_data_handler(int data_fd, datahandler data_handler, int event)
+void register_data_handler(ftp_client* clnt, int data_fd, datahandler data_handler, int event)
 {
 	// add to pollfds
 	pollfd data_pfd;
 	data_pfd.fd = data_fd;
 
-	if(event == FTP_DATA_EVENT_SEND)
+	switch(event)
 	{
-		data_pfd.events = POLLWRNORM;
-	}
-
-	if(event == FTP_DATA_EVENT_RECV)
-	{
-		data_pfd.events = POLLRDNORM;
+		case FTP_DATA_EVENT_SEND:
+			data_pfd.events = POLLWRNORM;
+			break;
+		case FTP_DATA_EVENT_RECV:
+			data_pfd.events = POLLRDNORM;
+			break;
+		default:
+			return;
 	}
 
 	pfd.push_back(data_pfd);
 
-	// add handler
+	// add handler and reference
 	m_datahndl[data_fd] = data_handler;
+	m_dataclnt[data_fd] = clnt;
 }
 
 void ftp_main(void *arg)
@@ -108,7 +110,6 @@ void ftp_main(void *arg)
 	// Maps and vectors
 	ftpcmd_handler m_cmd;
 	map<int,ftp_client> m_clnt;
-	map<int,ftp_client*> m_dataclnt;
 
 	// Create server socket
 	sockaddr_in myaddr;
@@ -130,7 +131,10 @@ void ftp_main(void *arg)
 	if(bind(sockfd, (struct sockaddr*)&myaddr, sizeof myaddr) == -1)
 	{
 		// 0x1337BEEF: Socket bind error
+
+		// Close server socket
 		sock_close(sockfd);
+
 		GFX->AppExit();
 		sysThreadExit(0x1337BEEF);
 	}
@@ -152,7 +156,16 @@ void ftp_main(void *arg)
 		if(p == -1)
 		{
 			// 0x13371010: Socket poll error
+			
+			// Close all connections
 			closeAll(pfd);
+
+			// Free memory
+			m_cmd.clear();
+			m_clnt.clear();
+			m_dataclnt.clear();
+			m_datahndl.clear();
+			
 			GFX->AppExit();
 			sysThreadExit(0x13371010);
 		}
@@ -193,7 +206,7 @@ void ftp_main(void *arg)
 					// welcome
 					ostringstream out;
 					out << "OpenPS3FTP version " << OFTP_VERSION;
-					client.multiresponse(220, out.str());
+					client.response(220, out.str(), true);
 
 					out.str("");
 					out.clear();
@@ -201,69 +214,71 @@ void ftp_main(void *arg)
 					client.response(220, out.str());
 					continue;
 				}
+				else
+				{
+					// 0x1337ABCD: some error happened to the server
+
+					// Close all connections
+					closeAll(pfd);
+
+					// Free memory
+					m_cmd.clear();
+					m_clnt.clear();
+					m_dataclnt.clear();
+					m_datahndl.clear();
+
+					GFX->AppExit();
+					sysThreadExit(0x1337ABCD);
+				}
 			}
 
+			// Disconnect event
 			if(pfd[i].revents & (POLLNVAL|POLLHUP|POLLERR))
 			{
-				// Remove useless socket
-				event_client_drop(&m_clnt[fd]);
+				// Socket disconnected - remove any references
+				map<int,ftp_client>::iterator cit = m_clnt.find(fd);
+
+				// Control connection
+				if(cit != m_clnt.end())
+				{
+					event_client_drop(&cit->second);
+					m_clnt.erase(fd);
+				}
+				else
+				{
+					// Data connection
+					m_dataclnt.erase(fd);
+					m_datahndl.erase(fd);
+				}
+
+				// Close socket
 				sock_close(fd);
-				m_clnt.erase(fd);
-				m_dataclnt.erase(fd);
-				m_datahndl.erase(fd);
+
+				// Remove from poll
 				pfd.erase(pfd.begin() + i);
 				nfds--;
 				continue;
 			}
 
+			// Sending data event
 			if(pfd[i].revents & POLLWRNORM)
 			{
-				// data socket event
-				// try to call data handler
-				map<int,ftp_client*>::iterator cit = m_dataclnt.find(fd);
-				map<int,datahandler>::iterator dit = m_datahndl.find(fd);
+				// call data handler
+				(*m_datahndl[fd])(m_dataclnt[fd], fd);
 
-				if(cit != m_dataclnt.end() && dit != m_datahndl.end())
-				{
-					// call data handler
-					(dit->second)(cit->second, fd);
-				}
-				else
-				{
-					// disconnect orphaned socket
-					sock_close(fd);
-					m_dataclnt.erase(fd);
-					m_datahndl.erase(fd);
-					pfd.erase(pfd.begin() + i);
-					nfds--;
-				}
+				continue;
 			}
 
+			// Receiving data event
 			if(pfd[i].revents & POLLRDNORM)
 			{
-				// client socket event
-				// attempt to call data handler
+				// check if it is a data connection
 				map<int,ftp_client*>::iterator cit = m_dataclnt.find(fd);
 
 				if(cit != m_dataclnt.end())
 				{
-					// Data socket - get data handler
-					map<int,datahandler>::iterator dit = m_datahndl.find(fd);
-
-					if(dit != m_datahndl.end())
-					{
-						// call data handler
-						(dit->second)(cit->second, fd);
-					}
-					else
-					{
-						// disconnect unhandled data socket
-						sock_close(fd);
-						m_dataclnt.erase(fd);
-						m_datahndl.erase(fd);
-						pfd.erase(pfd.begin() + i);
-						nfds--;
-					}
+					// call data handler
+					(*m_datahndl[fd])(m_dataclnt[fd], fd);
 				}
 				else
 				{
@@ -271,28 +286,18 @@ void ftp_main(void *arg)
 					ftp_client* client = &m_clnt[fd];
 
 					// Parse FTP command from command socket
-					char *data;
-					data = new char[CMDBUFFER];
-
-					int bytes = recv(fd, data, CMDBUFFER - 1, 0);
+					char* data = new char[CMDBUFFER];
+					size_t bytes = recv(fd, data, CMDBUFFER - 1, 0);
 
 					if(bytes <= 0)
 					{
-						delete [] data;
-
 						// connection dropped
-						event_client_drop(&m_clnt[fd]);
 						sock_close(fd);
-						m_clnt.erase(fd);
-						pfd.erase(pfd.begin() + i);
-						nfds--;
 					}
 					else
 					{
 						// find command handler or return error
 						string ftpstr(data);
-
-						delete [] data;
 
 						// check \r\n
 						string::reverse_iterator rit = ftpstr.rbegin();
@@ -305,11 +310,6 @@ void ftp_main(void *arg)
 						else
 						{
 							ftpstr.resize(ftpstr.size() - 2);
-						}
-
-						if(ftpstr.empty())
-						{
-							continue;
 						}
 
 						string::size_type pos = ftpstr.find(' ', 0);
@@ -340,13 +340,23 @@ void ftp_main(void *arg)
 							client->last_cmd = cmd;
 						}
 					}
+
+					delete [] data;
 				}
+
+				continue;
 			}
 		}
 	}
 
 	// Close all socket connections
 	closeAll(pfd);
+
+	// Free memory
+	m_cmd.clear();
+	m_clnt.clear();
+	m_dataclnt.clear();
+	m_datahndl.clear();
 
 	sysThreadExit(0);
 }

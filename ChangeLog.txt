@@ -2,7 +2,7 @@
 - Blind-rewrite from scratch, now in C++
 - Interface has been revamped, using internal fonts
 - Interface should support all screen resolutions
-- dev_blind functionality integrated, can be activated with L1+R1
+- dev_blind functionality integrated, can be activated with SELECT
 - Stability has been greatly improved
 - Performance has been greatly improved
 - Source code now available on the "Beerware" license
