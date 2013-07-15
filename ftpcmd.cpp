@@ -24,7 +24,6 @@
 #include <netdb.h>
 
 #include "ftp.h"
-#include "opf.h"
 #include "ftpcmd.h"
 
 #define DATA_BUFFER		32768
@@ -39,20 +38,20 @@
 
 using namespace std;
 
-typedef struct {
+struct ftp_cvars {
 	int data_fd;
 	int pasv_fd;
 	bool authorized;
 	string cwd;
 	string rnfr;
 	u64 rest;
-} ftp_cvars;
+};
 
-typedef struct {
+struct ftp_dvars {
 	s32 fd;
 	int type;
 	char* buffer;
-} ftp_dvars;
+};
 
 map<ftp_client*,ftp_cvars> m_cvars;
 map<ftp_client*,ftp_dvars> m_dvars;
@@ -319,7 +318,7 @@ void data_handler(ftp_client* clnt, int data_fd)
 				m_cvars[clnt].rest = 0;
 			}
 
-			s32 ret = sysFsRead(fd, m_dvars[clnt].buffer, DATA_BUFFER, &read);
+			s32 ret = sysFsRead(fd, m_dvars[clnt].buffer, DATA_BUFFER - 1, &read);
 
 			if(ret == 0 && read > 0)
 			{

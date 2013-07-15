@@ -15,12 +15,11 @@
 #include <algorithm>
 
 #include <NoRSX.h>
-#include <ppu-types.h>
 #include <sys/socket.h>
 #include <sys/thread.h>
-#include <netinet/in.h>
 #include <net/net.h>
 #include <net/poll.h>
+#include <netinet/in.h>
 #include <netdb.h>
 
 #include "ftp.h"
@@ -86,10 +85,10 @@ void register_data_handler(ftp_client* clnt, int data_fd, datahandler data_handl
 	switch(event)
 	{
 		case FTP_DATA_EVENT_SEND:
-			data_pfd.events = POLLWRNORM;
+			data_pfd.events = (POLLOUT|POLLWRNORM);
 			break;
 		case FTP_DATA_EVENT_RECV:
-			data_pfd.events = POLLRDNORM;
+			data_pfd.events = (POLLIN|POLLRDNORM);
 			break;
 		default:
 			return;
@@ -148,8 +147,6 @@ void ftp_main(void *arg)
 	while(GFX->GetAppStatus() != APP_EXIT)
 	{
 		// Poll sockets (100ms timeout to allow app status checking)
-		// This can probably set to an indefinite timeout, but that needs
-		// something to do with interrupts. Don't know about that yet.
 		nfds_t nfds = (nfds_t)pfd.size();
 		int p = poll(&pfd[0], nfds, 100);
 
@@ -173,13 +170,20 @@ void ftp_main(void *arg)
 		// Loop through sockets if poll returned more than zero
 		for(unsigned int i = 0; (i < nfds && p > 0); i++)
 		{
+			// Remove from poll if fd < 0
+			if(pfd[i].fd < 0)
+			{
+				pfd.erase(pfd.begin() + i);
+				nfds--;
+			}
+
+			// Check if something happened on this socket
 			if(pfd[i].revents == 0)
 			{
-				// nothing happened on this socket
+				// nothing happened on this socket, move to next
 				continue;
 			}
 
-			// something happened on this socket
 			p--;
 
 			const int fd = pfd[i].fd;
@@ -195,7 +199,7 @@ void ftp_main(void *arg)
 					// add to poll
 					pollfd new_pfd;
 					new_pfd.fd = nfd;
-					new_pfd.events = POLLRDNORM;
+					new_pfd.events = (POLLIN|POLLRDNORM);
 					pfd.push_back(new_pfd);
 
 					// add to clients
@@ -261,7 +265,7 @@ void ftp_main(void *arg)
 			}
 
 			// Sending data event
-			if(pfd[i].revents & POLLWRNORM)
+			if(pfd[i].revents & (POLLOUT|POLLWRNORM))
 			{
 				// call data handler
 				(*m_datahndl[fd])(m_dataclnt[fd], fd);
@@ -270,7 +274,7 @@ void ftp_main(void *arg)
 			}
 
 			// Receiving data event
-			if(pfd[i].revents & POLLRDNORM)
+			if(pfd[i].revents & (POLLIN|POLLRDNORM))
 			{
 				// check if it is a data connection
 				map<int,ftp_client*>::iterator cit = m_dataclnt.find(fd);
