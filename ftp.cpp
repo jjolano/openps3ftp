@@ -175,6 +175,7 @@ void ftp_main(void *arg)
 			{
 				pfd.erase(pfd.begin() + i);
 				nfds--;
+				continue;
 			}
 
 			// Check if something happened on this socket
@@ -300,30 +301,26 @@ void ftp_main(void *arg)
 					}
 					else
 					{
-						// find command handler or return error
-						string ftpstr(data);
-
-						// check \r\n
-						string::reverse_iterator rit = ftpstr.rbegin();
-
-						if(*rit != '\n' || (*rit+1) != '\r')
+						// check valid command string
+						if(data[bytes - 1] != '\n' || data[bytes - 2] != '\r')
 						{
 							client->response(500, "Invalid command");
+							delete [] data;
 							continue;
 						}
-						else
-						{
-							ftpstr.resize(ftpstr.size() - 2);
-						}
 
-						string::size_type pos = ftpstr.find(' ', 0);
+						// handle command
+						string cmdstr(data);
+						cmdstr.resize(bytes - 2);
 
-						string cmd = ftpstr.substr(0, pos);
+						string::size_type pos = cmdstr.find(' ', 0);
+
+						string cmd = cmdstr.substr(0, pos);
 						string args;
 
 						if(pos != string::npos)
 						{
-							args = ftpstr.substr(pos + 1);
+							args = cmdstr.substr(pos + 1);
 						}
 
 						transform(cmd.begin(), cmd.end(), cmd.begin(), ::toupper);
