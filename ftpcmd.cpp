@@ -194,7 +194,7 @@ void data_handler(ftp_client* clnt, int data_fd)
 				permstr << ((stat.st_mode & S_IWOTH) ? 'w' : '-');
 				permstr << ((stat.st_mode & S_IXOTH) ? 'x' : '-');
 
-				size_t len = sprintf(m_dvars[clnt].buffer, "%s   1 %-10s %-10s %10lu %s %s\r\n", permstr.str().c_str(), "root", "root", stat.st_size, tstr, filename.c_str());
+				size_t len = snprintf(m_dvars[clnt].buffer, DATA_BUFFER, "%s   1 %-10s %-10s %10lu %s %s\r\n", permstr.str().c_str(), "root", "root", stat.st_size, tstr, filename.c_str());
 
 				send(data_fd, m_dvars[clnt].buffer, len, 0);
 			}
@@ -250,7 +250,7 @@ void data_handler(ftp_client* clnt, int data_fd)
 				permstr << (((stat.st_mode & S_IRGRP) != 0) * 4 + ((stat.st_mode & S_IWGRP) != 0) * 2 + ((stat.st_mode & S_IXGRP) != 0) * 1);
 				permstr << (((stat.st_mode & S_IROTH) != 0) * 4 + ((stat.st_mode & S_IWOTH) != 0) * 2 + ((stat.st_mode & S_IXOTH) != 0) * 1);
 
-				size_t len = sprintf(m_dvars[clnt].buffer, "type=%s;siz%s=%lu;modify=%s;UNIX.mode=0%s;UNIX.uid=0;UNIX.gid=0;%s\r\n", type.c_str(), typd.c_str(), stat.st_size, tstr, permstr.str().c_str(), filename.c_str());
+				size_t len = snprintf(m_dvars[clnt].buffer, DATA_BUFFER, "type=%s;siz%s=%lu;modify=%s;UNIX.mode=0%s;UNIX.uid=0;UNIX.gid=0;%s\r\n", type.c_str(), typd.c_str(), stat.st_size, tstr, permstr.str().c_str(), filename.c_str());
 
 				send(data_fd, m_dvars[clnt].buffer, len, 0);
 			}
@@ -267,7 +267,7 @@ void data_handler(ftp_client* clnt, int data_fd)
 
 			if(sysFsReaddir(fd, &entry, &read) == 0 && read > 0)
 			{
-				size_t len = sprintf(m_dvars[clnt].buffer, "%s\r\n", entry.d_name);
+				size_t len = snprintf(m_dvars[clnt].buffer, DATA_BUFFER, "%s\r\n", entry.d_name);
 				send(data_fd, m_dvars[clnt].buffer, len, 0);
 			}
 			else

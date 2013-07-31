@@ -70,7 +70,7 @@ int main(s32 argc, char* argv[])
 
 	// Create thread for server
 	sys_ppu_thread_t id;
-	sysThreadCreate(&id, ftp_main, GFX, 1001, 0x1000, THREAD_JOINABLE, const_cast<char*>("opf_ftp_main"));
+	sysThreadCreate(&id, ftp_main, GFX, 1002, 0x1000, THREAD_JOINABLE, const_cast<char*>("opf_ftp_main"));
 
 	// Set up graphics
 	Font F1(LATIN2, GFX);
@@ -87,7 +87,7 @@ int main(s32 argc, char* argv[])
 
 	// Draw bitmap layer
 	// Not sure how this will actually look.
-	F1.PrintfToBitmap(50, 50, &PCL, COLOR_WHITE, "OpenPS3FTP version %s", OFTP_VERSION);
+	F1.PrintfToBitmap(50, 50, &PCL, COLOR_WHITE, "OpenPS3FTP version " OFTP_VERSION);
 	F1.PrintfToBitmap(50, 100, &PCL, COLOR_WHITE, "Written by John Olano (twitter: @jjolano)");
 
 	F1.PrintfToBitmap(50, 200, &PCL, COLOR_WHITE, "IP Address: %s (port 21)", info.ip_address);
@@ -172,7 +172,7 @@ int main(s32 argc, char* argv[])
 	sysThreadJoin(id, &retval);
 
 	// Parse thread return value if application is not exiting
-	if(GFX->ExitSignalStatus() == NO_SIGNAL && retval != 0)
+	if(GFX->ExitSignalStatus() == NO_SIGNAL && retval > 0)
 	{
 		// Error - see ftp.cpp
 		MSG.ErrorDialog((u32)retval);

@@ -10,6 +10,8 @@
 #include <iostream>
 #include <map>
 #include <vector>
+#include <cstring>
+#include <cstdio>
 #include <string>
 #include <sstream>
 #include <algorithm>
@@ -57,10 +59,13 @@ void closeAll(vector<pollfd> &pfd)
 
 void ftp_client::response(unsigned int code, string message, bool multi)
 {
-	ostringstream out;
-	out << code << (multi ? '-' : ' ') << message << '\r' << '\n';
+	char *msg;
+	msg = new char[CMDBUFFER];
 
-	send(fd, out.str().c_str(), out.tellp(), 0);
+	int bytes = snprintf(msg, CMDBUFFER, "%i%s%s\r\n", code, (multi ? "-" : " "), message.c_str());
+
+	send(fd, msg, bytes, 0);
+	delete [] msg;
 }
 
 void ftp_client::response(unsigned int code, string message)
@@ -70,10 +75,13 @@ void ftp_client::response(unsigned int code, string message)
 
 void ftp_client::cresponse(string message)
 {
-	ostringstream out;
-	out << message << '\r' << '\n';
+	char *msg;
+	msg = new char[CMDBUFFER];
 
-	send(fd, out.str().c_str(), out.tellp(), 0);
+	int bytes = snprintf(msg, CMDBUFFER, "%s\r\n", message.c_str());
+
+	send(fd, msg, bytes, 0);
+	delete [] msg;
 }
 
 void register_data_handler(ftp_client* clnt, int data_fd, datahandler data_handler, int event)
@@ -209,14 +217,8 @@ void ftp_main(void *arg)
 					m_clnt[fd] = client;
 
 					// welcome
-					ostringstream out;
-					out << "OpenPS3FTP version " << OFTP_VERSION;
-					client.response(220, out.str(), true);
-
-					out.str("");
-					out.clear();
-					out << "by John Olano (twitter: @jjolano)";
-					client.response(220, out.str());
+					client.response(220, "OpenPS3FTP version " OFTP_VERSION, true);
+					client.response(220, "by John Olano (twitter: @jjolano)");
 					continue;
 				}
 				else
@@ -270,7 +272,6 @@ void ftp_main(void *arg)
 			{
 				// call data handler
 				(*m_datahndl[fd])(m_dataclnt[fd], fd);
-
 				continue;
 			}
 
@@ -291,20 +292,21 @@ void ftp_main(void *arg)
 					ftp_client* client = &m_clnt[fd];
 
 					// Parse FTP command from command socket
-					char* data = new char[CMDBUFFER];
+					char *data;
+					data = new char[CMDBUFFER];
+
 					size_t bytes = recv(fd, data, CMDBUFFER - 1, 0);
 
 					if(bytes <= 0)
 					{
-						// connection dropped
+						// invalid message
 						sock_close(fd);
 					}
 					else
 					{
 						// check valid command string
-						if(data[bytes - 1] != '\n' || data[bytes - 2] != '\r')
+						if(bytes <= 2)
 						{
-							client->response(500, "Invalid command");
 							delete [] data;
 							continue;
 						}
