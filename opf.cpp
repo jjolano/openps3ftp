@@ -7,7 +7,6 @@
  * ----------------------------------------------------------------------------
  */
 
-#include <iostream>
 #include <cstdlib>
 
 #include <NoRSX.h>
@@ -47,7 +46,7 @@ int main(s32 argc, char* argv[])
 	MsgDialog MSG(GFX);
 
 	// Release message
-	MSG.Dialog(MSG_OK, "This build of OpenPS3FTP has not been tested by the author. As such, you use this software at your own risk. Please report any issues found to the OpenPS3FTP GitHub repository or send a tweet to @jjolano. See README.txt for more details.");
+	MSG.Dialog(MSG_OK, RUN_MESSAGE);
 
 	// Initialize required libraries: net, netctl, io
 	netInitialize();
@@ -61,7 +60,7 @@ int main(s32 argc, char* argv[])
 	if(state != NET_CTL_STATE_IPObtained)
 	{
 		// not connected to network - terminate program
-		MSG.Dialog(MSG_OK, "Could not verify connection status. OpenPS3FTP will now exit.");
+		MSG.Dialog(MSG_OK, ERR_NOCONN);
 		exit(EXIT_FAILURE);
 	}
 
@@ -70,7 +69,7 @@ int main(s32 argc, char* argv[])
 
 	// Create thread for server
 	sys_ppu_thread_t id;
-	sysThreadCreate(&id, ftp_main, GFX, 1002, 0x1000, THREAD_JOINABLE, const_cast<char*>("opf_ftp_main"));
+	sysThreadCreate(&id, ftp_main, GFX, 1500, 0x1000, THREAD_JOINABLE, const_cast<char*>("opf_ftp_main"));
 
 	// Set up graphics
 	Font F1(LATIN2, GFX);
@@ -87,13 +86,13 @@ int main(s32 argc, char* argv[])
 
 	// Draw bitmap layer
 	// Not sure how this will actually look.
-	F1.PrintfToBitmap(50, 50, &PCL, COLOR_WHITE, "OpenPS3FTP version " OFTP_VERSION);
-	F1.PrintfToBitmap(50, 100, &PCL, COLOR_WHITE, "Written by John Olano (twitter: @jjolano)");
+	F1.PrintfToBitmap(50, 50, &PCL, COLOR_WHITE, APP_NAME " version " APP_VERSION);
+	F1.PrintfToBitmap(50, 100, &PCL, COLOR_WHITE, "by " APP_AUTHOR);
 
 	F1.PrintfToBitmap(50, 200, &PCL, COLOR_WHITE, "IP Address: %s (port 21)", info.ip_address);
 
-	F1.PrintfToBitmap(50, 300, &PCL, COLOR_WHITE, "SELECT: Execute dev_blind");
-	F1.PrintfToBitmap(50, 350, &PCL, COLOR_WHITE, "START: Exit OpenPS3FTP");
+	F1.PrintfToBitmap(50, 300, &PCL, COLOR_WHITE, "SELECT: dev_blind");
+	F1.PrintfToBitmap(50, 350, &PCL, COLOR_WHITE, "START: Exit " APP_NAME);
 
 	// Pad IO variables
 	padInfo padinfo;
@@ -118,34 +117,34 @@ int main(s32 argc, char* argv[])
 				{
 					// dev_blind stuff
 					sysFSStat stat;
-					s32 ret = sysFsStat("/dev_blind", &stat);
+					s32 ret = sysFsStat(DB_MOUNTPOINT, &stat);
 
 					if(ret == 0)
 					{
 						// dev_blind exists - ask to unmount
-						MSG.Dialog(MSG_YESNO, "Do you want to unmount dev_blind?");
+						MSG.Dialog(MSG_YESNO, DB_UNMOUNT_Q);
 
 						if(MSG.GetResponse(MSG_DIALOG_BTN_YES) == 1)
 						{
 							// syscall unmount
-							lv2syscall1(838, (u64)"/dev_blind");
+							lv2syscall1(838, (u64)DB_MOUNTPOINT);
 
 							// display success
-							MSG.Dialog(MSG_OK, "dev_blind was successfully unmounted.");
+							MSG.Dialog(MSG_OK, DB_UNMOUNT_S);
 						}
 					}
 					else
 					{
 						// dev_blind does not exist - ask to mount
-						MSG.Dialog(MSG_YESNO, "Do you want to mount dev_blind?");
+						MSG.Dialog(MSG_YESNO, DB_MOUNT_Q);
 
 						if(MSG.GetResponse(MSG_DIALOG_BTN_YES) == 1)
 						{
 							// syscall mount
-							lv2syscall8(837, (u64)"CELL_FS_IOS:BUILTIN_FLSH1", (u64)"CELL_FS_FAT", (u64)"/dev_blind", 0, 0 /* readonly */, 0, 0, 0);
+							lv2syscall8(837, (u64)"CELL_FS_IOS:BUILTIN_FLSH1", (u64)"CELL_FS_FAT", (u64)DB_MOUNTPOINT, 0, 0 /* readonly */, 0, 0, 0);
 
 							// display success with info
-							MSG.Dialog(MSG_OK, "dev_blind was successfully mounted. Please note that dev_blind will not automatically unmount upon exiting OpenPS3FTP.");
+							MSG.Dialog(MSG_OK, DB_MOUNT_S);
 						}
 					}
 				}

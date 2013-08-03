@@ -7,13 +7,10 @@
  * ----------------------------------------------------------------------------
  */
 
-#include <iostream>
+#include <cstdio>
 #include <map>
 #include <vector>
-#include <cstring>
-#include <cstdio>
 #include <string>
-#include <sstream>
 #include <algorithm>
 
 #include <NoRSX.h>
@@ -41,6 +38,7 @@ vector<pollfd> pfd;
 map<int,datahandler> m_datahndl;
 map<int,ftp_client*> m_dataclnt;
 
+// closes a socket
 void sock_close(int socket)
 {
 	if(socket > -1)
@@ -49,6 +47,7 @@ void sock_close(int socket)
 	}
 }
 
+// closes a vector of pollfd sockets
 void closeAll(vector<pollfd> &pfd)
 {
 	for(vector<pollfd>::iterator it = pfd.begin(); it != pfd.end(); ++it)
@@ -57,6 +56,7 @@ void closeAll(vector<pollfd> &pfd)
 	}
 }
 
+// sends a FTP response message to client, specify multi=true for continuation response
 void ftp_client::response(unsigned int code, string message, bool multi)
 {
 	char *msg;
@@ -68,11 +68,13 @@ void ftp_client::response(unsigned int code, string message, bool multi)
 	delete [] msg;
 }
 
+// shortcut for a simple response
 void ftp_client::response(unsigned int code, string message)
 {
 	response(code, message, false);
 }
 
+// send a custom ftp response to client
 void ftp_client::cresponse(string message)
 {
 	char *msg;
@@ -217,8 +219,8 @@ void ftp_main(void *arg)
 					m_clnt[fd] = client;
 
 					// welcome
-					client.response(220, "OpenPS3FTP version " OFTP_VERSION, true);
-					client.response(220, "by John Olano (twitter: @jjolano)");
+					client.response(220, APP_NAME " version " APP_VERSION, true);
+					client.response(220, "by " APP_AUTHOR);
 					continue;
 				}
 				else
