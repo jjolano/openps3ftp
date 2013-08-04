@@ -36,12 +36,13 @@
 using namespace std;
 
 struct ftp_cvars {
-	int data_fd;
-	int pasv_fd;
-	bool authorized;
-	string cwd;
-	string rnfr;
-	u64 rest;
+	int data_fd; // Data connection socket
+	int pasv_fd; // Passive mode listener socket
+	bool authorized; // Client logged in?
+	string cwd; // Client current working directory
+
+	string rnfr; // Used for RNFR command
+	u64 rest; // Used in resuming file transfers
 };
 
 struct ftp_dvars {
@@ -355,6 +356,8 @@ void data_handler(ftp_client* clnt, int data_fd)
 			default:
 				sysFsClose(m_dvars[clnt].fd);
 		}
+
+		m_dvars[clnt].fd = -1;
 
 		switch(status)
 		{
