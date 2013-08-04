@@ -37,8 +37,6 @@ void _unload(void)
 
 int main(s32 argc, char* argv[])
 {
-	atexit(_unload);
-
 	// Initialize graphics
 	GFX = new NoRSX();
 	MsgDialog MSG(GFX);
@@ -50,6 +48,8 @@ int main(s32 argc, char* argv[])
 	netInitialize();
 	netCtlInit();
 	ioPadInit(7);
+
+	atexit(_unload);
 
 	// Verify connection state
 	s32 state;

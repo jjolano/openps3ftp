@@ -44,6 +44,8 @@ particular build is still not a final release.
 Also, that "version 3.1"? That is essentially this, just re-signed for 4.xx. You 
 know who you are - don't claim my work as your own. Give credit where it's due.
 
+This may be my last release for the PS3. Thanks everyone!
+
 =============================
 GitHub (v3.0+): https://github.com/jjolano/openps3ftp
 GitHub (v2.x): https://github.com/jjolano/openps3ftp-v2
