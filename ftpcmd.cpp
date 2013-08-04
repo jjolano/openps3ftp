@@ -79,7 +79,7 @@ string getAbsPath(string cwd, string nd)
 		cwd += '/';
 	}
 
-	return cwd+nd;
+	return cwd + nd;
 }
 
 bool fileExists(string path)
@@ -194,7 +194,7 @@ void data_handler(ftp_client* clnt, int data_fd)
 				permstr << ((stat.st_mode & S_IWOTH) ? 'w' : '-');
 				permstr << ((stat.st_mode & S_IXOTH) ? 'x' : '-');
 
-				size_t len = snprintf(m_dvars[clnt].buffer, DATA_BUFFER, "%s   1 %-10s %-10s %10lu %s %s\r\n", permstr.str().c_str(), "root", "root", stat.st_size, tstr, filename.c_str());
+				int len = snprintf(m_dvars[clnt].buffer, DATA_BUFFER, "%s   1 %-10s %-10s %10lu %s %s\r\n", permstr.str().c_str(), "root", "root", stat.st_size, tstr, filename.c_str());
 
 				send(data_fd, m_dvars[clnt].buffer, len, 0);
 			}
@@ -250,7 +250,7 @@ void data_handler(ftp_client* clnt, int data_fd)
 				permstr << (((stat.st_mode & S_IRGRP) != 0) * 4 + ((stat.st_mode & S_IWGRP) != 0) * 2 + ((stat.st_mode & S_IXGRP) != 0) * 1);
 				permstr << (((stat.st_mode & S_IROTH) != 0) * 4 + ((stat.st_mode & S_IWOTH) != 0) * 2 + ((stat.st_mode & S_IXOTH) != 0) * 1);
 
-				size_t len = snprintf(m_dvars[clnt].buffer, DATA_BUFFER, "type=%s;siz%s=%lu;modify=%s;UNIX.mode=0%s;UNIX.uid=0;UNIX.gid=0;%s\r\n", type.c_str(), typd.c_str(), stat.st_size, tstr, permstr.str().c_str(), filename.c_str());
+				int len = snprintf(m_dvars[clnt].buffer, DATA_BUFFER, "type=%s;siz%s=%lu;modify=%s;UNIX.mode=0%s;UNIX.uid=0;UNIX.gid=0;%s\r\n", type.c_str(), typd.c_str(), stat.st_size, tstr, permstr.str().c_str(), filename.c_str());
 
 				send(data_fd, m_dvars[clnt].buffer, len, 0);
 			}
@@ -373,18 +373,14 @@ void data_handler(ftp_client* clnt, int data_fd)
 
 void cmd_success(ftp_client* clnt, string cmd, string args)
 {
-	ostringstream out;
-	out << cmd << " OK";
-	clnt->response(200, out.str());
+	clnt->response(200, cmd + " OK");
 }
 
 void cmd_success_auth(ftp_client* clnt, string cmd, string args)
 {
 	if(isClientAuthorized(clnt))
 	{
-		ostringstream out;
-		out << cmd << " OK";
-		clnt->response(200, out.str());
+		clnt->response(200, cmd + " OK");
 	}
 	else
 	{
@@ -394,18 +390,14 @@ void cmd_success_auth(ftp_client* clnt, string cmd, string args)
 
 void cmd_ignored(ftp_client* clnt, string cmd, string args)
 {
-	ostringstream out;
-	out << cmd << " ignored";
-	clnt->response(202, out.str());
+	clnt->response(202, cmd + " ignored");
 }
 
 void cmd_ignored_auth(ftp_client* clnt, string cmd, string args)
 {
 	if(isClientAuthorized(clnt))
 	{
-		ostringstream out;
-		out << cmd << " ignored";
-		clnt->response(202, out.str());
+		clnt->response(202, cmd + " ignored");
 	}
 	else
 	{
@@ -441,18 +433,14 @@ void cmd_feat(ftp_client* clnt, string cmd, string args)
 
 	clnt->response(211, "Features:", true);
 
-	ostringstream out;
-
 	for(vector<string>::iterator it = feat.begin(); it != feat.end(); it++)
 	{
-		out.str("");
-		out.clear();
-		out << ' ' << *it;
-
-		clnt->cresponse(out.str());
+		clnt->cresponse(" " + *it);
 	}
 
 	clnt->response(211, "End");
+
+	feat.clear();
 }
 
 // cmd_user: this will initialize the client's cvars
@@ -465,10 +453,7 @@ void cmd_user(ftp_client* clnt, string cmd, string args)
 		m_cvars[clnt].authorized = false;
 		m_cvars[clnt].rest = 0;
 
-		ostringstream out;
-		out << "Username " << args << " OK. Password required";
-
-		clnt->response(331, out.str());
+		clnt->response(331, "Username " + args + " OK. Password required");
 	}
 	else
 	{
@@ -485,6 +470,9 @@ void cmd_pass(ftp_client* clnt, string cmd, string args)
 		{
 			// set authorized flag
 			m_cvars[clnt].authorized = true;
+
+			// set cwd to root
+			m_cvars[clnt].cwd = "/";
 
 			clnt->response(230, "Successfully logged in");
 		}
@@ -525,10 +513,7 @@ void cmd_pwd(ftp_client* clnt, string cmd, string args)
 {
 	if(isClientAuthorized(clnt))
 	{
-		ostringstream out;
-		out << "\"" << m_cvars[clnt].cwd << "\" is the current directory";
-
-		clnt->response(257, out.str());
+		clnt->response(257, "\"" + m_cvars[clnt].cwd + "\" is the current directory");
 	}
 	else
 	{
@@ -544,10 +529,7 @@ void cmd_mkd(ftp_client* clnt, string cmd, string args)
 
 		if(sysFsMkdir(path.c_str(), 755) == 0)
 		{
-			ostringstream out;
-			out << "\"" << args << "\" was successfully created";
-
-			clnt->response(257, out.str());
+			clnt->response(257, "\"" + args + "\" was successfully created");
 		}
 		else
 		{
