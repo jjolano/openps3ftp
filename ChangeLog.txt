@@ -6,6 +6,7 @@
 - Stability has been greatly improved
 - Performance has been greatly improved
 - Source code now available on the "Beerware" license
+- Removed login detail requirement - login with any combination
 
 [Version 2.3 - May 29, 2011]
 - Fixed some minor issues in the client code

@@ -4,7 +4,7 @@
 // Application information
 #define APP_NAME		"OpenPS3FTP"
 #define APP_AUTHOR		"jjolano"
-#define APP_VERSION		"3.0-rc3"
+#define APP_VERSION		"3.0-rc4"
 
 // dev_blind mount point
 #define DB_MOUNTPOINT	"/dev_blind"
