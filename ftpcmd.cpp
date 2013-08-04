@@ -7,12 +7,12 @@
  * ----------------------------------------------------------------------------
  */
 
+#include <cstdio>
 #include <map>
 #include <string>
 #include <sstream>
 #include <vector>
 #include <algorithm>
-#include <cstdio>
 
 #include <fcntl.h>
 #include <sys/file.h>
@@ -121,7 +121,9 @@ int getDataConnection(ftp_client* clnt)
 		if(m_cvars[clnt].pasv_fd != -1)
 		{
 			// accept data connection
-			m_cvars[clnt].data_fd = accept(m_cvars[clnt].pasv_fd, NULL, NULL);
+			sockaddr their_addr;
+			socklen_t t_size = sizeof their_addr;
+			m_cvars[clnt].data_fd = accept(m_cvars[clnt].pasv_fd, &their_addr, &t_size);
 
 			// no need for pasv listener now
 			sock_close(m_cvars[clnt].pasv_fd);

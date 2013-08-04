@@ -23,6 +23,27 @@ As of version 3.0:
 - Any login detail is now accepted. I have seen this as the most common
 	complaint. Don't know why I designed it like that.
 
+
+Note to users:
+The included pkg file is signed for firmware versions lower than 3.60. If you
+are not running a firmware version lower than 3.60, then you may need to re-sign
+the pkg file and EBOOT.BIN.
+
+Error codes:
+0x1337BEEF - Socket binding failed. This should never be seen. Just restart OpenPS3FTP, or the whole system if it keeps occurring.
+0x13371010 - Socket polling failed. Probably only occurs if there's some sort of hardware problem.
+0x1337ABCD - Error on listener socket. This should never happen at all. Restart your system.
+
+Note to PS3 news websites:
+I never released version 3.0 officially, not sure who tipped that. That build
+wasn't even finished at all, just a testing build for new code. This will be
+the official release of version 3.0 of OpenPS3FTP. Please note the new source
+code links and new changes. Keep updated on my Twitter feed and GitHub - this
+particular build is still not a final release.
+
+Also, that "version 3.1"? That is essentially this, just re-signed for 4.xx. You 
+know who you are - don't claim my work as your own. Give credit where it's due.
+
 =============================
 GitHub (v3.0+): https://github.com/jjolano/openps3ftp
 GitHub (v2.x): https://github.com/jjolano/openps3ftp-v2
@@ -32,6 +53,6 @@ License: Beerware (as of version 3.0), GNU GPL (versions <=2.3)
 
 Thank you for using OpenPS3FTP!
 
-John Olano
+John Olano (jjolano)
 Twitter: @jjolano
 Donations: http://bit.ly/gmzGcI

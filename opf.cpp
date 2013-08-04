@@ -7,8 +7,6 @@
  * ----------------------------------------------------------------------------
  */
 
-#include <cstdlib>
-
 #include <NoRSX.h>
 #include <ppu-lv2.h>
 #include <net/net.h>
@@ -61,7 +59,7 @@ int main(s32 argc, char* argv[])
 	{
 		// not connected to network - terminate program
 		MSG.Dialog(MSG_OK, ERR_NOCONN);
-		exit(EXIT_FAILURE);
+		return -1;
 	}
 
 	// Set application running state
@@ -175,7 +173,7 @@ int main(s32 argc, char* argv[])
 	{
 		// Error - see ftp.cpp
 		MSG.ErrorDialog((u32)retval);
-		exit(EXIT_FAILURE);
+		return -1;
 	}
 
 	return 0;

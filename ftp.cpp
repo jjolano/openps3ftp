@@ -134,9 +134,6 @@ void ftp_main(void *arg)
 	listen_pfd.events = POLLIN;
 	pfd.push_back(listen_pfd);
 
-	int yes = 1;
-	setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
-
 	if(bind(sockfd, (struct sockaddr*)&myaddr, sizeof myaddr) == -1)
 	{
 		// 0x1337BEEF: Socket bind error
@@ -205,7 +202,9 @@ void ftp_main(void *arg)
 				if(pfd[i].revents & POLLIN)
 				{
 					// accept new connection
-					int nfd = accept(sockfd, NULL, NULL);
+					sockaddr their_addr;
+					socklen_t t_size = sizeof their_addr;
+					int nfd = accept(sockfd, &their_addr, &t_size);
 
 					// add to poll
 					pollfd new_pfd;
