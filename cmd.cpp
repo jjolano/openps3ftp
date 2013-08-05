@@ -21,7 +21,7 @@
 #include <netdb.h>
 
 #include "ftp.h"
-#include "ftpcmd.h"
+#include "cmd.h"
 
 #define DATA_BUFFER		32768
 

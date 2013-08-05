@@ -26,4 +26,8 @@ void register_data_handler(ftp_client* clnt, int data_fd, datahandler data_handl
 // basically closesocket from libnet/socket.c
 void sock_close(int socket);
 
+extern "C" {
+	int closesocket(int socket);
+}
+
 #endif /* OPF_FTP_H */

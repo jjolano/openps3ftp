@@ -22,8 +22,9 @@
 #include <netdb.h>
 
 #include "ftp.h"
-#include "opf.h"
-#include "ftpcmd.h"
+#include "cmd.h"
+
+#include "defines.h"
 
 #define CMDBUFFER			1024
 #define LISTEN_BACKLOG		10
@@ -43,7 +44,7 @@ void sock_close(int socket)
 {
 	if(socket > -1)
 	{
-		netClose(FD(socket));
+		closesocket(socket);
 	}
 }
 

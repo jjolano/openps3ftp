@@ -16,7 +16,8 @@
 #include <sys/file.h>
 
 #include "ftp.h"
-#include "opf.h"
+
+#include "defines.h"
 
 // This probably only works for single-button events.
 #define Pad_onPress(paddata, paddata_old, button) (paddata.button == 1 && paddata_old.button == 0)
