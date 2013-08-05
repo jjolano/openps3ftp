@@ -7,6 +7,16 @@ OpenPS3FTP is an open source FTP server for the PlayStation 3. It supports
 
 OpenPS3FTP is built using libraries from the PSL1GHT SDK (commit 534e589).
 
+=============================
+What makes OpenPS3FTP stand out from the rest?
+
+- Theoretically unlimited simultaneous transfers (depends on storage device)
+- Open Source
+- Greater stability when transferring multiple files
+- Supports all FTP clients
+- Ability to change file permissions (CHMOD)
+=============================
+
 As of version 3.0:
 - It has been blind-rewritten from scratch, with C++. The meaning of
 	"blind-rewritten" is that all the code that I have written has NOT been
@@ -38,8 +48,7 @@ Note to PS3 news websites:
 I never released version 3.0 officially, not sure who tipped that. That build
 wasn't even finished at all, just a testing build for new code. This will be
 the official release of version 3.0 of OpenPS3FTP. Please note the new source
-code links and new changes. Keep updated on my Twitter feed and GitHub - this
-particular build is still not a final release.
+code links and new changes.
 
 Also, that "version 3.1"? That is essentially this, just re-signed for 4.xx. You 
 know who you are - don't claim my work as your own. Give credit where it's due.

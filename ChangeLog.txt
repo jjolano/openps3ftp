@@ -1,12 +1,12 @@
 [Version 3.0]
-- Blind-rewrite from scratch, now in C++
-- Interface has been revamped, using internal fonts
-- Interface should support all screen resolutions
-- dev_blind functionality integrated, can be activated with SELECT
+- Interface now uses PS3 internal fonts
+- Interface should now support all screen resolutions equally
+- dev_blind functionality integrated, can be activated by pressing SELECT
 - Stability has been greatly improved
 - Performance has been greatly improved
 - Source code now available on the "Beerware" license
 - Removed login detail requirement - login with any combination
+- Now includes DEX build
 
 [Version 2.3 - May 29, 2011]
 - Fixed some minor issues in the client code

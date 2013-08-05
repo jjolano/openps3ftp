@@ -4,15 +4,18 @@
 
 # Define pkg file and application information
 #
-APPID		:= OFTP00001
-SFOXML		:= $(CURDIR)/app/sfo.xml
+APPID		:= NPXS91337
+APPID_DEX	:= TEST91337
+
+SFOXML		:= $(CURDIR)/app/sfo_cex.xml
+SFOXML_DEX	:= $(CURDIR)/app/sfo_dex.xml
+
 ICON0		:= $(CURDIR)/app/ICON0.PNG
 
-PKGFILES	:= 
+LICENSEID	:= AF43D15A870659F4
 
-DISTDIR		:= $(CURDIR)/dist
-BUILDDIR	:= $(CURDIR)/build
-DEPSDIR		:= $(CURDIR)
+CONTENTID	:= UP0001-$(APPID)_00-$(LICENSEID)
+CONTENTID_DEX	:= UP0001-$(APPID_DEX)_00-$(LICENSEID)
 
 # Check PSL1GHT environment variable
 #
@@ -22,18 +25,10 @@ endif
 
 include $(PSL1GHT)/ppu_rules
 
-# Set ContentID for NPDRM
-#
-ifneq ($(wildcard $(BUILDDIR)/$(TARGET).elf),)
-	CID	:= UP0001-$(APPID)_00-$(shell openssl md5 < $(BUILDDIR)/$(TARGET).elf | head -c16 | tr '[:lower:]' '[:upper:]')
-else
-	CID	:= $(CONTENTID)
-endif
-
 # Libraries
 #
 LIBPATHS	:= -L$(PORTLIBS)/lib $(LIBPSL1GHT_LIB)
-LIBS		:= -lNoRSX -lnet -lnetctl -lio -lsysfs -lm -lfreetype -lpixman-1 -lz -lrt -llv2 -lrsx -lgcm_sys -lsysutil -lsysmodule
+LIBS		:= -lNoRSX -lnet -lnetctl -lio -lsysfs -lfreetype -lpixman-1 -lz -lrt -llv2 -lrsx -lgcm_sys -lsysutil -lsysmodule
 
 # Includes
 #
@@ -50,7 +45,7 @@ OFILES		:= $(CPPFILES:.cpp=.o) $(CFILES:.c=.o)
 #
 CFLAGS		= -O2 -Wall -mcpu=cell $(MACHDEP) $(INCLUDE)
 CXXFLAGS	= $(CFLAGS)
-LDFLAGS		= $(MACHDEP) -Wl,-Map,$(notdir $@).map
+LDFLAGS		= $(MACHDEP)
 
 ifeq ($(strip $(CPPFILES)),)
 	LD	:= $(CC)
@@ -58,84 +53,54 @@ else
 	LD	:= $(CXX)
 endif
 
-# Dependencies
-#
-DEPENDS		:= $(OFILES:.o=.d)
-
 # Make rules
 #
-.PHONY		: all pkg-struct dist dist-debug dist-retail clean distclean
+.PHONY		: all dist clean
 
 all		: $(TARGET).elf
 
 clean		: 
 		  $(VERB) rm -f $(CFILES:.c=.o) $(CPPFILES:.cpp=.o) $(DEPENDS)
-		  $(VERB) rm -f $(TARGET).self EBOOT.BIN
-		  $(VERB) rm -f $(TARGET).elf $(TARGET).elf.map
+		  $(VERB) rm -f $(TARGET).elf $(TARGET).zip
 		  $(VERB) rm -rf $(BUILDDIR)
-
-distclean	: clean
-		  $(VERB) rm -rf $(DISTDIR) $(TARGET).pkg $(TARGET).zip
-
-pkg-struct	: 
-		  $(VERB) echo building pkg structure ... 
-		  $(VERB) mkdir -p $(BUILDDIR)/pkg/USRDIR
-		  $(VERB) cp -f $(ICON0) $(BUILDDIR)/pkg/
-		  $(VERB) $(SFO) -f $(SFOXML) $(BUILDDIR)/pkg/PARAM.SFO
-		  $(VERB) if [ -n "$(PKGFILES)" -a -d "$(PKGFILES)" ]; then cp -rf $(PKGFILES)/* $(BUILDDIR)/pkg/; fi
 
 dist		: $(TARGET).zip
 
-prep-srcdist	: 
-		  $(VERB) find . -exec touch -t 197001010000.00 {} \;
+eboot-debug	: $(TARGET).elf
+		  $(VERB) echo creating EBOOT.BIN [devkit] ...
+		  $(VERB) mkdir -p $(BUILDDIR)/eboot-debug
+		  $(VERB) $(FSELF) $< $(BUILDDIR)/eboot-debug/EBOOT.BIN
 
-# Not sure how debug SELFs should be created.
-dist-debug	: $(TARGET).self pkg-struct
-		  $(VERB) echo building pkg ... $(CID).pkg
-		  $(VERB) [ -d $(DISTDIR)/debug ] || mkdir -p $(DISTDIR)/debug
-		  $(VERB) cp -f $(basename $<).self $(BUILDDIR)/pkg/USRDIR/EBOOT.BIN
-		  $(VERB) $(PKG) --contentid $(CID) $(BUILDDIR)/pkg/ $(DISTDIR)/debug/$(CID).pkg > /dev/null
+eboot-retail	: $(TARGET).elf
+		  $(VERB) echo creating EBOOT.BIN [npdrm-retail] ...
+		  $(VERB) mkdir -p $(BUILDDIR)/eboot-retail
+		  $(VERB) $(SELF_NPDRM) $< $(BUILDDIR)/eboot-retail/EBOOT.BIN $(CONTENTID) > /dev/null
 
-dist-retail	: EBOOT.BIN pkg-struct
-		  $(VERB) echo building pkg ... $(CID).pkg
-		  $(VERB) [ -d $(DISTDIR)/retail ] || mkdir -p $(DISTDIR)/retail
-		  $(VERB) cp -f $< $(BUILDDIR)/pkg/USRDIR/EBOOT.BIN
-		  $(VERB) $(PKG) --contentid $(CID) $(BUILDDIR)/pkg/ $(DISTDIR)/retail/$(CID).pkg > /dev/null
-		  $(VERB) $(PACKAGE_FINALIZE) $(DISTDIR)/retail/$(CID).pkg
+pkg-debug	: eboot-debug
+		  $(VERB) echo creating pkg [devkit] ...
+		  $(VERB) mkdir -p $(BUILDDIR)/pkg-debug/USRDIR
+		  $(VERB) cp -f $(ICON0) $(BUILDDIR)/pkg-debug/
+		  $(VERB) $(SFO) -f $(SFOXML_DEX) $(BUILDDIR)/pkg-debug/PARAM.SFO
+		  $(VERB) cp -f $(BUILDDIR)/eboot-debug/EBOOT.BIN $(BUILDDIR)/pkg-debug/USRDIR/
+		  $(VERB) mkdir -p $(BUILDDIR)/pkg/debug
+		  $(VERB) $(PKG) -c $(CONTENTID_DEX) $(BUILDDIR)/pkg-debug/ $(BUILDDIR)/pkg/debug/$(CONTENTID_DEX).pkg > /dev/null
+
+pkg-retail	: eboot-retail
+		  $(VERB) echo creating pkg [npdrm-retail] ...
+		  $(VERB) mkdir -p $(BUILDDIR)/pkg-retail/USRDIR
+		  $(VERB) cp -f $(ICON0) $(BUILDDIR)/pkg-retail/
+		  $(VERB) $(SFO) -f $(SFOXML_DEX) $(BUILDDIR)/pkg-retail/PARAM.SFO
+		  $(VERB) cp -f $(BUILDDIR)/eboot-retail/EBOOT.BIN $(BUILDDIR)/pkg-retail/USRDIR/
+		  $(VERB) mkdir -p $(BUILDDIR)/pkg/retail
+		  $(VERB) $(PKG) -c $(CONTENTID) $(BUILDDIR)/pkg-retail/ $(BUILDDIR)/pkg/retail/$(CONTENTID).pkg > /dev/null
+		  $(VERB) $(PACKAGE_FINALIZE) $(BUILDDIR)/pkg/retail/$(CONTENTID).pkg
 
 $(TARGET).elf	: $(OFILES)
-		  $(VERB) echo linking ... $(notdir $@)
+		  $(VERB) echo creating $@ ...
 		  $(VERB) $(LD) $^ $(LDFLAGS) $(LIBPATHS) $(LIBS) -o $@
-		  $(VERB) [ -d $(BUILDDIR) ] || mkdir -p $(BUILDDIR)
-		  $(VERB) $(STRIP) $@ -o $(BUILDDIR)/$(notdir $@)
-		  $(VERB) $(SPRX) $(BUILDDIR)/$(notdir $@)
+		  $(VERB) $(STRIP) $@
+		  $(VERB) $(SPRX) $@
 
-$(TARGET).self	: $(TARGET).elf
-		  $(VERB) echo encrypting [fself] ... $(notdir $@)
-		  $(VERB) $(FSELF) $(BUILDDIR)/$(notdir $<) $@
-
-EBOOT.BIN	: $(TARGET).elf
-		  $(eval CID := UP0001-$(APPID)_00-$(shell openssl md5 < $(BUILDDIR)/$(notdir $<) | head -c16 | tr '[:lower:]' '[:upper:]'))
-		  $(VERB) echo encrypting [geohot-npdrm] ... $(notdir $@)
-		  $(VERB) echo contentid: $(CID)
-		  $(VERB) $(SELF_NPDRM) $(BUILDDIR)/$(notdir $<) $@ $(CID) > /dev/null
-
-$(TARGET).pkg	: EBOOT.BIN
-		  $(VERB) echo building pkg [retail] ... $(notdir $@)
-		  $(VERB) mkdir -p $(BUILDDIR)/pkg/USRDIR
-		  $(VERB) cp -f $(ICON0) $(BUILDDIR)/pkg/
-		  $(VERB) $(SFO) -f $(SFOXML) $(BUILDDIR)/pkg/PARAM.SFO
-		  $(VERB) if [ -n "$(PKGFILES)" -a -d "$(PKGFILES)" ]; then cp -rf $(PKGFILES)/* $(BUILDDIR)/pkg/; fi
-		  $(VERB) cp -f $< $(BUILDDIR)/pkg/USRDIR/EBOOT.BIN
-		  $(VERB) $(PKG) --contentid $(CID) $(BUILDDIR)/pkg/ $@ > /dev/null
-		  $(VERB) $(PACKAGE_FINALIZE) $@
-
-$(TARGET).zip	: distclean dist-retail
-		  $(VERB) echo building zip ... $(notdir $@)
-		  $(VERB) zip -lr $@ README.txt ChangeLog.txt dist/ > /dev/null
-
-$(TARGET)%.zip	: $(TARGET).zip
-		  $(VERB) echo renaming zip ... $(notdir $@)
-		  $(VERB) mv -f $< $@
-
--include $(DEPENDS)
+%.zip		: pkg-debug pkg-retail
+		  $(VERB) echo creating $@ ...
+		  $(VERB) zip -lr9 $@ README.txt ChangeLog.txt $(notdir $(BUILDDIR))/pkg/ > /dev/null
