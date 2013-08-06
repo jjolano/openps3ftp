@@ -28,7 +28,6 @@
 
 #define CMDBUFFER			1024
 #define LISTEN_BACKLOG		10
-#define FD(socket)			((socket)&~SOCKET_FD_MASK)
 
 using namespace std;
 
