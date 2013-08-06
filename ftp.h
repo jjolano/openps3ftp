@@ -14,9 +14,6 @@ struct ftp_client {
 	void cresponse(std::string message);
 };
 
-// This function will be called by sysThreadCreate
-void ftp_main(void *arg);
-
 // data connection handler callback
 typedef void (*datahandler)(ftp_client* clnt, int data_fd);
 
