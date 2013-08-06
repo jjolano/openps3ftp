@@ -60,39 +60,41 @@ endif
 all		: $(TARGET).elf
 
 clean		: 
-		  $(VERB) rm -f $(CFILES:.c=.o) $(CPPFILES:.cpp=.o) $(DEPENDS)
-		  $(VERB) rm -f $(TARGET).elf $(TARGET).zip
+		  $(VERB) rm -f $(OFILES) $(TARGET).elf $(TARGET).zip
 		  $(VERB) rm -rf $(BUILDDIR)
 
 dist		: $(TARGET).zip
 
 eboot-debug	: $(TARGET).elf
 		  $(VERB) echo creating EBOOT.BIN [devkit] ...
-		  $(VERB) mkdir -p $(BUILDDIR)/eboot-debug
-		  $(VERB) $(FSELF) $< $(BUILDDIR)/eboot-debug/EBOOT.BIN
+		  $(VERB) mkdir -p $(BUILDDIR)/$@
+		  $(VERB) $(FSELF) $< $(BUILDDIR)/$@/EBOOT.BIN
 
 eboot-retail	: $(TARGET).elf
 		  $(VERB) echo creating EBOOT.BIN [npdrm-retail] ...
-		  $(VERB) mkdir -p $(BUILDDIR)/eboot-retail
-		  $(VERB) $(SELF_NPDRM) $< $(BUILDDIR)/eboot-retail/EBOOT.BIN $(CONTENTID) > /dev/null
+		  $(VERB) mkdir -p $(BUILDDIR)/$@
+		  $(VERB) $(SELF_NPDRM) $< $(BUILDDIR)/$@/EBOOT.BIN $(CONTENTID) > /dev/null
+		  $(VERB) echo "** Note that this build is for firmware 3.55. **"
+		  $(VERB) echo "** You will need to re-sign the EBOOT and pkg **"
+		  $(VERB) echo "** files if on a FW version higher than 3.55. **"
 
 pkg-debug	: eboot-debug
 		  $(VERB) echo creating pkg [devkit] ...
-		  $(VERB) mkdir -p $(BUILDDIR)/pkg-debug/USRDIR
-		  $(VERB) cp -f $(ICON0) $(BUILDDIR)/pkg-debug/
-		  $(VERB) $(SFO) -f $(SFOXML_DEX) $(BUILDDIR)/pkg-debug/PARAM.SFO
-		  $(VERB) cp -f $(BUILDDIR)/eboot-debug/EBOOT.BIN $(BUILDDIR)/pkg-debug/USRDIR/
+		  $(VERB) mkdir -p $(BUILDDIR)/$@/USRDIR
+		  $(VERB) cp -f $(ICON0) $(BUILDDIR)/$@/
+		  $(VERB) $(SFO) -f $(SFOXML_DEX) $(BUILDDIR)/$@/PARAM.SFO
+		  $(VERB) cp -f $(BUILDDIR)/$</EBOOT.BIN $(BUILDDIR)/$@/USRDIR/
 		  $(VERB) mkdir -p $(BUILDDIR)/pkg/debug
-		  $(VERB) $(PKG) -c $(CONTENTID_DEX) $(BUILDDIR)/pkg-debug/ $(BUILDDIR)/pkg/debug/$(CONTENTID_DEX).pkg > /dev/null
+		  $(VERB) $(PKG) -c $(CONTENTID_DEX) $(BUILDDIR)/$@/ $(BUILDDIR)/pkg/debug/$(CONTENTID_DEX).pkg > /dev/null
 
 pkg-retail	: eboot-retail
 		  $(VERB) echo creating pkg [npdrm-retail] ...
-		  $(VERB) mkdir -p $(BUILDDIR)/pkg-retail/USRDIR
-		  $(VERB) cp -f $(ICON0) $(BUILDDIR)/pkg-retail/
-		  $(VERB) $(SFO) -f $(SFOXML_DEX) $(BUILDDIR)/pkg-retail/PARAM.SFO
-		  $(VERB) cp -f $(BUILDDIR)/eboot-retail/EBOOT.BIN $(BUILDDIR)/pkg-retail/USRDIR/
+		  $(VERB) mkdir -p $(BUILDDIR)/$@/USRDIR
+		  $(VERB) cp -f $(ICON0) $(BUILDDIR)/$@/
+		  $(VERB) $(SFO) -f $(SFOXML_DEX) $(BUILDDIR)/$@/PARAM.SFO
+		  $(VERB) cp -f $(BUILDDIR)/$</EBOOT.BIN $(BUILDDIR)/$@/USRDIR/
 		  $(VERB) mkdir -p $(BUILDDIR)/pkg/retail
-		  $(VERB) $(PKG) -c $(CONTENTID) $(BUILDDIR)/pkg-retail/ $(BUILDDIR)/pkg/retail/$(CONTENTID).pkg > /dev/null
+		  $(VERB) $(PKG) -c $(CONTENTID) $(BUILDDIR)/$@/ $(BUILDDIR)/pkg/retail/$(CONTENTID).pkg > /dev/null
 		  $(VERB) $(PACKAGE_FINALIZE) $(BUILDDIR)/pkg/retail/$(CONTENTID).pkg
 
 $(TARGET).elf	: $(OFILES)

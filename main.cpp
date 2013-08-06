@@ -42,9 +42,6 @@ int main(s32 argc, char* argv[])
 	GFX = new NoRSX();
 	MsgDialog MSG(GFX);
 
-	// Release message
-	MSG.Dialog(MSG_OK, RUN_MESSAGE);
-
 	// Initialize required libraries: net, netctl, io
 	netInitialize();
 	netCtlInit();
@@ -116,9 +113,8 @@ int main(s32 argc, char* argv[])
 				{
 					// dev_blind stuff
 					sysFSStat stat;
-					s32 ret = sysFsStat(DB_MOUNTPOINT, &stat);
 
-					if(ret == 0)
+					if(sysFsStat(DB_MOUNTPOINT, &stat) == 0)
 					{
 						// dev_blind exists - ask to unmount
 						MSG.Dialog(MSG_YESNO, DB_UNMOUNT_Q);
