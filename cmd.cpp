@@ -371,7 +371,7 @@ void data_retr(int sock_data)
 
 	if(sysFsRead(fd, client_cvar[clnt].buffer, DATA_BUFFER - 1, &read) == 0 && read > 0)
 	{
-		int sent = send(sock_data, client_cvar[clnt].buffer, (size_t)read, 0);
+		int sent = clnt->data_send(client_cvar[clnt].buffer, (int)read);
 
 		if((u64)sent < read)
 		{
