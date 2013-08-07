@@ -15,7 +15,12 @@ What makes OpenPS3FTP stand out from the rest?
 - Greater stability when transferring multiple files
 - Supports all FTP clients
 - Ability to change file permissions (CHMOD)
+- Supports transfer resuming
 =============================
+
+Compiling OpenPS3FTP:
+- To compile, cd to the source file directory and run `make dist` to compile everything.
+- The DATA_BUFFER can be tuned in defs.h.
 
 Note to users:
 - The retail pkg is signed for 3.55 CEX - if you are running anything higher,
@@ -31,9 +36,9 @@ category back to Game. In this case, simply use OpenPS3FTP to replace PARAM.SFO.
 Find the PARAM.SFO by extracting it from the original pkg file.
 
 Implemented error codes:
-0x1337BEEF - Socket binding failed. This should never be seen. Just restart OpenPS3FTP, or the whole system if it keeps occurring.
-0x13371010 - Socket polling failed. Probably only occurs if there's some sort of hardware problem.
-0x1337ABCD - Error on listener socket. This should never happen at all. Restart your system.
+0x1337BEEF - Socket binding failed. Just restart. The only reason I think this would happen is if you launch OpenPS3FTP right after exiting it.
+0x13371010 - Socket polling failed. Probably only happens if the system decides to screw up.
+0x1337ABCD - Error on listener socket. Probably only happens if you're screwing around with the server.
 
 Note to developers:
 Do what you like with the source code - however when releasing something that

@@ -1,4 +1,5 @@
 /*
+ * main.cpp: screen+input handling and ftp server bootstrap
  * ----------------------------------------------------------------------------
  * "THE BEER-WARE LICENSE" (Revision 42):
  * <jjolano@me.com> wrote this file. As long as you retain this notice you
@@ -15,7 +16,7 @@
 #include <sys/thread.h>
 #include <sys/file.h>
 
-#include "defines.h"
+#include "defs.h"
 
 // This probably only works for single-button events.
 #define Pad_onPress(paddata, paddata_old, button) (paddata.button == 1 && paddata_old.button == 0)
@@ -24,7 +25,7 @@ msgType MSG_OK = (msgType)(MSG_DIALOG_NORMAL|MSG_DIALOG_BTN_TYPE_OK|MSG_DIALOG_D
 msgType MSG_YESNO = (msgType)(MSG_DIALOG_NORMAL|MSG_DIALOG_BTN_TYPE_YESNO);
 
 // FTP server starter
-void ftp_main(void *arg);
+void ftpInitialize(void *arg);
 
 int main(s32 argc, char* argv[])
 {
@@ -58,7 +59,7 @@ int main(s32 argc, char* argv[])
 
 	// Create thread for server
 	sys_ppu_thread_t id;
-	sysThreadCreate(&id, ftp_main, GFX, 1500, 0x1000, THREAD_JOINABLE, const_cast<char*>("oftp"));
+	sysThreadCreate(&id, ftpInitialize, GFX, 1500, 0x1000, THREAD_JOINABLE, const_cast<char*>("oftp"));
 
 	// Set up graphics
 	Font F1(LATIN2, GFX);

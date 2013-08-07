@@ -1,28 +1,32 @@
 #ifndef OPF_FTP_H
 #define OPF_FTP_H
 
-#define FTP_DATA_EVENT_SEND	1
-#define FTP_DATA_EVENT_RECV	2
-
 #include <string>
 
+// data handler function pointer type
+typedef void (*datahnd)(int sock_data);
+
 struct ftp_client {
-	int fd;
-	std::string last_cmd;
-	void response(unsigned int code, std::string message, bool multi);
-	void response(unsigned int code, std::string message);
-	void cresponse(std::string message);
+	bool active;
+	int sock_control;
+	int sock_data;
+	int sock_pasv;
+	datahnd data_handler;
+
+	void control_sendCustom(std::string message);
+	void control_sendCode(unsigned int code, std::string message, bool multi);
+#define  response(a,b) control_sendCode(a,b,false)
+
+	bool data_open(datahnd handler, short events);
+	int data_send(char* data, int bytes);
+	int data_recv(char* data, int bytes);
+	void data_close();
 };
 
-// data connection handler callback
-typedef void (*datahandler)(ftp_client* clnt, int data_fd);
+// command handler function pointer type
+typedef void (*cmdhnd)(ftp_client* clnt, std::string cmd, std::string args);
 
-// used for data connections
-void register_data_handler(ftp_client* clnt, int data_fd, datahandler data_handler, int event);
-
-// basically closesocket from libnet/socket.c
-void sock_close(int socket);
-
+// libnet/socket.c
 extern "C" {
 	int closesocket(int socket);
 }
