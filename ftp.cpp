@@ -340,8 +340,9 @@ void ftpInitialize(void* arg)
 					if(bytes <= 0)
 					{
 						// invalid, drop client
-						closesocket(sock);
 						event_client_drop(clnt);
+						closesocket(sock);
+						clnt->data_close();
 						client.erase(sock);
 						pfd.erase(pfd.begin() + i);
 					}
