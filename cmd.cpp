@@ -197,7 +197,9 @@ void data_list(int sock_data)
 		sysFsClosedir(fd);
 		delete [] client_cvar[clnt].buffer;
 		clnt->response(226, "Transfer complete");
+		data_client.erase(sock_data);
 		clnt->data_close();
+		client_cvar[clnt].fd = -1;
 	}
 }
 
@@ -287,7 +289,9 @@ void data_mlsd(int sock_data)
 		sysFsClosedir(fd);
 		delete [] client_cvar[clnt].buffer;
 		clnt->response(226, "Transfer complete");
+		data_client.erase(sock_data);
 		clnt->data_close();
+		client_cvar[clnt].fd = -1;
 	}
 }
 
@@ -312,7 +316,9 @@ void data_nlst(int sock_data)
 		sysFsClosedir(fd);
 		delete [] client_cvar[clnt].buffer;
 		clnt->response(226, "Transfer complete");
+		data_client.erase(sock_data);
 		clnt->data_close();
+		client_cvar[clnt].fd = -1;
 	}
 }
 
@@ -343,6 +349,7 @@ void data_stor(int sock_data)
 			delete [] client_cvar[clnt].buffer;
 			clnt->response(451, "Disk write error - maybe disk is full");
 			clnt->data_close();
+			client_cvar[clnt].fd = -1;
 		}
 	}
 	else
@@ -351,7 +358,9 @@ void data_stor(int sock_data)
 		sysFsClose(fd);
 		delete [] client_cvar[clnt].buffer;
 		clnt->response(226, "Transfer complete");
+		data_client.erase(sock_data);
 		clnt->data_close();
+		client_cvar[clnt].fd = -1;
 	}
 }
 
@@ -379,7 +388,9 @@ void data_retr(int sock_data)
 			sysFsClose(fd);
 			delete [] client_cvar[clnt].buffer;
 			clnt->response(451, "Socket send error");
+			data_client.erase(sock_data);
 			clnt->data_close();
+			client_cvar[clnt].fd = -1;
 		}
 	}
 	else
@@ -389,6 +400,7 @@ void data_retr(int sock_data)
 		delete [] client_cvar[clnt].buffer;
 		clnt->response(226, "Transfer complete");
 		clnt->data_close();
+		client_cvar[clnt].fd = -1;
 	}
 }
 
@@ -460,8 +472,6 @@ void cmd_feat(ftp_client* clnt, string cmd, string args)
 	}
 
 	clnt->response(211, "End");
-
-	feat.clear();
 }
 
 // cmd_user: this will initialize the client's cvars
@@ -609,10 +619,7 @@ void cmd_pasv(ftp_client* clnt, string cmd, string args)
 {
 	if(isClientAuthorized(clnt))
 	{
-		closesocket(clnt->sock_data);
-		closesocket(clnt->sock_pasv);
-
-		clnt->sock_data = -1;
+		clnt->data_close();
 
 		sockaddr_in sa;
 		socklen_t len = sizeof(sa);
