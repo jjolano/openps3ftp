@@ -10,6 +10,8 @@
 
 #include <cstdio>
 #include <ctime>
+#include <cstring>
+#include <iomanip>
 #include <map>
 #include <string>
 #include <sstream>
@@ -97,246 +99,296 @@ vector<unsigned short> parsePORT(string args)
 
 void data_list(int sock_data)
 {
+	ftp_client* clnt = data_client[sock_data];
+	s32 fd = client_cvar[clnt].fd;
 
+	sysFSDirent entry;
+	u64 read;
+
+	if(sysFsReaddir(fd, &entry, &read) == 0 && read > 0)
+	{
+		string filename(entry.d_name);
+
+		if(client_cvar[clnt].cwd == "/"
+		   && (filename == "app_home" || filename == "host_root"))
+		{
+			// skip app_home and host_root since they lock up
+			return;
+		}
+		
+		sysFSStat stat;
+		sysFsStat(getAbsPath(client_cvar[clnt].cwd, filename).c_str(), &stat);
+
+		ostringstream data_msg;
+
+		// file type
+		if(S_ISDIR(stat.st_mode))
+		{
+			data_msg << 'd';
+		}
+		else if(S_ISREG(stat.st_mode))
+		{
+			data_msg << '-';
+		}
+		else if(S_ISLNK(stat.st_mode))
+		{
+			data_msg << 'l';
+		}
+
+		// permissions
+		data_msg << ((stat.st_mode & S_IRUSR) ? 'r' : '-');
+		data_msg << ((stat.st_mode & S_IWUSR) ? 'w' : '-');
+		data_msg << ((stat.st_mode & S_IXUSR) ? 'x' : '-');
+		data_msg << ((stat.st_mode & S_IRGRP) ? 'r' : '-');
+		data_msg << ((stat.st_mode & S_IWGRP) ? 'w' : '-');
+		data_msg << ((stat.st_mode & S_IXGRP) ? 'x' : '-');
+		data_msg << ((stat.st_mode & S_IROTH) ? 'r' : '-');
+		data_msg << ((stat.st_mode & S_IWOTH) ? 'w' : '-');
+		data_msg << ((stat.st_mode & S_IXOTH) ? 'x' : '-');
+		data_msg << ' ';
+
+		// inodes
+		data_msg << setw(3) << 1;
+		data_msg << ' ';
+
+		// userid
+		data_msg << left << setw(8) << "root";
+		data_msg << ' ';
+
+		// groupid
+		data_msg << left << setw(8) << "root";
+		data_msg << ' ';
+
+		// size
+		data_msg << setw(7) << stat.st_size;
+		data_msg << ' ';
+
+		// modified
+		char tstr[13];
+		time_t rawtime;
+		time(&rawtime);
+		tm* now = localtime(&rawtime);
+		tm* modified = localtime(&stat.st_mtime);
+
+		if(modified->tm_year < now->tm_year || (now->tm_mon - modified->tm_mon) >= 5)
+		{
+			strftime(tstr, 12, "%b %e  %Y", modified);
+		}
+		else
+		{
+			strftime(tstr, 12, "%b %e %H:%M", modified);
+		}
+
+		data_msg << tstr;
+		data_msg << ' ';
+
+		// filename
+		data_msg << filename;
+
+		// send to data socket
+		string data_str;
+		data_str = data_msg.str();
+		strncpy(client_cvar[clnt].buffer, data_str.c_str(), data_str.size());
+		clnt->data_send(client_cvar[clnt].buffer, data_str.size());
+	}
+	else
+	{
+		// finished directory listing
+		sysFsClosedir(fd);
+		delete [] client_cvar[clnt].buffer;
+		clnt->response(226, "Transfer complete");
+		clnt->data_close();
+	}
 }
 
 void data_mlsd(int sock_data)
 {
+	ftp_client* clnt = data_client[sock_data];
+	s32 fd = client_cvar[clnt].fd;
 
+	sysFSDirent entry;
+	u64 read;
+
+	if(sysFsReaddir(fd, &entry, &read) == 0 && read > 0)
+	{
+		string filename(entry.d_name);
+
+		if(client_cvar[clnt].cwd == "/"
+		   && (filename == "app_home" || filename == "host_root"))
+		{
+			// skip app_home and host_root since they lock up
+			return;
+		}
+
+		sysFSStat stat;
+		sysFsStat(getAbsPath(client_cvar[clnt].cwd, filename).c_str(), &stat);
+
+		ostringstream data_msg;
+
+		// type
+		data_msg << "type=";
+
+		if(filename == ".")
+		{
+			data_msg << "cdir";
+		}
+		else if(filename == "..")
+		{
+			data_msg << "pdir";
+		}
+		else if(S_ISDIR(stat.st_mode))
+		{
+			data_msg << "dir";
+		}
+		else
+		{
+			data_msg << "file";
+		}
+
+		data_msg << ';';
+
+		// size
+		data_msg << "siz" << (S_ISDIR(stat.st_mode) ? 'd' : 'e') << '=';
+		data_msg << ';';
+
+		// modified
+		char tstr[15];
+		strftime(tstr, 14, "%Y%m%d%H%M%S", localtime(&stat.st_mtime));
+
+		data_msg << "modify=";
+		data_msg << tstr;
+		data_msg << ';';
+
+		// permissions
+		data_msg << "UNIX.mode=0";
+		data_msg << ((stat.st_mode & S_IRWXU) >> 6);
+		data_msg << ((stat.st_mode & S_IRWXG) >> 3);
+		data_msg << (stat.st_mode & S_IRWXO);
+		data_msg << ';';
+
+		// userid
+		data_msg << "UNIX.uid=0;";
+
+		// groupid
+		data_msg << "UNIX.gid=0;";
+
+		// filename
+		data_msg << filename;
+
+		// send to data socket
+		string data_str;
+		data_str = data_msg.str();
+		strncpy(client_cvar[clnt].buffer, data_str.c_str(), data_str.size());
+		clnt->data_send(client_cvar[clnt].buffer, data_str.size());
+	}
+	else
+	{
+		// finished directory listing
+		sysFsClosedir(fd);
+		delete [] client_cvar[clnt].buffer;
+		clnt->response(226, "Transfer complete");
+		clnt->data_close();
+	}
 }
 
 void data_nlst(int sock_data)
 {
+	ftp_client* clnt = data_client[sock_data];
+	s32 fd = client_cvar[clnt].fd;
 
+	sysFSDirent entry;
+	u64 read;
+
+	if(sysFsReaddir(fd, &entry, &read) == 0 && read > 0)
+	{
+		// send to data socket
+		string data_str(entry.d_name);
+		strncpy(client_cvar[clnt].buffer, data_str.c_str(), data_str.size());
+		clnt->data_send(client_cvar[clnt].buffer, data_str.size());
+	}
+	else
+	{
+		// finished directory listing
+		sysFsClosedir(fd);
+		delete [] client_cvar[clnt].buffer;
+		clnt->response(226, "Transfer complete");
+		clnt->data_close();
+	}
 }
 
 void data_stor(int sock_data)
 {
+	ftp_client* clnt = data_client[sock_data];
+	s32 fd = client_cvar[clnt].fd;
 
+	u64 pos;
+	u64 written;
+	int read;
+
+	if(client_cvar[clnt].rest > 0)
+	{
+		sysFsLseek(fd, (s64)client_cvar[clnt].rest, SEEK_SET, &pos);
+		client_cvar[clnt].rest = 0;
+	}
+
+	read = clnt->data_recv(client_cvar[clnt].buffer, DATA_BUFFER - 1);
+
+	if(read > 0)
+	{
+		// data available, write to disk
+		if(sysFsWrite(fd, client_cvar[clnt].buffer, (u64)read, &written) != 0 || written < (u64)read)
+		{
+			// write error
+			sysFsClose(fd);
+			delete [] client_cvar[clnt].buffer;
+			clnt->response(451, "Disk write error - maybe disk is full");
+			clnt->data_close();
+		}
+	}
+	else
+	{
+		// finished file transfer
+		sysFsClose(fd);
+		delete [] client_cvar[clnt].buffer;
+		clnt->response(226, "Transfer complete");
+		clnt->data_close();
+	}
 }
 
 void data_retr(int sock_data)
 {
-	
-}
-
-void data_handler(int sock_data)
-{
 	ftp_client* clnt = data_client[sock_data];
 	s32 fd = client_cvar[clnt].fd;
-	int status = 0;
 
-	switch(client_cvar[clnt].type)
+	u64 pos;
+	u64 read;
+
+	if(client_cvar[clnt].rest > 0)
 	{
-		case DATA_TYPE_LIST:
-		{
-			sysFSDirent entry;
-			u64 read;
-
-			if(sysFsReaddir(fd, &entry, &read) == 0 && read > 0)
-			{
-				string filename(entry.d_name);
-
-				if(client_cvar[clnt].cwd == "/"
-				   && (filename == "app_home" || filename == "host_root"))
-				{
-					// skip app_home and host_root since they lock up
-					break;
-				}
-
-				string path = getAbsPath(client_cvar[clnt].cwd, filename);
-				sysFSStat stat;
-				sysFsStat(path.c_str(), &stat);
-
-				char tstr[14];
-				strftime(tstr, 13, "%3.3b %2e %H:%M", localtime(&stat.st_mtime));
-
-				ostringstream permstr;
-				permstr << (S_ISDIR(stat.st_mode) ? 'd' : '-');
-				permstr << ((stat.st_mode & S_IRUSR) ? 'r' : '-');
-				permstr << ((stat.st_mode & S_IWUSR) ? 'w' : '-');
-				permstr << ((stat.st_mode & S_IXUSR) ? 'x' : '-');
-				permstr << ((stat.st_mode & S_IRGRP) ? 'r' : '-');
-				permstr << ((stat.st_mode & S_IWGRP) ? 'w' : '-');
-				permstr << ((stat.st_mode & S_IXGRP) ? 'x' : '-');
-				permstr << ((stat.st_mode & S_IROTH) ? 'r' : '-');
-				permstr << ((stat.st_mode & S_IWOTH) ? 'w' : '-');
-				permstr << ((stat.st_mode & S_IXOTH) ? 'x' : '-');
-
-				int len = snprintf(client_cvar[clnt].buffer, DATA_BUFFER, "%s   1 %-10s %-10s %10lu %s %s\r\n", permstr.str().c_str(), "root", "root", stat.st_size, tstr, filename.c_str());
-
-				send(sock_data, client_cvar[clnt].buffer, len, 0);
-			}
-			else
-			{
-				status = 1;
-			}
-			break;
-		}
-		case DATA_TYPE_MLSD:
-		{
-			sysFSDirent entry;
-			u64 read;
-
-			if(sysFsReaddir(fd, &entry, &read) == 0 && read > 0)
-			{
-				string filename(entry.d_name);
-
-				if(client_cvar[clnt].cwd == "/"
-				   && (filename == "app_home" || filename == "host_root"))
-				{
-					// skip app_home and host_root since they lock up
-					break;
-				}
-
-				string path = getAbsPath(client_cvar[clnt].cwd, filename);
-				sysFSStat stat;
-				sysFsStat(path.c_str(), &stat);
-
-				char tstr[15];
-				strftime(tstr, 14, "%Y%m%d%H%M%S", localtime(&stat.st_mtime));
-
-				string type("file");
-				string typd("e");
-
-				if(filename == ".")
-				{
-					type = "cdir";
-				}
-				else if(filename == "..")
-				{
-					type = "pdir";
-				}
-
-				if(S_ISDIR(stat.st_mode))
-				{
-					type = "dir";
-					typd = "d";
-				}
-
-				ostringstream permstr;
-				permstr << (((stat.st_mode & S_IRUSR) != 0) * 4 + ((stat.st_mode & S_IWUSR) != 0) * 2 + ((stat.st_mode & S_IXUSR) != 0) * 1);
-				permstr << (((stat.st_mode & S_IRGRP) != 0) * 4 + ((stat.st_mode & S_IWGRP) != 0) * 2 + ((stat.st_mode & S_IXGRP) != 0) * 1);
-				permstr << (((stat.st_mode & S_IROTH) != 0) * 4 + ((stat.st_mode & S_IWOTH) != 0) * 2 + ((stat.st_mode & S_IXOTH) != 0) * 1);
-
-				int len = snprintf(client_cvar[clnt].buffer, DATA_BUFFER, "type=%s;siz%s=%lu;modify=%s;UNIX.mode=0%s;UNIX.uid=0;UNIX.gid=0;%s\r\n", type.c_str(), typd.c_str(), stat.st_size, tstr, permstr.str().c_str(), filename.c_str());
-
-				send(sock_data, client_cvar[clnt].buffer, len, 0);
-			}
-			else
-			{
-				status = 1;
-			}
-			break;
-		}
-		case DATA_TYPE_NLST:
-		{
-			sysFSDirent entry;
-			u64 read;
-
-			if(sysFsReaddir(fd, &entry, &read) == 0 && read > 0)
-			{
-				size_t len = snprintf(client_cvar[clnt].buffer, DATA_BUFFER, "%s\r\n", entry.d_name);
-				send(sock_data, client_cvar[clnt].buffer, len, 0);
-			}
-			else
-			{
-				status = 1;
-			}
-			break;
-		}
-		case DATA_TYPE_STOR:
-		{
-			u64 pos;
-			u64 written;
-			u64 read;
-
-			if(client_cvar[clnt].rest > 0)
-			{
-				sysFsLseek(fd, (s64)client_cvar[clnt].rest, SEEK_SET, &pos);
-				client_cvar[clnt].rest = 0;
-			}
-
-			read = (u64)recv(sock_data, client_cvar[clnt].buffer, DATA_BUFFER - 1, MSG_WAITALL);
-
-			if(read > 0)
-			{
-				// data available, write to disk
-				s32 ret = sysFsWrite(fd, client_cvar[clnt].buffer, read, &written);
-
-				if(ret != 0 || written < read)
-				{
-					// write error
-					status = -1;
-				}
-			}
-			else
-			{
-				status = 1;
-			}
-			break;
-		}
-		case DATA_TYPE_RETR:
-		{
-			u64 pos;
-			u64 read;
-
-			if(client_cvar[clnt].rest > 0)
-			{
-				sysFsLseek(fd, (s64)client_cvar[clnt].rest, SEEK_SET, &pos);
-				client_cvar[clnt].rest = 0;
-			}
-
-			s32 ret = sysFsRead(fd, client_cvar[clnt].buffer, DATA_BUFFER - 1, &read);
-
-			if(ret == 0 && read > 0)
-			{
-				u64 sent = (u64)send(sock_data, client_cvar[clnt].buffer, (size_t)read, 0);
-
-				if(sent < read)
-				{
-					// send error
-					status = -1;
-				}
-			}
-			else
-			{
-				status = 1;
-			}
-			break;
-		}
-		default:
-			status = 2; // some random
+		sysFsLseek(fd, (s64)client_cvar[clnt].rest, SEEK_SET, &pos);
+		client_cvar[clnt].rest = 0;
 	}
 
-	if(status != 0)
+	if(sysFsRead(fd, client_cvar[clnt].buffer, DATA_BUFFER - 1, &read) == 0 && read > 0)
 	{
-		closesocket(sock_data);
+		int sent = send(sock_data, client_cvar[clnt].buffer, (size_t)read, 0);
+
+		if((u64)sent < read)
+		{
+			// send error
+			sysFsClose(fd);
+			delete [] client_cvar[clnt].buffer;
+			clnt->response(451, "Socket send error");
+			clnt->data_close();
+		}
+	}
+	else
+	{
+		// finished file transfer
+		sysFsClose(fd);
 		delete [] client_cvar[clnt].buffer;
-		clnt->sock_data = -1;
-
-		switch(client_cvar[clnt].type)
-		{
-			case DATA_TYPE_LIST:
-			case DATA_TYPE_MLSD:
-			case DATA_TYPE_NLST:
-				sysFsClosedir(client_cvar[clnt].fd);
-				break;
-			default:
-				sysFsClose(client_cvar[clnt].fd);
-		}
-
-		client_cvar[clnt].fd = -1;
-
-		switch(status)
-		{
-			case 1:
-				clnt->response(226, "Transfer complete");
-				break;
-			case -1:
-				clnt->response(451, "Data process error");
-				break;
-		}
+		clnt->response(226, "Transfer complete");
+		clnt->data_close();
 	}
 }
 
@@ -927,9 +979,9 @@ void cmd_rest(ftp_client* clnt, string cmd, string args)
 		if(client_cvar[clnt].rest >= 0)
 		{
 			ostringstream out;
-			out << "Restarting at " << client_cvar[clnt].rest;
+			out << client_cvar[clnt].rest;
 
-			clnt->response(350, out.str());
+			clnt->response(350, "Restarting at " + out.str());
 		}
 		else
 		{
@@ -1209,19 +1261,22 @@ void register_cmds()
 
 void event_client_drop(ftp_client* clnt)
 {
-	if(client_cvar[clnt].type & (DATA_TYPE_LIST | DATA_TYPE_MLSD | DATA_TYPE_NLST))
+	if(client_cvar[clnt].fd != -1)
 	{
-		// close directory fd
-		sysFsClosedir(client_cvar[clnt].fd);
-	}
-	else
-	{
-		// close file fd
-		sysFsClose(client_cvar[clnt].fd);
+		if(client_cvar[clnt].type & (DATA_TYPE_LIST | DATA_TYPE_MLSD | DATA_TYPE_NLST))
+		{
+			// close directory fd
+			sysFsClosedir(client_cvar[clnt].fd);
+		}
+		else
+		{
+			// close file fd
+			sysFsClose(client_cvar[clnt].fd);
+		}
+
+		delete [] client_cvar[clnt].buffer;
 	}
 
-	// free memory
-	delete [] client_cvar[clnt].buffer;
 	client_cvar.erase(clnt);
 
 	if(clnt->sock_data != -1)
