@@ -7,6 +7,8 @@ in and out of their console.
 
 OpenPS3FTP is built using libraries from the PSL1GHT SDK (commit 534e589).
 
+Big thanks to atreyu187 from PSX-SCENE for testing out this release.
+
 =============================
 What makes OpenPS3FTP stand out from the rest?
 
@@ -18,22 +20,9 @@ What makes OpenPS3FTP stand out from the rest?
 - Supports transfer resuming
 =============================
 
-Compiling OpenPS3FTP:
-- To compile, cd to the source file directory and run `make dist` to compile everything.
-- The DATA_BUFFER can be tuned in defs.h.
-
 Note to users:
-- The retail pkg is signed for 3.55 CEX - if you are running anything higher,
-you need to re-sign the EBOOT and re-pkg it.
-- The debug pkg should work on any DEX firmware. Also, the pkg will be installed
-at a separate location from the CEX build.
-
-Known issues with higher firmwares:
-- The re-signing and repacking procedure may mess up the PARAM.SFO. In previous
-versions such as version 2.3, OpenPS3FTP will appear in the Network category.
-This is still the case in version 3.0, but the repacking process may reset the
-category back to Game. In this case, simply use OpenPS3FTP to replace PARAM.SFO.
-Find the PARAM.SFO by extracting it from the original pkg file.
+- There are two CEX builds: cex-new and cex-old. If you are running a firmware version higher than 3.60, you should use cex-new. Otherwise, use cex-old.
+- The DEX build should work on any DEX firmware. It will be installed at a separate location from the CEX build.
 
 Implemented error codes:
 0x1337BEEF - Socket binding failed. Just restart. The only reason I think this would happen is if you launch OpenPS3FTP right after exiting it.
@@ -43,6 +32,11 @@ Implemented error codes:
 Note to developers:
 Do what you like with the source code - however when releasing something that
 makes use of this source code, I would appreciate the attribution.
+
+Compiling OpenPS3FTP:
+- `make dist` to create a cex-old and dex build and zip.
+- `make dist2` to additionally create a cex-new build (requires scetool).
+- The DATA_BUFFER can be tuned in defs.h. This directly affects performance.
 
 =============================
 GitHub (v3.0+): https://github.com/jjolano/openps3ftp

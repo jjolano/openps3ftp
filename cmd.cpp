@@ -380,9 +380,7 @@ void data_retr(int sock_data)
 
 	if(sysFsRead(fd, client_cvar[clnt].buffer, DATA_BUFFER - 1, &read) == 0 && read > 0)
 	{
-		int sent = clnt->data_send(client_cvar[clnt].buffer, (int)read);
-
-		if((u64)sent < read)
+		if((u64)clnt->data_send(client_cvar[clnt].buffer, (int)read) < read)
 		{
 			// send error
 			sysFsClose(fd);
@@ -503,6 +501,7 @@ void cmd_pass(ftp_client* clnt, string cmd, string args)
 			// set cwd to root
 			client_cvar[clnt].cwd = "/";
 
+			// set fd to -1
 			client_cvar[clnt].fd = -1;
 
 			clnt->response(230, "Successfully logged in");

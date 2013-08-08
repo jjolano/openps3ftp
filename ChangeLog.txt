@@ -1,4 +1,4 @@
-[Version 3.0]
+[Version 3.0 - August 10, 2013]
 - Interface now uses PS3 internal fonts
 - Interface should now support all screen resolutions equally
 - dev_blind functionality integrated, can be activated by pressing SELECT
@@ -7,7 +7,7 @@
 - Directory listing outputs have been perfected, as a result all FTP clients should now be supported
 - "Beerware"
 - Removed login detail requirement: you can login with any combination
-- Added Remote Play flag for PSVita
+- Added Remote Play flag for PSVita (original PARAM.SFO required)
 - Now includes DEX (unsigned) build
 
 [Version 2.3 - May 29, 2011]

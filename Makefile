@@ -17,10 +17,18 @@ LICENSEID	:= AF43D15A870659F4
 CONTENTID	:= UP0001-$(APPID)_00-$(LICENSEID)
 CONTENTID_DEX	:= UP0001-$(APPID_DEX)_00-$(LICENSEID)
 
+# Use this if available
+#
+ifneq ($(shell command -v scetool),) 
+	SCETOOL = scetool
+else 
+	SCETOOL = ../scetool/scetool
+endif
+
 # Check PSL1GHT environment variable
 #
 ifeq ($(strip $(PSL1GHT)),)
-$(error PSL1GHT is not installed/configured on this system.)
+	$(error PSL1GHT is not installed/configured on this system.)
 endif
 
 include $(PSL1GHT)/ppu_rules
@@ -65,37 +73,62 @@ clean		:
 
 dist		: $(TARGET).zip
 
-eboot-debug	: $(TARGET).elf
-		  $(VERB) echo creating EBOOT.BIN [devkit] ...
+dist2		: pkg-cex-new dist
+
+eboot-dex	: $(TARGET).elf
+		  $(VERB) echo creating EBOOT.BIN [$@] ...
 		  $(VERB) mkdir -p $(BUILDDIR)/$@
 		  $(VERB) $(FSELF) $< $(BUILDDIR)/$@/EBOOT.BIN
 
-eboot-retail	: $(TARGET).elf
-		  $(VERB) echo creating EBOOT.BIN [npdrm-retail] ...
+eboot-cex-old	: $(TARGET).elf
+		  $(VERB) echo creating EBOOT.BIN [$@] ...
 		  $(VERB) mkdir -p $(BUILDDIR)/$@
-		  $(VERB) $(SELF_NPDRM) $< $(BUILDDIR)/$@/EBOOT.BIN $(CONTENTID) > /dev/null
-		  $(VERB) echo "** Note that this build is for firmware 3.55. **"
-		  $(VERB) echo "** You will need to re-sign the EBOOT and pkg **"
-		  $(VERB) echo "** files if on a FW version higher than 3.55. **"
+		  $(VERB) if [ -a $(SCETOOL) ]; then \
+		  echo "signing EBOOT.BIN using scetool ..."; \
+		  $(SCETOOL) --sce-type=SELF --compress-data=TRUE --skip-sections=TRUE --key-revision=01 --self-auth-id=1010000001000003 --self-vendor-id=01000002 --self-type=NPDRM --self-app-version=0001000000000000 --self-fw-version=0001008000000000 --self-add-shdrs=TRUE --np-license-type=FREE --np-app-type=EXEC --np-content-id=$(CONTENTID) --np-real-fname=EBOOT.BIN --encrypt $< $(notdir $(BUILDDIR))/$@/EBOOT.BIN > /dev/null; \
+		  else \
+		  echo "signing EBOOT.BIN using $(SELF_NPDRM) ..."; \
+		  $(SELF_NPDRM) $< $(BUILDDIR)/$@/EBOOT.BIN $(CONTENTID) > /dev/null; \
+		  fi;
 
-pkg-debug	: eboot-debug
-		  $(VERB) echo creating pkg [devkit] ...
+eboot-cex-new	: $(TARGET).elf
+		  $(VERB) echo creating EBOOT.BIN [$@] ...
+		  $(VERB) mkdir -p $(BUILDDIR)/$@
+		  $(VERB) if [ -a $(SCETOOL) ]; then \
+		  $(SCETOOL) --sce-type=SELF --compress-data=TRUE --skip-sections=TRUE --key-revision=10 --self-auth-id=1010000001000003 --self-vendor-id=01000002 --self-type=NPDRM --self-app-version=0001000000000000 --self-fw-version=0001008000000000 --self-add-shdrs=TRUE --np-license-type=FREE --np-app-type=EXEC --np-content-id=$(CONTENTID) --np-real-fname=EBOOT.BIN --encrypt $< $(notdir $(BUILDDIR))/$@/EBOOT.BIN > /dev/null; \
+		  else \
+		  echo "error: no scetool"; \
+		  exit 1; \
+		  fi;
+
+pkg-dex		: eboot-dex
+		  $(VERB) echo creating pkg [$@] ...
 		  $(VERB) mkdir -p $(BUILDDIR)/$@/USRDIR
 		  $(VERB) cp -f $(ICON0) $(BUILDDIR)/$@/
 		  $(VERB) $(SFO) -f $(SFOXML_DEX) $(BUILDDIR)/$@/PARAM.SFO
 		  $(VERB) cp -f $(BUILDDIR)/$</EBOOT.BIN $(BUILDDIR)/$@/USRDIR/
-		  $(VERB) mkdir -p $(BUILDDIR)/pkg/debug
-		  $(VERB) $(PKG) -c $(CONTENTID_DEX) $(BUILDDIR)/$@/ $(BUILDDIR)/pkg/debug/$(CONTENTID_DEX).pkg > /dev/null
+		  $(VERB) mkdir -p $(BUILDDIR)/pkg/dex
+		  $(VERB) $(PKG) -c $(CONTENTID_DEX) $(BUILDDIR)/$@/ $(BUILDDIR)/pkg/dex/$(CONTENTID_DEX).pkg > /dev/null
 
-pkg-retail	: eboot-retail
-		  $(VERB) echo creating pkg [npdrm-retail] ...
+pkg-cex-old	: eboot-cex-old
+		  $(VERB) echo creating pkg [$@] ...
 		  $(VERB) mkdir -p $(BUILDDIR)/$@/USRDIR
 		  $(VERB) cp -f $(ICON0) $(BUILDDIR)/$@/
-		  $(VERB) $(SFO) -f $(SFOXML_DEX) $(BUILDDIR)/$@/PARAM.SFO
+		  $(VERB) $(SFO) -f $(SFOXML) $(BUILDDIR)/$@/PARAM.SFO
 		  $(VERB) cp -f $(BUILDDIR)/$</EBOOT.BIN $(BUILDDIR)/$@/USRDIR/
-		  $(VERB) mkdir -p $(BUILDDIR)/pkg/retail
-		  $(VERB) $(PKG) -c $(CONTENTID) $(BUILDDIR)/$@/ $(BUILDDIR)/pkg/retail/$(CONTENTID).pkg > /dev/null
-		  $(VERB) $(PACKAGE_FINALIZE) $(BUILDDIR)/pkg/retail/$(CONTENTID).pkg
+		  $(VERB) mkdir -p $(BUILDDIR)/pkg/cex-old
+		  $(VERB) $(PKG) -c $(CONTENTID) $(BUILDDIR)/$@/ $(BUILDDIR)/pkg/cex-old/$(CONTENTID).pkg > /dev/null
+		  $(VERB) $(PACKAGE_FINALIZE) $(BUILDDIR)/pkg/cex-old/$(CONTENTID).pkg
+
+pkg-cex-new	: eboot-cex-new
+		  $(VERB) echo creating pkg [$@] ...
+		  $(VERB) mkdir -p $(BUILDDIR)/$@/USRDIR
+		  $(VERB) cp -f $(ICON0) $(BUILDDIR)/$@/
+		  $(VERB) $(SFO) -f $(SFOXML) $(BUILDDIR)/$@/PARAM.SFO
+		  $(VERB) cp -f $(BUILDDIR)/$</EBOOT.BIN $(BUILDDIR)/$@/USRDIR/
+		  $(VERB) mkdir -p $(BUILDDIR)/pkg/cex-new
+		  $(VERB) $(PKG) -c $(CONTENTID) $(BUILDDIR)/$@/ $(BUILDDIR)/pkg/cex-new/$(CONTENTID).pkg > /dev/null
+		  $(VERB) $(PACKAGE_FINALIZE) $(BUILDDIR)/pkg/cex-new/$(CONTENTID).pkg
 
 $(TARGET).elf	: $(OFILES)
 		  $(VERB) echo creating $@ ...
@@ -103,6 +136,6 @@ $(TARGET).elf	: $(OFILES)
 		  $(VERB) $(STRIP) $@
 		  $(VERB) $(SPRX) $@
 
-%.zip		: pkg-debug pkg-retail
+%.zip		: pkg-dex pkg-cex-old
 		  $(VERB) echo creating $@ ...
 		  $(VERB) zip -lr9 $@ README.txt ChangeLog.txt $(notdir $(BUILDDIR))/pkg/ > /dev/null

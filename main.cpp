@@ -19,7 +19,7 @@
 #include "defs.h"
 
 // This probably only works for single-button events.
-#define Pad_onPress(paddata, paddata_old, button) (paddata.button == 1 && paddata_old.button == 0)
+#define Pad_onPress(paddata, paddata_old, button) (paddata.button && !paddata_old.button)
 
 msgType MSG_OK = (msgType)(MSG_DIALOG_NORMAL|MSG_DIALOG_BTN_TYPE_OK|MSG_DIALOG_DISABLE_CANCEL_ON);
 msgType MSG_YESNO = (msgType)(MSG_DIALOG_NORMAL|MSG_DIALOG_BTN_TYPE_YESNO);
@@ -29,18 +29,18 @@ void ftpInitialize(void *arg);
 
 int main(s32 argc, char* argv[])
 {
+	// Initialize graphics
+	NoRSX *GFX = new NoRSX(RESOLUTION_AUTO);
+	MsgDialog MSG(GFX);
+	
 	// Initialize networking and pad-input
 	netInitialize();
 	netCtlInit();
-	ioPadInit(MAX_PORT_NUM);
+	ioPadInit(7);
 
 	// Verify connection state
 	s32 state;
 	netCtlGetState(&state);
-
-	// Initialize graphics
-	NoRSX *GFX = new NoRSX();
-	MsgDialog MSG(GFX);
 
 	if(state != NET_CTL_STATE_IPObtained)
 	{
@@ -74,23 +74,22 @@ int main(s32 argc, char* argv[])
 	net_ctl_info info;
 	netCtlGetInfo(NET_CTL_INFO_IP_ADDRESS, &info);
 
-	// Unload netctl
-	netCtlTerm();
-
 	// Draw bitmap layer
 	// Not sure how this will actually look.
-	F1.PrintfToBitmap(50, 50, &PCL, COLOR_WHITE, APP_NAME " version " APP_VERSION);
-	F1.PrintfToBitmap(50, 100, &PCL, COLOR_WHITE, "by " APP_AUTHOR);
+	F1.PrintfToBitmap(50, 75, &PCL, COLOR_WHITE, APP_NAME " version " APP_VERSION);
+	F1.PrintfToBitmap(50, 125, &PCL, COLOR_WHITE, "by " APP_AUTHOR);
 
-	F1.PrintfToBitmap(50, 200, &PCL, COLOR_WHITE, "IP Address: %s (port 21)", info.ip_address);
+	F1.PrintfToBitmap(50, 225, &PCL, COLOR_WHITE, "IP Address: %s (port 21)", info.ip_address);
 
-	F1.PrintfToBitmap(50, 300, &PCL, COLOR_WHITE, "SELECT: dev_blind");
-	F1.PrintfToBitmap(50, 350, &PCL, COLOR_WHITE, "START: Exit " APP_NAME);
+	F1.PrintfToBitmap(50, 325, &PCL, COLOR_WHITE, "SELECT: dev_blind mounter");
+	F1.PrintfToBitmap(50, 375, &PCL, COLOR_WHITE, "START: Exit " APP_NAME);
+	F1.PrintfToBitmap(50, 425, &PCL, COLOR_WHITE, "L1: Credits/Acknowledgements");
+	F1.PrintfToBitmap(50, 475, &PCL, COLOR_WHITE, "R1: Changes in this version");
 
 	// Pad IO variables
 	padInfo padinfo;
 	padData paddata;
-	padData paddata_old[MAX_PADS];
+	padData paddata_old;
 
 	// Main thread loop
 	while(GFX->GetAppStatus() != APP_EXIT)
@@ -98,60 +97,69 @@ int main(s32 argc, char* argv[])
 		// Get Pad Status
 		ioPadGetInfo(&padinfo);
 
-		for(unsigned int i = 0; i < MAX_PADS; i++)
+		// Handle only for first pad
+		if(padinfo.status[0])
 		{
-			if(padinfo.status[i])
+			ioPadGetData(0, &paddata);
+
+			if(Pad_onPress(paddata, paddata_old, BTN_START))
 			{
-				// Get Pad Data
-				ioPadGetData(i, &paddata);
-
-				// Parse Pad Data
-				if(Pad_onPress(paddata, paddata_old[i], BTN_SELECT))
-				{
-					// dev_blind stuff
-					sysFSStat stat;
-
-					if(sysFsStat(DB_MOUNTPOINT, &stat) == 0)
-					{
-						// dev_blind exists - ask to unmount
-						MSG.Dialog(MSG_YESNO, DB_UNMOUNT_Q);
-
-						if(MSG.GetResponse(MSG_DIALOG_BTN_YES) == 1)
-						{
-							// syscall unmount
-							lv2syscall1(838, (u64)DB_MOUNTPOINT);
-
-							// display success
-							MSG.Dialog(MSG_OK, DB_UNMOUNT_S);
-						}
-					}
-					else
-					{
-						// dev_blind does not exist - ask to mount
-						MSG.Dialog(MSG_YESNO, DB_MOUNT_Q);
-
-						if(MSG.GetResponse(MSG_DIALOG_BTN_YES) == 1)
-						{
-							// syscall mount
-							lv2syscall8(837, (u64)"CELL_FS_IOS:BUILTIN_FLSH1",
-										     (u64)"CELL_FS_FAT",
-										     (u64)DB_MOUNTPOINT,
-										     0, 0 /* readonly */, 0, 0, 0);
-
-							// display success with info
-							MSG.Dialog(MSG_OK, DB_MOUNT_S);
-						}
-					}
-				}
-
-				if(Pad_onPress(paddata, paddata_old[i], BTN_START))
-				{
-					// Exit application
-					GFX->AppExit();
-				}
-
-				paddata_old[i] = paddata;
+				// Exit application
+				GFX->AppExit();
+				break;
 			}
+
+			if(Pad_onPress(paddata, paddata_old, BTN_L1))
+			{
+				// Credits
+				MSG.Dialog(MSG_OK, CREDITS);
+			}
+
+			if(Pad_onPress(paddata, paddata_old, BTN_R1))
+			{
+				// Changes
+				MSG.Dialog(MSG_OK, CHANGES);
+			}
+
+			if(Pad_onPress(paddata, paddata_old, BTN_SELECT))
+			{
+				// dev_blind stuff
+				sysFSStat stat;
+
+				if(sysFsStat(DB_MOUNTPOINT, &stat) == 0)
+				{
+					// dev_blind exists - ask to unmount
+					MSG.Dialog(MSG_YESNO, DB_UNMOUNT_Q);
+
+					if(MSG.GetResponse(MSG_DIALOG_BTN_YES) == 1)
+					{
+						// syscall unmount
+						lv2syscall1(838, (u64)DB_MOUNTPOINT);
+
+						// display success
+						MSG.Dialog(MSG_OK, DB_UNMOUNT_S);
+					}
+				}
+				else
+				{
+					// dev_blind does not exist - ask to mount
+					MSG.Dialog(MSG_YESNO, DB_MOUNT_Q);
+
+					if(MSG.GetResponse(MSG_DIALOG_BTN_YES) == 1)
+					{
+						// syscall mount
+						lv2syscall8(837, (u64)"CELL_FS_IOS:BUILTIN_FLSH1",
+									(u64)"CELL_FS_FAT",
+									(u64)DB_MOUNTPOINT,
+									0, 0 /* readonly */, 0, 0, 0);
+
+						// display success with info
+						MSG.Dialog(MSG_OK, DB_MOUNT_S);
+					}
+				}
+			}
+
+			paddata_old = paddata;
 		}
 
 		// Draw bitmap->screenbuffer
@@ -166,6 +174,7 @@ int main(s32 argc, char* argv[])
 	sysThreadJoin(id, &retval);
 
 	// Unload networking
+	netCtlTerm();
 	netDeinitialize();
 
 	// Parse thread return value if application is not exiting
