@@ -21,7 +21,7 @@ What makes OpenPS3FTP stand out from the rest?
 =============================
 
 Note to users:
-- There are two CEX builds: cex-new and cex-old. If you are running a firmware version higher than 3.60, you should use cex-new. Otherwise, use cex-old.
+- There are two CEX builds: cex-new and cex-old. If you are running a firmware version higher than 3.55, you should use cex-new. Otherwise, use cex-old.
 - The DEX build should work on any DEX firmware. It will be installed at a separate location from the CEX build.
 
 Implemented error codes:
@@ -33,7 +33,7 @@ Note to developers:
 Do what you like with the source code - however when releasing something that
 makes use of this source code, I would appreciate the attribution.
 
-Compiling OpenPS3FTP:
+Compiling OpenPS3FTP from source:
 - `make dist` to create a cex-old and dex build and zip.
 - `make dist2` to additionally create a cex-new build (requires scetool).
 - The DATA_BUFFER can be tuned in defs.h. This directly affects performance.
