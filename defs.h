@@ -22,8 +22,6 @@
 
 #define CHANGES			"Changes in " APP_NAME " version " APP_VERSION ":\n- Remote Play flag added for PSVita\n- Server now a single-threaded model instead of multi-threaded\n- Login detail requirement removed\n- Stability and performance greatly improved\n- dev_blind mounter integrated\n- Improved compatibility with all FTP clients\n\nSee ChangeLog.txt for complete changes and history."
 
-#define NOTICE_SFO		APP_NAME " PARAM.SFO has just been automatically fixed. Remote Play, XMB in-game background music, and XMB category features will be enabled on the next launch."
-
 // Server types
 #define DATA_TYPE_LIST	0x0001
 #define DATA_TYPE_MLSD	0x0002

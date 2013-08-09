@@ -21,8 +21,8 @@ What makes OpenPS3FTP stand out from the rest?
 =============================
 
 Note to users:
-- There are two CEX builds: "cex", and "ncex". The "ncex" build contains an
-automatic fix for PARAM.SFO-specific features, most notably the XMB category.
+- There are two CEX builds: "cex", and "ncex". Use the "ncex" build if running
+a firmware version higher than 3.55.
 - The DEX build should work on any DEX firmware. It will be installed at a
 separate location from the CEX build.
 

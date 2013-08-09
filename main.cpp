@@ -36,19 +36,6 @@ int main(s32 argc, char* argv[])
 	// Initialize graphics
 	NoRSX *GFX = new NoRSX(RESOLUTION_AUTO);
 	MsgDialog MSG(GFX);
-
-	// Fix SFO (first-run)
-	sysFSStat stat;
-	string gamedir("/dev_hdd0/game/" APPID_CEX);
-
-	if(sysFsStat((gamedir + "/USRDIR/PARAM.SFO").c_str(), &stat) == 0)
-	{
-		// replace SFO
-		sysFsUnlink((gamedir + "/PARAM.SFO").c_str());
-		sysLv2FsRename((gamedir + "/USRDIR/PARAM.SFO").c_str(), (gamedir + "/PARAM.SFO").c_str());
-
-		MSG.Dialog(MSG_OK, NOTICE_SFO);
-	}
 	
 	// Initialize networking and pad-input
 	netInitialize();
@@ -141,6 +128,7 @@ int main(s32 argc, char* argv[])
 			if(Pad_onPress(paddata, paddata_old, BTN_SELECT))
 			{
 				// dev_blind stuff
+				sysFSStat stat;
 				if(sysFsStat(DB_MOUNTPOINT, &stat) == 0)
 				{
 					// dev_blind exists - ask to unmount
