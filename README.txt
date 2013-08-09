@@ -21,8 +21,10 @@ What makes OpenPS3FTP stand out from the rest?
 =============================
 
 Note to users:
-- There are two CEX builds: cex and ncex. If you are running a firmware version higher than 3.55, you should use ncex. Otherwise, use cex.
-- The DEX build should work on any DEX firmware. It will be installed at a separate location from the CEX build.
+- There are two CEX builds: "cex", and "ncex". The "ncex" build contains an
+automatic fix for PARAM.SFO-specific features, most notably the XMB category.
+- The DEX build should work on any DEX firmware. It will be installed at a
+separate location from the CEX build.
 
 Implemented error codes:
 0x1337BEEF - Socket binding failed. Just restart. The only reason I think this would happen is if you launch OpenPS3FTP right after exiting it.
@@ -37,6 +39,7 @@ Compiling OpenPS3FTP from source:
 - I recommend that you have scetool. Make sure the path to scetool is correct in the Makefile.
 - `make dist` to create a cex (old-keyrev) and dex build.
 - `make dist2` to additionally create a ncex (new-keyrev) build.
+- At the time of writing, pkg files are being built with pkg.py and package_finalize (for cex). This doesn't seem to work with later firmwares (atreyu187) - so when something new comes out to make valid pkg files, this will be updated.
 
 =============================
 GitHub (v3.0+): https://github.com/jjolano/openps3ftp

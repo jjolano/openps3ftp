@@ -8,6 +8,8 @@
  * ----------------------------------------------------------------------------
  */
 
+#include <string>
+
 #include <NoRSX.h>
 #include <ppu-lv2.h>
 #include <net/net.h>
@@ -17,6 +19,8 @@
 #include <sys/file.h>
 
 #include "defs.h"
+
+using namespace std;
 
 // This probably only works for single-button events.
 #define Pad_onPress(paddata, paddata_old, button) (paddata.button && !paddata_old.button)
@@ -32,6 +36,19 @@ int main(s32 argc, char* argv[])
 	// Initialize graphics
 	NoRSX *GFX = new NoRSX(RESOLUTION_AUTO);
 	MsgDialog MSG(GFX);
+
+	// Fix SFO (first-run)
+	sysFSStat stat;
+	string gamedir("/dev_hdd0/game/" APPID_CEX);
+
+	if(sysFsStat((gamedir + "/USRDIR/PARAM.SFO").c_str(), &stat) == 0)
+	{
+		// replace SFO
+		sysFsUnlink((gamedir + "/PARAM.SFO").c_str());
+		sysLv2FsRename((gamedir + "/USRDIR/PARAM.SFO").c_str(), (gamedir + "/PARAM.SFO").c_str());
+
+		MSG.Dialog(MSG_OK, NOTICE_SFO);
+	}
 	
 	// Initialize networking and pad-input
 	netInitialize();
@@ -77,7 +94,7 @@ int main(s32 argc, char* argv[])
 	// Draw bitmap layer
 	// Not sure how this will actually look.
 	F1.PrintfToBitmap(50, 75, &PCL, COLOR_WHITE, APP_NAME " version " APP_VERSION);
-	F1.PrintfToBitmap(50, 125, &PCL, COLOR_WHITE, "by " APP_AUTHOR);
+	F1.PrintfToBitmap(50, 125, &PCL, COLOR_WHITE, "by " APP_AUTHOR " (compiled " __DATE__ " " __TIME__")");
 
 	F1.PrintfToBitmap(50, 225, &PCL, COLOR_WHITE, "IP Address: %s (port 21)", info.ip_address);
 
@@ -124,8 +141,6 @@ int main(s32 argc, char* argv[])
 			if(Pad_onPress(paddata, paddata_old, BTN_SELECT))
 			{
 				// dev_blind stuff
-				sysFSStat stat;
-
 				if(sysFsStat(DB_MOUNTPOINT, &stat) == 0)
 				{
 					// dev_blind exists - ask to unmount

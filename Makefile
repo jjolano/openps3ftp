@@ -79,7 +79,7 @@ OFILES		:= $(CPPFILES:.cpp=.o) $(CFILES:.c=.o)
 
 # Define compilation options
 #
-CFLAGS		= -O2 -Wall -mcpu=cell $(MACHDEP) $(INCLUDE)
+CFLAGS		= -DAPPID_CEX=\"$(APPID)\" -O2 -Wall -mcpu=cell $(MACHDEP) $(INCLUDE)
 CXXFLAGS	= $(CFLAGS)
 LDFLAGS		= $(MACHDEP)
 
@@ -143,6 +143,7 @@ pkg-ncex	: eboot-ns
 		  $(VERB) mkdir -p $(BUILDDIR)/x$@/USRDIR
 		  $(VERB) ln -fs $(ICON0) $(BUILDDIR)/x$@/
 		  $(call MAKE_SFO,$(SFOXML),$(BUILDDIR)/x$@/PARAM.SFO,$(TITLE),$(APPID))
+		  $(VERB) ln -fs $(BUILDDIR)/x$@/PARAM.SFO $(BUILDDIR)/x$@/USRDIR/PARAM.SFO
 		  $(VERB) ln -fs $(BUILDDIR)/$</EBOOT.BIN $(BUILDDIR)/x$@/USRDIR/
 		  $(VERB) mkdir -p $(BUILDDIR)/$@
 		  $(call MAKE_PKG,$(BUILDDIR)/x$@/,$(BUILDDIR)/$@/$(CONTENTID).pkg,$(CONTENTID))
