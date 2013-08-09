@@ -36,8 +36,8 @@ void ftpTerminate()
 {
 	for(map<int,ftp_client>::iterator cit = client.begin(); cit != client.end(); cit++)
 	{
-		(cit->second).data_close();
 		event_client_drop(&(cit->second));
+		(cit->second).data_close();
 	}
 
 	for(vector<pollfd>::iterator it = pfd.begin(); it != pfd.end(); it++)
@@ -308,13 +308,14 @@ void ftpInitialize(void* arg)
 					closesocket(sock);
 					clnt->data_close();
 					client.erase(sock);
-					pfd.erase(pfd.begin() + i);
 				}
 				else
 				{
 					// data connection dropped
 					clnt->data_close();
 				}
+
+				pfd.erase(pfd.begin() + i);
 				
 				continue;
 			}

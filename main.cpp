@@ -22,8 +22,8 @@
 
 using namespace std;
 
-msgType MSG_OK = (msgType)(MSG_DIALOG_NORMAL|MSG_DIALOG_BTN_TYPE_OK|MSG_DIALOG_DISABLE_CANCEL_ON);
-msgType MSG_YESNO = (msgType)(MSG_DIALOG_NORMAL|MSG_DIALOG_BTN_TYPE_YESNO);
+#define MSG_OK		(msgType)(MSG_DIALOG_NORMAL|MSG_DIALOG_BTN_TYPE_OK|MSG_DIALOG_DISABLE_CANCEL_ON)
+#define MSG_YESNO	(msgType)(MSG_DIALOG_NORMAL|MSG_DIALOG_BTN_TYPE_YESNO)
 
 // FTP server starter
 void ftpInitialize(void *arg);
@@ -31,7 +31,10 @@ void ftpInitialize(void *arg);
 int main(s32 argc, char* argv[])
 {
 	// Initialize graphics
-	NoRSX *GFX = new NoRSX(RESOLUTION_AUTO);
+	NoRSX *GFX = new NoRSX();
+
+	Font F1(LATIN2, GFX);
+	Background BG(GFX);
 	MsgDialog MSG(GFX);
 	
 	// Initialize networking and pad-input
@@ -55,6 +58,14 @@ int main(s32 argc, char* argv[])
 		return -1;
 	}
 
+	// Retrieve detailed connection information (ip address)
+	net_ctl_info info;
+	netCtlGetInfo(NET_CTL_INFO_IP_ADDRESS, &info);
+
+	// Pad IO variables
+	padInfo padinfo;
+	padData paddata;
+
 	// Set application running state
 	GFX->AppStart();
 
@@ -62,37 +73,8 @@ int main(s32 argc, char* argv[])
 	sys_ppu_thread_t id;
 	sysThreadCreate(&id, ftpInitialize, GFX, 1500, 0x1000, THREAD_JOINABLE, const_cast<char*>("oftp"));
 
-	// Set up graphics
-	Font F1(LATIN2, GFX);
-	Background BG(GFX);
-	Bitmap BM(GFX);
-
-	NoRSX_Bitmap PCL;
-	BM.GenerateBitmap(&PCL);
-	BG.MonoBitmap(COLOR_BLACK, &PCL);
-
-	// Retrieve detailed connection information (ip address)
-	net_ctl_info info;
-	netCtlGetInfo(NET_CTL_INFO_IP_ADDRESS, &info);
-
-	// Draw bitmap layer
-	// Not sure how this will actually look.
-	F1.PrintfToBitmap(50, 75, &PCL, COLOR_WHITE, APP_NAME " version " APP_VERSION);
-	F1.PrintfToBitmap(50, 125, &PCL, COLOR_WHITE, "by " APP_AUTHOR " (compiled " __DATE__ " " __TIME__")");
-
-	F1.PrintfToBitmap(50, 225, &PCL, COLOR_WHITE, "IP Address: %s (port 21)", info.ip_address);
-
-	F1.PrintfToBitmap(50, 325, &PCL, COLOR_WHITE, "SELECT: dev_blind mounter");
-	F1.PrintfToBitmap(50, 375, &PCL, COLOR_WHITE, "START: Exit " APP_NAME);
-	F1.PrintfToBitmap(50, 425, &PCL, COLOR_WHITE, "L1: Credits/Acknowledgements");
-	F1.PrintfToBitmap(50, 475, &PCL, COLOR_WHITE, "R1: Changes in this version");
-
-	// Pad IO variables
-	padInfo padinfo;
-	padData paddata;
-
 	// Main thread loop
-	while(GFX->GetAppStatus() != APP_EXIT)
+	while(GFX->GetAppStatus())
 	{
 		// Get Pad Status
 		ioPadGetInfo(&padinfo);
@@ -159,12 +141,21 @@ int main(s32 argc, char* argv[])
 			}
 		}
 
-		// Draw bitmap->screenbuffer
-		BM.DrawBitmap(&PCL);
+		// Draw frame
+		BG.Mono(COLOR_BLACK);
+
+		F1.Printf(65, 75, COLOR_WHITE, APP_NAME " version " APP_VERSION);
+		F1.Printf(65, 125, COLOR_WHITE, "by " APP_AUTHOR " (compiled " __DATE__ " " __TIME__")");
+
+		F1.Printf(65, 225, COLOR_WHITE, "IP Address: %s (port 21)", info.ip_address);
+
+		F1.Printf(65, 325, COLOR_WHITE, "SELECT: dev_blind mounter");
+		F1.Printf(65, 375, COLOR_WHITE, "START: Exit " APP_NAME);
+		F1.Printf(65, 425, COLOR_WHITE, "L1: Credits/Acknowledgements");
+		F1.Printf(65, 475, COLOR_WHITE, "R1: Changes in this version");
+
 		GFX->Flip();
 	}
-
-	BM.ClearBitmap(&PCL);
 
 	// Wait for server thread to complete
 	u64 retval;
@@ -175,7 +166,7 @@ int main(s32 argc, char* argv[])
 	netDeinitialize();
 
 	// Parse thread return value if application is not exiting
-	if(GFX->ExitSignalStatus() == NO_SIGNAL && retval > 0)
+	if(!GFX->ExitSignalStatus() && retval > 0)
 	{
 		// Error - see ftp.cpp
 		MSG.ErrorDialog((u32)retval);
