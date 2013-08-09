@@ -216,6 +216,9 @@ void ftpInitialize(void* arg)
 	// Register FTP command handlers
 	register_cmds();
 
+	// Allocate memory for commands
+	char* data = new char[CMDBUFFER];
+
 	// Main thread loop
 	while(GFX->GetAppStatus() != APP_EXIT)
 	{
@@ -332,9 +335,6 @@ void ftpInitialize(void* arg)
 				if(it != client.end())
 				{
 					// Control socket
-					char* data;
-					data = new char[CMDBUFFER];
-
 					int bytes = recv(sock, data, CMDBUFFER - 1, 0);
 
 					if(bytes <= 0)
@@ -350,7 +350,6 @@ void ftpInitialize(void* arg)
 					if(bytes <= 2)
 					{
 						// invalid command, continue
-						delete [] data;
 						continue;
 					}
 
@@ -396,6 +395,7 @@ void ftpInitialize(void* arg)
 		}
 	}
 
+	delete [] data;
 	ftpTerminate();
 	sysThreadExit(0);
 }
