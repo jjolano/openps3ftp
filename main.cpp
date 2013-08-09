@@ -22,9 +22,6 @@
 
 using namespace std;
 
-// This probably only works for single-button events.
-#define Pad_onPress(paddata, paddata_old, button) (paddata.button && !paddata_old.button)
-
 msgType MSG_OK = (msgType)(MSG_DIALOG_NORMAL|MSG_DIALOG_BTN_TYPE_OK|MSG_DIALOG_DISABLE_CANCEL_ON);
 msgType MSG_YESNO = (msgType)(MSG_DIALOG_NORMAL|MSG_DIALOG_BTN_TYPE_YESNO);
 
@@ -93,7 +90,6 @@ int main(s32 argc, char* argv[])
 	// Pad IO variables
 	padInfo padinfo;
 	padData paddata;
-	padData paddata_old;
 
 	// Main thread loop
 	while(GFX->GetAppStatus() != APP_EXIT)
@@ -106,26 +102,26 @@ int main(s32 argc, char* argv[])
 		{
 			ioPadGetData(0, &paddata);
 
-			if(Pad_onPress(paddata, paddata_old, BTN_START))
+			if(paddata.BTN_START)
 			{
 				// Exit application
 				GFX->AppExit();
 				break;
 			}
 
-			if(Pad_onPress(paddata, paddata_old, BTN_L1))
+			if(paddata.BTN_L1)
 			{
 				// Credits
 				MSG.Dialog(MSG_OK, CREDITS);
 			}
 
-			if(Pad_onPress(paddata, paddata_old, BTN_R1))
+			if(paddata.BTN_R1)
 			{
 				// Changes
 				MSG.Dialog(MSG_OK, CHANGES);
 			}
 
-			if(Pad_onPress(paddata, paddata_old, BTN_SELECT))
+			if(paddata.BTN_SELECT)
 			{
 				// dev_blind stuff
 				sysFSStat stat;
@@ -161,8 +157,6 @@ int main(s32 argc, char* argv[])
 					}
 				}
 			}
-
-			paddata_old = paddata;
 		}
 
 		// Draw bitmap->screenbuffer

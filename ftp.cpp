@@ -71,10 +71,10 @@ void ftp_client::control_sendCode(unsigned int code, string message, bool multi)
 {
 	// format string
 	ostringstream out;
-	out << code << (multi ? "-" : " ") << message;
+	out << code << (multi ? '-' : ' ');
 
 	// send to control socket
-	control_sendCustom(out.str());
+	control_sendCustom(out.str() + message);
 }
 
 bool ftp_client::data_open(datahnd handler, short events)
@@ -203,7 +203,6 @@ void ftpInitialize(void* arg)
 		closesocket(sock_listen);
 		GFX->AppExit();
 		sysThreadExit(0x1337BEEF);
-		return;
 	}
 
 	listen(sock_listen, LISTEN_BACKLOG);
@@ -230,7 +229,6 @@ void ftpInitialize(void* arg)
 			ftpTerminate();
 			GFX->AppExit();
 			sysThreadExit(0x13371010);
-			return;
 		}
 
 		// Loop if poll > 0
@@ -267,6 +265,7 @@ void ftpInitialize(void* arg)
 					clnt.sock_data = -1;
 					clnt.sock_pasv = -1;
 					clnt.data_handler = NULL;
+					clnt.active = true;
 					client[sock] = clnt;
 
 					// welcome
@@ -280,7 +279,6 @@ void ftpInitialize(void* arg)
 					ftpTerminate();
 					GFX->AppExit();
 					sysThreadExit(0x1337ABCD);
-					return;
 				}
 			}
 
