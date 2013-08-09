@@ -195,7 +195,6 @@ void data_list(int sock_data)
 	{
 		// finished directory listing
 		sysFsClosedir(fd);
-		delete [] client_cvar[clnt].buffer;
 		clnt->response(226, "Transfer complete");
 		data_client.erase(sock_data);
 		clnt->data_close();
@@ -287,7 +286,6 @@ void data_mlsd(int sock_data)
 	{
 		// finished directory listing
 		sysFsClosedir(fd);
-		delete [] client_cvar[clnt].buffer;
 		clnt->response(226, "Transfer complete");
 		data_client.erase(sock_data);
 		clnt->data_close();
@@ -314,7 +312,6 @@ void data_nlst(int sock_data)
 	{
 		// finished directory listing
 		sysFsClosedir(fd);
-		delete [] client_cvar[clnt].buffer;
 		clnt->response(226, "Transfer complete");
 		data_client.erase(sock_data);
 		clnt->data_close();
@@ -346,8 +343,8 @@ void data_stor(int sock_data)
 		{
 			// write error
 			sysFsClose(fd);
-			delete [] client_cvar[clnt].buffer;
-			clnt->response(451, "Disk write error - maybe disk is full");
+			clnt->response(452, "Disk write error - maybe disk is full");
+			data_client.erase(sock_data);
 			clnt->data_close();
 			client_cvar[clnt].fd = -1;
 		}
@@ -356,7 +353,6 @@ void data_stor(int sock_data)
 	{
 		// finished file transfer
 		sysFsClose(fd);
-		delete [] client_cvar[clnt].buffer;
 		clnt->response(226, "Transfer complete");
 		data_client.erase(sock_data);
 		clnt->data_close();
@@ -384,7 +380,6 @@ void data_retr(int sock_data)
 		{
 			// send error
 			sysFsClose(fd);
-			delete [] client_cvar[clnt].buffer;
 			clnt->response(451, "Socket send error");
 			data_client.erase(sock_data);
 			clnt->data_close();
@@ -395,8 +390,8 @@ void data_retr(int sock_data)
 	{
 		// finished file transfer
 		sysFsClose(fd);
-		delete [] client_cvar[clnt].buffer;
 		clnt->response(226, "Transfer complete");
+		data_client.erase(sock_data);
 		clnt->data_close();
 		client_cvar[clnt].fd = -1;
 	}
@@ -421,14 +416,14 @@ void cmd_success_auth(ftp_client* clnt, string cmd, string args)
 
 void cmd_ignored(ftp_client* clnt, string cmd, string args)
 {
-	clnt->response(202, cmd + " ignored");
+	clnt->response(202, cmd + " not implemented");
 }
 
 void cmd_ignored_auth(ftp_client* clnt, string cmd, string args)
 {
 	if(isClientAuthorized(clnt))
 	{
-		clnt->response(202, cmd + " ignored");
+		clnt->response(202, cmd + " not implemented");
 	}
 	else
 	{
@@ -447,26 +442,23 @@ void cmd_quit(ftp_client* clnt, string cmd, string args)
 	clnt->response(221, "Goodbye");
 }
 
-// cmd_feat: server feature list
+// cmd_feat: server ftp extensions list
 void cmd_feat(ftp_client* clnt, string cmd, string args)
 {
 	vector<string> feat;
 
 	feat.push_back("REST STREAM");
 	feat.push_back("PASV");
-	feat.push_back("PORT");
 	feat.push_back("MDTM");
+	feat.push_back("MLST type*;size*;sizd*;modify*;UNIX.mode*;UNIX.uid*;UNIX.gid*;");
 	feat.push_back("MLSD");
 	feat.push_back("SIZE");
-	feat.push_back("SITE CHMOD");
-	feat.push_back("APPE");
-	feat.push_back("MLST type*;size*;sizd*;modify*;UNIX.mode*;UNIX.uid*;UNIX.gid*;");
 
 	clnt->control_sendCode(211, "Features:", true);
 
 	for(vector<string>::iterator it = feat.begin(); it != feat.end(); it++)
 	{
-		clnt->control_sendCustom(" " + *it);
+		clnt->control_sendCustom(' ' + *it);
 	}
 
 	clnt->response(211, "End");
@@ -477,10 +469,17 @@ void cmd_user(ftp_client* clnt, string cmd, string args)
 {
 	if(!isClientAuthorized(clnt))
 	{
-		client_cvar[clnt].authorized = false;
-		client_cvar[clnt].cmd = "USER";
+		if(!args.empty())
+		{
+			client_cvar[clnt].authorized = false;
+			client_cvar[clnt].cmd = "USER";
 
-		clnt->response(331, "Username " + args + " OK. Password required");
+			clnt->response(331, "Username " + args + " OK. Password required");
+		}
+		else
+		{
+			clnt->response(501, "No username specified");
+		}
 	}
 	else
 	{
@@ -495,16 +494,26 @@ void cmd_pass(ftp_client* clnt, string cmd, string args)
 	{
 		if(client_cvar[clnt].cmd == "USER")
 		{
-			// set authorized flag
-			client_cvar[clnt].authorized = true;
+			if(!args.empty())
+			{
+				// set authorized flag
+				client_cvar[clnt].authorized = true;
 
-			// set cwd to root
-			client_cvar[clnt].cwd = "/";
+				// set cwd to root
+				client_cvar[clnt].cwd = "/";
 
-			// set fd to -1
-			client_cvar[clnt].fd = -1;
+				// set fd to -1
+				client_cvar[clnt].fd = -1;
 
-			clnt->response(230, "Successfully logged in");
+				// allocate data buffer
+				client_cvar[clnt].buffer = new char[DATA_BUFFER];
+
+				clnt->response(230, "Successfully logged in");
+			}
+			else
+			{
+				clnt->response(530, "Login authentication failed");
+			}
 		}
 		else
 		{
@@ -634,7 +643,7 @@ void cmd_pasv(ftp_client* clnt, string cmd, string args)
 			closesocket(clnt->sock_pasv);
 			clnt->sock_pasv = -1;
 
-			clnt->response(425, "Failed to enter passive mode");
+			clnt->response(425, "Cannot open data connection");
 		}
 
 		listen(clnt->sock_pasv, 1);
@@ -690,7 +699,7 @@ void cmd_port(ftp_client* clnt, string cmd, string args)
 					closesocket(clnt->sock_data);
 					clnt->sock_data = -1;
 
-					clnt->response(425, "Failed PORT connection");
+					clnt->response(425, "Cannot open data connection");
 				}
 				else
 				{
@@ -702,12 +711,12 @@ void cmd_port(ftp_client* clnt, string cmd, string args)
 			}
 			else
 			{
-				clnt->response(501, "Invalid PORT connection information");
+				clnt->response(501, "Bad PORT syntax");
 			}
 		}
 		else
 		{
-			clnt->response(501, "No PORT connection information");
+			clnt->response(501, "No PORT arguments specifed");
 		}
 	}
 	else
@@ -720,13 +729,15 @@ void cmd_abor(ftp_client* clnt, string cmd, string args)
 {
 	if(isClientAuthorized(clnt))
 	{
+		clnt->response(226, "ABOR command successful");
+
 		if(clnt->sock_data != -1)
 		{
+			client_cvar[clnt].fd = -1;
 			data_client.erase(clnt->sock_data);
 		}
 
 		clnt->data_close();
-		clnt->response(225, "ABOR command successful");
 	}
 	else
 	{
@@ -738,28 +749,34 @@ void cmd_list(ftp_client* clnt, string cmd, string args)
 {
 	if(isClientAuthorized(clnt))
 	{
-		// attempt to open cwd
-		if(sysFsOpendir(client_cvar[clnt].cwd.c_str(), &client_cvar[clnt].fd) == 0)
+		if(client_cvar[clnt].fd == -1)
 		{
-			// open data connection
-			if(clnt->data_open(data_list, FTP_DATA_EVENT_SEND))
+			// attempt to open cwd
+			if(sysFsOpendir(client_cvar[clnt].cwd.c_str(), &client_cvar[clnt].fd) == 0)
 			{
-				// register data handler and set type dvar
-				client_cvar[clnt].type = DATA_TYPE_LIST;
-				client_cvar[clnt].buffer = new char[DATA_BUFFER];
-				data_client[clnt->sock_data] = clnt;
-				clnt->response(150, "Accepted data connection");
+				// open data connection
+				if(clnt->data_open(data_list, FTP_DATA_EVENT_SEND))
+				{
+					// register data handler and set type dvar
+					client_cvar[clnt].type = DATA_TYPE_LIST;
+					data_client[clnt->sock_data] = clnt;
+					clnt->response(150, "Accepted data connection");
+				}
+				else
+				{
+					sysFsClosedir(client_cvar[clnt].fd);
+					clnt->response(425, "Cannot open data connection");
+				}
 			}
 			else
 			{
-				sysFsClosedir(client_cvar[clnt].fd);
-				clnt->response(425, "Cannot open data connection");
+				// cannot open
+				clnt->response(550, "Cannot access directory");
 			}
 		}
 		else
 		{
-			// cannot open
-			clnt->response(550, "Cannot access directory");
+			clnt->response(450, "Transfer already in progress");
 		}
 	}
 	else
@@ -772,28 +789,34 @@ void cmd_mlsd(ftp_client* clnt, string cmd, string args)
 {
 	if(isClientAuthorized(clnt))
 	{
-		// attempt to open cwd
-		if(sysFsOpendir(client_cvar[clnt].cwd.c_str(), &client_cvar[clnt].fd) == 0)
+		if(client_cvar[clnt].fd == -1)
 		{
-			// open data connection
-			if(clnt->data_open(data_mlsd, FTP_DATA_EVENT_SEND))
+			// attempt to open cwd
+			if(sysFsOpendir(client_cvar[clnt].cwd.c_str(), &client_cvar[clnt].fd) == 0)
 			{
-				// register data handler and set type dvar
-				client_cvar[clnt].type = DATA_TYPE_MLSD;
-				client_cvar[clnt].buffer = new char[DATA_BUFFER];
-				data_client[clnt->sock_data] = clnt;
-				clnt->response(150, "Accepted data connection");
+				// open data connection
+				if(clnt->data_open(data_mlsd, FTP_DATA_EVENT_SEND))
+				{
+					// register data handler and set type dvar
+					client_cvar[clnt].type = DATA_TYPE_MLSD;
+					data_client[clnt->sock_data] = clnt;
+					clnt->response(150, "Accepted data connection");
+				}
+				else
+				{
+					sysFsClosedir(client_cvar[clnt].fd);
+					clnt->response(425, "Cannot open data connection");
+				}
 			}
 			else
 			{
-				sysFsClosedir(client_cvar[clnt].fd);
-				clnt->response(425, "Cannot open data connection");
+				// cannot open
+				clnt->response(550, "Cannot access directory");
 			}
 		}
 		else
 		{
-			// cannot open
-			clnt->response(550, "Cannot access directory");
+			clnt->response(450, "Transfer already in progress");
 		}
 	}
 	else
@@ -806,28 +829,34 @@ void cmd_nlst(ftp_client* clnt, string cmd, string args)
 {
 	if(isClientAuthorized(clnt))
 	{
-		// attempt to open cwd
-		if(sysFsOpendir(client_cvar[clnt].cwd.c_str(), &client_cvar[clnt].fd) == 0)
+		if(client_cvar[clnt].fd == -1)
 		{
-			// open data connection
-			if(clnt->data_open(data_nlst, FTP_DATA_EVENT_SEND))
+			// attempt to open cwd
+			if(sysFsOpendir(client_cvar[clnt].cwd.c_str(), &client_cvar[clnt].fd) == 0)
 			{
-				// register data handler and set type dvar
-				client_cvar[clnt].type = DATA_TYPE_NLST;
-				client_cvar[clnt].buffer = new char[DATA_BUFFER];
-				data_client[clnt->sock_data] = clnt;
-				clnt->response(150, "Accepted data connection");
+				// open data connection
+				if(clnt->data_open(data_nlst, FTP_DATA_EVENT_SEND))
+				{
+					// register data handler and set type dvar
+					client_cvar[clnt].type = DATA_TYPE_NLST;
+					data_client[clnt->sock_data] = clnt;
+					clnt->response(150, "Accepted data connection");
+				}
+				else
+				{
+					sysFsClosedir(client_cvar[clnt].fd);
+					clnt->response(425, "Cannot open data connection");
+				}
 			}
 			else
 			{
-				sysFsClosedir(client_cvar[clnt].fd);
-				clnt->response(425, "Cannot open data connection");
+				// cannot open
+				clnt->response(550, "Cannot access directory");
 			}
 		}
 		else
 		{
-			// cannot open
-			clnt->response(550, "Cannot access directory");
+			clnt->response(450, "Transfer already in progress");
 		}
 	}
 	else
@@ -842,44 +871,50 @@ void cmd_stor(ftp_client* clnt, string cmd, string args)
 	{
 		if(!args.empty())
 		{
-			string path = getAbsPath(client_cvar[clnt].cwd, args);
-			s32 oflags = (SYS_O_WRONLY | SYS_O_CREAT);
-
-			// extra flag for append, set rest to 0
-			if(cmd == "APPE")
+			if(client_cvar[clnt].fd == -1)
 			{
-				client_cvar[clnt].rest = 0;
-				oflags |= SYS_O_APPEND;
-			}
+				string path = getAbsPath(client_cvar[clnt].cwd, args);
+				s32 oflags = (SYS_O_WRONLY | SYS_O_CREAT);
 
-			// extra flag for stor, if rest == 0
-			if(client_cvar[clnt].rest == 0)
-			{
-				oflags |= SYS_O_TRUNC;
-			}
-
-			// attempt to open file
-			if(sysFsOpen(path.c_str(), oflags, &client_cvar[clnt].fd, NULL, 0) == 0)
-			{
-				// open data connection
-				if(clnt->data_open(data_stor, FTP_DATA_EVENT_RECV))
+				// extra flag for append, set rest to 0
+				if(cmd == "APPE")
 				{
-					// register data handler and set type dvar
-					client_cvar[clnt].type = DATA_TYPE_STOR;
-					client_cvar[clnt].buffer = new char[DATA_BUFFER];
-					data_client[clnt->sock_data] = clnt;
-					clnt->response(150, "Accepted data connection");
+					client_cvar[clnt].rest = 0;
+					oflags |= SYS_O_APPEND;
+				}
+
+				// extra flag for stor, if rest == 0
+				if(client_cvar[clnt].rest == 0)
+				{
+					oflags |= SYS_O_TRUNC;
+				}
+
+				// attempt to open file
+				if(sysFsOpen(path.c_str(), oflags, &client_cvar[clnt].fd, NULL, 0) == 0)
+				{
+					// open data connection
+					if(clnt->data_open(data_stor, FTP_DATA_EVENT_RECV))
+					{
+						// register data handler and set type dvar
+						client_cvar[clnt].type = DATA_TYPE_STOR;
+						data_client[clnt->sock_data] = clnt;
+						clnt->response(150, "Accepted data connection");
+					}
+					else
+					{
+						sysFsClose(client_cvar[clnt].fd);
+						clnt->response(425, "Cannot open data connection");
+					}
 				}
 				else
 				{
-					sysFsClose(client_cvar[clnt].fd);
-					clnt->response(425, "Cannot open data connection");
+					// cannot open
+					clnt->response(550, "Cannot access directory");
 				}
 			}
 			else
 			{
-				// cannot open
-				clnt->response(550, "Cannot access directory");
+				clnt->response(450, "Transfer already in progress");
 			}
 		}
 		else
@@ -899,31 +934,37 @@ void cmd_retr(ftp_client* clnt, string cmd, string args)
 	{
 		if(!args.empty())
 		{
-			string path = getAbsPath(client_cvar[clnt].cwd, args);
-			s32 oflags = SYS_O_RDONLY;
-
-			// attempt to open file
-			if(sysFsOpen(path.c_str(), oflags, &client_cvar[clnt].fd, NULL, 0) == 0)
+			if(client_cvar[clnt].fd == -1)
 			{
-				// open data connection
-				if(clnt->data_open(data_retr, FTP_DATA_EVENT_RECV))
+				string path = getAbsPath(client_cvar[clnt].cwd, args);
+				s32 oflags = SYS_O_RDONLY;
+
+				// attempt to open file
+				if(sysFsOpen(path.c_str(), oflags, &client_cvar[clnt].fd, NULL, 0) == 0)
 				{
-					// register data handler and set type dvar
-					client_cvar[clnt].type = DATA_TYPE_RETR;
-					client_cvar[clnt].buffer = new char[DATA_BUFFER];
-					data_client[clnt->sock_data] = clnt;
-					clnt->response(150, "Accepted data connection");
+					// open data connection
+					if(clnt->data_open(data_retr, FTP_DATA_EVENT_RECV))
+					{
+						// register data handler and set type dvar
+						client_cvar[clnt].type = DATA_TYPE_RETR;
+						data_client[clnt->sock_data] = clnt;
+						clnt->response(150, "Accepted data connection");
+					}
+					else
+					{
+						sysFsClose(client_cvar[clnt].fd);
+						clnt->response(425, "Cannot open data connection");
+					}
 				}
 				else
 				{
-					sysFsClose(client_cvar[clnt].fd);
-					clnt->response(425, "Cannot open data connection");
+					// cannot open
+					clnt->response(550, "Cannot access directory");
 				}
 			}
 			else
 			{
-				// cannot open
-				clnt->response(550, "Cannot access directory");
+				clnt->response(450, "Transfer already in progress");
 			}
 		}
 		else
@@ -947,7 +988,7 @@ void cmd_stru(ftp_client* clnt, string cmd, string args)
 		}
 		else
 		{
-			clnt->response(504, "STRU command failed");
+			clnt->response(504, "STRU type not implemented");
 		}
 	}
 	else
@@ -966,7 +1007,7 @@ void cmd_mode(ftp_client* clnt, string cmd, string args)
 		}
 		else
 		{
-			clnt->response(504, "MODE command failed");
+			clnt->response(504, "MODE type not implemented");
 		}
 	}
 	else
@@ -1124,7 +1165,7 @@ void cmd_site(ftp_client* clnt, string cmd, string args)
 
 						if(sysFsChmod(path.c_str(), atoi(chmod.c_str())) == 0)
 						{
-							clnt->response(250, "Successfully set file permissions");
+							clnt->response(200, "Successfully set file permissions");
 						}
 						else
 						{
@@ -1133,22 +1174,22 @@ void cmd_site(ftp_client* clnt, string cmd, string args)
 					}
 					else
 					{
-						clnt->response(501, "Bad command syntax");
+						clnt->response(501, "No filename specified");
 					}
 				}
 				else
 				{
-					clnt->response(501, "Bad command syntax");
+					clnt->response(501, "Bad CHMOD syntax");
 				}
 			}
 			else
 			{
-				clnt->response(502, "SITE command not implemented");
+				clnt->response(504, "SITE command not implemented");
 			}
 		}
 		else
 		{
-			clnt->response(214, "Available SITE commands: CHMOD");
+			clnt->response(500, "Missing SITE command");
 		}
 	}
 	else
@@ -1279,10 +1320,9 @@ void event_client_drop(ftp_client* clnt)
 			// close file fd
 			sysFsClose(client_cvar[clnt].fd);
 		}
-
-		delete [] client_cvar[clnt].buffer;
 	}
 
+	delete [] client_cvar[clnt].buffer;
 	client_cvar.erase(clnt);
 
 	if(clnt->sock_data != -1)

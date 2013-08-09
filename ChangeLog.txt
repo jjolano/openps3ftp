@@ -7,8 +7,9 @@
 - Directory listing outputs have been perfected, as a result all FTP clients should now be supported
 - "Beerware"
 - Removed login detail requirement: you can login with any combination
-- Added Remote Play flag for PSVita (original PARAM.SFO required)
+- Added Remote Play flag for PSVita
 - Now includes DEX (unsigned) build
+- Now includes New CEX (3.60+) build
 
 [Version 2.3 - May 29, 2011]
 - Fixed some minor issues in the client code

@@ -20,7 +20,7 @@
 
 #define CREDITS			APP_NAME " version " APP_VERSION " by " APP_AUTHOR " (Twitter: @" APP_AUTHOR ")\nAcknowledgements:\n- atreyu187 (big help)\n- @ooPo\n- @NeoSabin\n- @GregoryRasputin\n\nOf course, thank *you* for using " APP_NAME "."
 
-#define CHANGES			"Changes in " APP_NAME " version " APP_VERSION ":\n- Remote Play flag added for PSVita (original PARAM.SFO required)\n- Server now a single-threaded model instead of multi-threaded\n- Login detail requirement removed\n- Stability and performance greatly improved\n- dev_blind mounter integrated\n- Improved compatibility with all FTP clients\n\nSee ChangeLog.txt for complete changes and history."
+#define CHANGES			"Changes in " APP_NAME " version " APP_VERSION ":\n- Remote Play flag added for PSVita\n- Server now a single-threaded model instead of multi-threaded\n- Login detail requirement removed\n- Stability and performance greatly improved\n- dev_blind mounter integrated\n- Improved compatibility with all FTP clients\n\nSee ChangeLog.txt for complete changes and history."
 
 // Server types
 #define DATA_TYPE_LIST	0x0001
