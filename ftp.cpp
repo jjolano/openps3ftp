@@ -226,6 +226,7 @@ void ftpInitialize(void* arg)
 		if(p == -1)
 		{
 			// 0x13371010: Socket poll error
+			delete [] data;
 			ftpTerminate();
 			GFX->AppExit();
 			sysThreadExit(0x13371010);
@@ -261,12 +262,12 @@ void ftpInitialize(void* arg)
 
 					// add to clients
 					ftp_client clnt;
-					clnt.sock_control = sock;
+					clnt.sock_control = nfd;
 					clnt.sock_data = -1;
 					clnt.sock_pasv = -1;
 					clnt.data_handler = NULL;
 					clnt.active = true;
-					client[sock] = clnt;
+					client[nfd] = clnt;
 
 					// welcome
 					clnt.control_sendCode(220, APP_NAME " version " APP_VERSION, true);
@@ -276,6 +277,7 @@ void ftpInitialize(void* arg)
 				else
 				{
 					// 0x1337ABCD: some error happened to the server
+					delete [] data;
 					ftpTerminate();
 					GFX->AppExit();
 					sysThreadExit(0x1337ABCD);
@@ -298,7 +300,7 @@ void ftpInitialize(void* arg)
 			}
 
 			// Disconnect event
-			if((pfd[i].revents & (POLLNVAL|POLLHUP|POLLERR)) || clnt->active == false)
+			if((pfd[i].revents & (POLLNVAL|POLLHUP|POLLERR)) || !clnt->active)
 			{
 				// socket disconnected
 				if(it != client.end())

@@ -9,7 +9,7 @@
 - Removed login detail requirement: you can login with any combination
 - Added Remote Play flag for PSVita
 - Now includes DEX (unsigned) build
-- Now includes New CEX "ncex" (new-keyrev) build
+- Now includes REX (new-keyrev) build
 
 [Version 2.3 - May 29, 2011]
 - Fixed some minor issues in the client code

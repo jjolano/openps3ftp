@@ -20,7 +20,6 @@ CONTENTID_DEX	:= UP0001-$(APPID_DEX)_00-$(LICENSEID)
 
 # Setup commands
 #
-
 ifneq ($(shell command -v scetool),) 
 	SELF_TOOL = $(VERB) scetool
 else 
@@ -36,10 +35,10 @@ endif
 MAKE_FSELF = $(VERB) $(FSELF) $(1) $(2)
 MAKE_PKG = $(VERB) $(PKG) --contentid $(3) $(1) $(2)
 MAKE_SFO = $(VERB) $(SFO) --fromxml --title "$(3)" --appid "$(4)" $(1) $(2)
-SIGN_PKG_NPDRM = $(VERB) $(PACKAGE_FINALIZE) $(1)
+RETAIL_PKG = $(VERB) $(PACKAGE_FINALIZE) $(1)
 
 ifneq ($(SELF_TOOL),$(SELF_NPDRM))
-	SIGN_SELF_NPDRM = $(SELF_TOOL) --sce-type=SELF --compress-data=TRUE --skip-sections=TRUE --self-auth-id=1010000001000003 --self-vendor-id=01000002 --self-type=NPDRM --self-app-version=0001000000000000 --self-fw-version=0001008000000000 --self-add-shdrs=TRUE --np-license-type=FREE --np-app-type=EXEC --np-real-fname=EBOOT.BIN --np-content-id=$(3) --key-revision=$(4) --encrypt $(1) $(2)
+	SIGN_SELF_NPDRM = $(SELF_TOOL) --sce-type=SELF --compress-data=TRUE --skip-sections=TRUE --self-auth-id=1010000001000003 --self-vendor-id=01000002 --self-type=NPDRM --self-app-version=0001000000000000 --self-fw-version=0003004000000000 --self-add-shdrs=TRUE --np-license-type=FREE --np-app-type=EXEC --np-real-fname=EBOOT.BIN --np-content-id=$(3) --key-revision=$(4) --encrypt $(1) $(2)
 else
 	SIGN_SELF_NPDRM = $(SELF_TOOL) $(1) $(2) (3)
 endif
@@ -47,7 +46,7 @@ endif
 ifndef VERBOSE
 	SILENCE := > /dev/null
 	SIGN_SELF_NPDRM += $(SILENCE)
-	SIGN_PKG_NPDRM += $(SILENCE)
+	RETAIL_PKG += $(SILENCE)
 	MAKE_FSELF += $(SILENCE)
 	MAKE_PKG += $(SILENCE)
 	MAKE_SFO += $(SILENCE)
@@ -72,10 +71,8 @@ INCLUDE		:= -I$(CURDIR)/include -I$(PORTLIBS)/include/freetype2 -I$(PORTLIBS)/in
 
 # Source Files
 #
-CFILES		:= $(foreach dir,$(CURDIR),$(notdir $(wildcard $(dir)/*.c)))
 CPPFILES	:= $(foreach dir,$(CURDIR),$(notdir $(wildcard $(dir)/*.cpp)))
-
-OFILES		:= $(CPPFILES:.cpp=.o) $(CFILES:.c=.o)
+OFILES		:= $(addsuffix .o, $(basename $(CPPFILES)))
 
 # Define compilation options
 #
@@ -100,9 +97,7 @@ clean		:
 		  $(VERB) rm -f $(OFILES) $(TARGET).elf $(TARGET).zip
 		  $(VERB) rm -rf $(BUILDDIR)
 
-dist		: pkg-dex pkg-cex $(TARGET).zip
-
-dist2		: pkg-ncex dist
+dist		: pkg-dex pkg-cex pkg-rex $(TARGET).zip
 
 eboot-us	: $(TARGET).elf
 		  $(VERB) echo creating EBOOT.BIN [$@] ...
@@ -136,9 +131,9 @@ pkg-cex		: eboot-os
 		  $(VERB) ln -fs $(BUILDDIR)/$</EBOOT.BIN $(BUILDDIR)/x$@/USRDIR/
 		  $(VERB) mkdir -p $(BUILDDIR)/$@
 		  $(call MAKE_PKG,$(BUILDDIR)/x$@/,$(BUILDDIR)/$@/$(CONTENTID).pkg,$(CONTENTID))
-		  $(call SIGN_PKG_NPDRM,$(BUILDDIR)/$@/$(CONTENTID).pkg)
+		  $(call RETAIL_PKG,$(BUILDDIR)/$@/$(CONTENTID).pkg)
 
-pkg-ncex	: eboot-ns
+pkg-rex		: eboot-ns
 		  $(VERB) echo creating pkg [$@] ...
 		  $(VERB) mkdir -p $(BUILDDIR)/x$@/USRDIR
 		  $(VERB) ln -fs $(ICON0) $(BUILDDIR)/x$@/
