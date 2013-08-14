@@ -36,7 +36,7 @@ endif
 PKG_TOOL = $(VERB) cd $(BUILDDIR) && $(CURDIR)/../make_gpkg/make_gpkg
 
 ifeq ($(wildcard $(PKG_TOOL)),)
-	PKG_TOOL = $(VERB) $(PKG) --contentid
+	PKG_TOOL = $(VERB) cd $(BUILDDIR) && $(PKG) --contentid
 endif
 
 MAKE_PKG = $(PKG_TOOL) $(3) $(1) $(2)
@@ -128,6 +128,7 @@ pkg-dex		: eboot-us
 		  $(VERB) echo creating pkg [$@] ...
 		  $(VERB) mkdir -p $(BUILDDIR)/x$@/USRDIR
 		  $(VERB) ln -fs $(ICON0) $(BUILDDIR)/x$@/
+		  $(VERB) touch $(CURDIR)/app/PARAM.HIS
 		  $(VERB) ln -fs $(CURDIR)/app/PARAM.HIS $(BUILDDIR)/x$@/ 2> /dev/null
 		  $(call MAKE_SFO,$(SFOXML),$(BUILDDIR)/x$@/PARAM.SFO,$(TITLE_DEX),$(APPID_DEX))
 		  $(VERB) ln -fs $(BUILDDIR)/$</EBOOT.BIN $(BUILDDIR)/x$@/USRDIR/
@@ -138,6 +139,7 @@ pkg-cex		: eboot-os
 		  $(VERB) echo creating pkg [$@] ...
 		  $(VERB) mkdir -p $(BUILDDIR)/x$@/USRDIR
 		  $(VERB) ln -fs $(ICON0) $(BUILDDIR)/x$@/
+		  $(VERB) touch $(CURDIR)/app/PARAM.HIS
 		  $(VERB) ln -fs $(CURDIR)/app/PARAM.HIS $(BUILDDIR)/x$@/ 2> /dev/null
 		  $(call MAKE_SFO,$(SFOXML),$(BUILDDIR)/x$@/PARAM.SFO,$(TITLE),$(APPID))
 		  $(VERB) ln -fs $(BUILDDIR)/$</EBOOT.BIN $(BUILDDIR)/x$@/USRDIR/
@@ -149,6 +151,7 @@ pkg-rex		: eboot-ns
 		  $(VERB) echo creating pkg [$@] ...
 		  $(VERB) mkdir -p $(BUILDDIR)/x$@/USRDIR
 		  $(VERB) ln -fs $(ICON0) $(BUILDDIR)/x$@/
+		  $(VERB) touch $(CURDIR)/app/PARAM.HIS
 		  $(VERB) ln -fs $(CURDIR)/app/PARAM.HIS $(BUILDDIR)/x$@/ 2> /dev/null
 		  $(call MAKE_SFO,$(SFOXML),$(BUILDDIR)/x$@/PARAM.SFO,$(TITLE),$(APPID))
 		  $(VERB) ln -fs $(BUILDDIR)/$</EBOOT.BIN $(BUILDDIR)/x$@/USRDIR/
