@@ -55,7 +55,7 @@ int main(s32 argc, char* argv[])
 		netDeinitialize();
 		GFX->NoRSX_Exit();
 		ioPadEnd();
-		return -1;
+		return 1;
 	}
 
 	// Retrieve detailed connection information (ip address)
@@ -71,7 +71,7 @@ int main(s32 argc, char* argv[])
 
 	// Create thread for server
 	sys_ppu_thread_t id;
-	sysThreadCreate(&id, ftpInitialize, GFX, 1500, 0x1000, THREAD_JOINABLE, const_cast<char*>("oftp"));
+	sysThreadCreate(&id, ftpInitialize, GFX, 1500, 0x2000, THREAD_JOINABLE, const_cast<char*>("oftp"));
 
 	// Main thread loop
 	while(GFX->GetAppStatus())
@@ -173,7 +173,7 @@ int main(s32 argc, char* argv[])
 
 		GFX->NoRSX_Exit();
 		ioPadEnd();
-		return -1;
+		return 1;
 	}
 
 	GFX->NoRSX_Exit();

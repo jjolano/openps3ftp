@@ -32,8 +32,16 @@ else
 	endif
 endif
 
+# github.com/jjolano/make_gpkg
+PKG_TOOL = $(VERB) cd $(BUILDDIR) && $(CURDIR)/../make_gpkg/make_gpkg
+
+ifeq ($(wildcard $(PKG_TOOL)),)
+	PKG_TOOL = $(VERB) $(PKG) --contentid
+endif
+
+MAKE_PKG = $(PKG_TOOL) $(3) $(1) $(2)
+
 MAKE_FSELF = $(VERB) $(FSELF) $(1) $(2)
-MAKE_PKG = $(VERB) $(PKG) --contentid $(3) $(1) $(2)
 MAKE_SFO = $(VERB) $(SFO) --fromxml --title "$(3)" --appid "$(4)" $(1) $(2)
 RETAIL_PKG = $(VERB) $(PACKAGE_FINALIZE) $(1)
 
@@ -94,10 +102,12 @@ all		: $(TARGET).elf
 
 clean		: 
 		  $(VERB) echo clean ...
-		  $(VERB) rm -f $(OFILES) $(TARGET).elf $(TARGET).zip
+		  $(VERB) rm -f $(OFILES) $(TARGET).elf $(TARGET).zip app/PARAM.HIS
 		  $(VERB) rm -rf $(BUILDDIR)
 
 dist		: pkg-dex pkg-cex pkg-rex $(TARGET).zip
+
+dist2		: his dist
 
 eboot-us	: $(TARGET).elf
 		  $(VERB) echo creating EBOOT.BIN [$@] ...
@@ -107,7 +117,7 @@ eboot-us	: $(TARGET).elf
 eboot-os	: $(TARGET).elf
 		  $(VERB) echo creating EBOOT.BIN [$@] ...
 		  $(VERB) mkdir -p $(BUILDDIR)/$@
-		  $(call SIGN_SELF_NPDRM,$<,$(BUILDDIR)/$@/EBOOT.BIN,$(CONTENTID),01)
+		  $(call SIGN_SELF_NPDRM,$<,$(BUILDDIR)/$@/EBOOT.BIN,$(CONTENTID),04)
 
 eboot-ns	: $(TARGET).elf
 		  $(VERB) echo creating EBOOT.BIN [$@] ...
@@ -118,29 +128,35 @@ pkg-dex		: eboot-us
 		  $(VERB) echo creating pkg [$@] ...
 		  $(VERB) mkdir -p $(BUILDDIR)/x$@/USRDIR
 		  $(VERB) ln -fs $(ICON0) $(BUILDDIR)/x$@/
+		  $(VERB) ln -fs $(CURDIR)/app/PARAM.HIS $(BUILDDIR)/x$@/ 2> /dev/null
 		  $(call MAKE_SFO,$(SFOXML),$(BUILDDIR)/x$@/PARAM.SFO,$(TITLE_DEX),$(APPID_DEX))
 		  $(VERB) ln -fs $(BUILDDIR)/$</EBOOT.BIN $(BUILDDIR)/x$@/USRDIR/
 		  $(VERB) mkdir -p $(BUILDDIR)/$@
-		  $(call MAKE_PKG,$(BUILDDIR)/x$@/,$(BUILDDIR)/$@/$(CONTENTID_DEX).pkg,$(CONTENTID_DEX))
+		  $(call MAKE_PKG,x$@/,$(BUILDDIR)/$@/$(CONTENTID_DEX).pkg,$(CONTENTID_DEX))
 
 pkg-cex		: eboot-os
 		  $(VERB) echo creating pkg [$@] ...
 		  $(VERB) mkdir -p $(BUILDDIR)/x$@/USRDIR
 		  $(VERB) ln -fs $(ICON0) $(BUILDDIR)/x$@/
+		  $(VERB) ln -fs $(CURDIR)/app/PARAM.HIS $(BUILDDIR)/x$@/ 2> /dev/null
 		  $(call MAKE_SFO,$(SFOXML),$(BUILDDIR)/x$@/PARAM.SFO,$(TITLE),$(APPID))
 		  $(VERB) ln -fs $(BUILDDIR)/$</EBOOT.BIN $(BUILDDIR)/x$@/USRDIR/
 		  $(VERB) mkdir -p $(BUILDDIR)/$@
-		  $(call MAKE_PKG,$(BUILDDIR)/x$@/,$(BUILDDIR)/$@/$(CONTENTID).pkg,$(CONTENTID))
+		  $(call MAKE_PKG,x$@/,$(BUILDDIR)/$@/$(CONTENTID).pkg,$(CONTENTID))
 		  $(call RETAIL_PKG,$(BUILDDIR)/$@/$(CONTENTID).pkg)
 
 pkg-rex		: eboot-ns
 		  $(VERB) echo creating pkg [$@] ...
 		  $(VERB) mkdir -p $(BUILDDIR)/x$@/USRDIR
 		  $(VERB) ln -fs $(ICON0) $(BUILDDIR)/x$@/
+		  $(VERB) ln -fs $(CURDIR)/app/PARAM.HIS $(BUILDDIR)/x$@/ 2> /dev/null
 		  $(call MAKE_SFO,$(SFOXML),$(BUILDDIR)/x$@/PARAM.SFO,$(TITLE),$(APPID))
 		  $(VERB) ln -fs $(BUILDDIR)/$</EBOOT.BIN $(BUILDDIR)/x$@/USRDIR/
 		  $(VERB) mkdir -p $(BUILDDIR)/$@
-		  $(call MAKE_PKG,$(BUILDDIR)/x$@/,$(BUILDDIR)/$@/$(CONTENTID).pkg,$(CONTENTID))
+		  $(call MAKE_PKG,x$@/,$(BUILDDIR)/$@/$(CONTENTID).pkg,$(CONTENTID))
+
+his		: 
+		  $(VERB) ../make_his/make_his ChangeLog.txt app/PARAM.HIS
 
 $(TARGET).elf	: $(OFILES)
 		  $(VERB) echo linking $@ ...
