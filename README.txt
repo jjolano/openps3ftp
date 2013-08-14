@@ -31,7 +31,7 @@ makes use of this source code, I would appreciate the attribution.
 
 Compiling OpenPS3FTP from source:
 - I recommend that you have scetool. Make sure the path to scetool is correct in the Makefile.
-- `make dist` to create a cex (old-keyrev), rex (new-keyrev) and dex build.
+- `make dist` to create a gex (old-keyrev, pseudo-retail), rex (new-keyrev) and dex build.
 
 =============================
 GitHub (v3.0+): https://github.com/jjolano/openps3ftp

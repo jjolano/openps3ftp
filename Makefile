@@ -105,7 +105,7 @@ clean		:
 		  $(VERB) rm -f $(OFILES) $(TARGET).elf $(TARGET).zip app/PARAM.HIS
 		  $(VERB) rm -rf $(BUILDDIR)
 
-dist		: pkg-dex pkg-cex pkg-rex $(TARGET).zip
+dist		: pkg-dex pkg-gex pkg-rex $(TARGET).zip
 
 dist2		: his dist
 
@@ -135,7 +135,7 @@ pkg-dex		: eboot-us
 		  $(VERB) mkdir -p $(BUILDDIR)/$@
 		  $(call MAKE_PKG,x$@/,$(BUILDDIR)/$@/$(CONTENTID_DEX).pkg,$(CONTENTID_DEX))
 
-pkg-cex		: eboot-os
+pkg-gex		: eboot-os
 		  $(VERB) echo creating pkg [$@] ...
 		  $(VERB) mkdir -p $(BUILDDIR)/x$@/USRDIR
 		  $(VERB) ln -fs $(ICON0) $(BUILDDIR)/x$@/

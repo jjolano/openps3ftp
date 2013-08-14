@@ -79,9 +79,7 @@ void ftp_client::control_sendCode(unsigned int code, string message, bool multi)
 
 bool ftp_client::data_open(datahnd handler, short events)
 {
-	// reset data state
-	data_handler = NULL;
-
+	// try to get data connection
 	if(sock_data == -1)
 	{
 		if(sock_pasv == -1)
@@ -129,7 +127,7 @@ bool ftp_client::data_open(datahnd handler, short events)
 	pfd.push_back(data_pfd);
 
 	// reference
-	data_control[sock_data] = sock_control;
+	data_control.insert(make_pair(sock_data, sock_control));
 	return true;
 }
 
@@ -200,8 +198,8 @@ void ftpInitialize(void* arg)
 	if(bind(sock_listen, (struct sockaddr*)&myaddr, sizeof myaddr) == -1)
 	{
 		// 0x1337BEEF: Socket bind error
-		closesocket(sock_listen);
 		GFX->AppExit();
+		closesocket(sock_listen);
 		sysThreadExit(0x1337BEEF);
 	}
 
@@ -219,14 +217,14 @@ void ftpInitialize(void* arg)
 	while(GFX->GetAppStatus())
 	{
 		nfds_t nfds = pfd.size();
-		int p = poll(&pfd[0], nfds, 1000);
+		int p = poll(&pfd.front(), nfds, 1000);
 
 		if(p == -1)
 		{
 			// 0x13371010: Socket poll error
+			GFX->AppExit();
 			delete [] data;
 			ftpTerminate();
-			GFX->AppExit();
 			sysThreadExit(0x13371010);
 		}
 
@@ -261,7 +259,7 @@ void ftpInitialize(void* arg)
 					clnt.sock_pasv = -1;
 					clnt.data_handler = NULL;
 					clnt.active = true;
-					client[nfd] = clnt;
+					client.insert(make_pair(nfd, clnt));
 
 					// welcome
 					clnt.control_sendCode(220, APP_NAME " version " APP_VERSION, true);
@@ -271,9 +269,9 @@ void ftpInitialize(void* arg)
 				else
 				{
 					// 0x1337ABCD: some error happened to the server
+					GFX->AppExit();
 					delete [] data;
 					ftpTerminate();
-					GFX->AppExit();
 					sysThreadExit(0x1337ABCD);
 				}
 			}
@@ -290,7 +288,8 @@ void ftpInitialize(void* arg)
 			}
 			else
 			{
-				clnt = &client[data_control[pfd[i].fd]];
+				int clnt_control = data_control.at(pfd[i].fd);
+				clnt = &client.at(clnt_control);
 			}
 
 			// Disconnect event
