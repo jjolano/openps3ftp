@@ -132,7 +132,7 @@ bool ftp_client::data_open(datahnd handler, short events)
 	pfd.push_back(data_pfd);
 
 	// reference
-	data_control.insert(make_pair(sock_data, sock_control));
+	data_control[sock_data] = sock_control;
 	return true;
 }
 
@@ -264,7 +264,7 @@ void ftpInitialize(void* arg)
 					clnt.sock_pasv = -1;
 					clnt.data_handler = NULL;
 					clnt.active = true;
-					client.insert(make_pair(nfd, clnt));
+					client[nfd] = clnt;
 
 					// welcome
 					clnt.control_sendCode(220, APP_NAME " version " APP_VERSION, true);

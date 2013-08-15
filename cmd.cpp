@@ -118,7 +118,12 @@ void data_list(int sock_data)
 		}
 		
 		sysFSStat stat;
-		sysFsStat(getAbsPath(client_cvar[clnt].cwd, filename).c_str(), &stat);
+		s32 ret = sysFsStat(getAbsPath(client_cvar[clnt].cwd, filename).c_str(), &stat);
+
+		if(ret == -1)
+		{
+			return;
+		}
 
 		ostringstream data_msg;
 
@@ -200,6 +205,7 @@ void data_list(int sock_data)
 		data_client.erase(sock_data);
 		clnt->data_close();
 		client_cvar[clnt].fd = -1;
+		delete [] client_cvar[clnt].buffer;
 	}
 }
 
@@ -223,7 +229,12 @@ void data_mlsd(int sock_data)
 		}
 
 		sysFSStat stat;
-		sysFsStat(getAbsPath(client_cvar[clnt].cwd, filename).c_str(), &stat);
+		s32 ret = sysFsStat(getAbsPath(client_cvar[clnt].cwd, filename).c_str(), &stat);
+
+		if(ret == -1)
+		{
+			return;
+		}
 
 		ostringstream data_msg;
 
@@ -291,6 +302,7 @@ void data_mlsd(int sock_data)
 		data_client.erase(sock_data);
 		clnt->data_close();
 		client_cvar[clnt].fd = -1;
+		delete [] client_cvar[clnt].buffer;
 	}
 }
 
@@ -348,6 +360,7 @@ void data_stor(int sock_data)
 			data_client.erase(sock_data);
 			clnt->data_close();
 			client_cvar[clnt].fd = -1;
+			delete [] client_cvar[clnt].buffer;
 		}
 	}
 	else
@@ -358,6 +371,7 @@ void data_stor(int sock_data)
 		data_client.erase(sock_data);
 		clnt->data_close();
 		client_cvar[clnt].fd = -1;
+		delete [] client_cvar[clnt].buffer;
 	}
 }
 
@@ -385,6 +399,7 @@ void data_retr(int sock_data)
 			data_client.erase(sock_data);
 			clnt->data_close();
 			client_cvar[clnt].fd = -1;
+			delete [] client_cvar[clnt].buffer;
 		}
 	}
 	else
@@ -395,6 +410,7 @@ void data_retr(int sock_data)
 		data_client.erase(sock_data);
 		clnt->data_close();
 		client_cvar[clnt].fd = -1;
+		delete [] client_cvar[clnt].buffer;
 	}
 }
 
@@ -477,8 +493,8 @@ void cmd_user(ftp_client* clnt, string cmd, string args)
 			cvars.cmd = "USER";
 			cvars.fd = -1;
 			cvars.cwd = "/";
-			cvars.buffer = new char[DATA_BUFFER];
-			client_cvar.insert(make_pair(clnt, cvars));
+			
+			client_cvar[clnt] = cvars;
 
 			clnt->control_sendCode(331, "Username " + args + " OK. Password required");
 		}
@@ -754,7 +770,9 @@ void cmd_list(ftp_client* clnt, string cmd, string args)
 				{
 					// register data handler and set type dvar
 					client_cvar[clnt].type = DATA_TYPE_DIR;
-					data_client.insert(make_pair(clnt->sock_data, clnt));
+					client_cvar[clnt].buffer = new char[DATA_BUFFER];
+					data_client[clnt->sock_data] = clnt;
+
 					clnt->control_sendCode(150, "Accepted data connection");
 				}
 				else
@@ -796,7 +814,9 @@ void cmd_mlsd(ftp_client* clnt, string cmd, string args)
 				{
 					// register data handler and set type dvar
 					client_cvar[clnt].type = DATA_TYPE_DIR;
-					data_client.insert(make_pair(clnt->sock_data, clnt));
+					client_cvar[clnt].buffer = new char[DATA_BUFFER];
+					data_client[clnt->sock_data] = clnt;
+
 					clnt->control_sendCode(150, "Accepted data connection");
 				}
 				else
@@ -838,7 +858,9 @@ void cmd_nlst(ftp_client* clnt, string cmd, string args)
 				{
 					// register data handler and set type dvar
 					client_cvar[clnt].type = DATA_TYPE_DIR;
-					data_client.insert(make_pair(clnt->sock_data, clnt));
+					client_cvar[clnt].buffer = new char[DATA_BUFFER];
+					data_client[clnt->sock_data] = clnt;
+
 					clnt->control_sendCode(150, "Accepted data connection");
 				}
 				else
@@ -898,7 +920,9 @@ void cmd_stor(ftp_client* clnt, string cmd, string args)
 					{
 						// register data handler and set type dvar
 						client_cvar[clnt].type = DATA_TYPE_FILE;
-						data_client.insert(make_pair(clnt->sock_data, clnt));
+						client_cvar[clnt].buffer = new char[DATA_BUFFER];
+						data_client[clnt->sock_data] = clnt;
+
 						clnt->control_sendCode(150, "Accepted data connection");
 					}
 					else
@@ -949,7 +973,9 @@ void cmd_retr(ftp_client* clnt, string cmd, string args)
 					{
 						// register data handler and set type dvar
 						client_cvar[clnt].type = DATA_TYPE_FILE;
-						data_client.insert(make_pair(clnt->sock_data, clnt));
+						client_cvar[clnt].buffer = new char[DATA_BUFFER];
+						data_client[clnt->sock_data] = clnt;
+
 						clnt->control_sendCode(150, "Accepted data connection");
 					}
 					else
