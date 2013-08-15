@@ -20,41 +20,45 @@ CONTENTID_DEX	:= UP0001-$(APPID_DEX)_00-$(LICENSEID)
 
 # Setup commands
 #
-ifneq ($(shell command -v scetool),) 
-	SELF_TOOL = $(VERB) scetool
-else 
-	# userdefined
-	SELF_TOOL = $(VERB) ../scetool/scetool
 
-	# fallback
-	ifeq ($(wildcard $(SELF_TOOL)),)
-		SELF_TOOL = $(VERB) $(SELF_NPDRM)
-	endif
+# scetool: github.com/naehrwert/scetool
+SELF_TOOL = $(VERB) ../scetool/scetool
+
+ifeq ($(wildcard $(SELF_TOOL)),)
+	SELF_TOOL = $(VERB) $(SELF_NPDRM)
 endif
-
-# github.com/jjolano/make_gpkg
-PKG_TOOL = $(VERB) cd $(BUILDDIR) && $(CURDIR)/../make_gpkg/make_gpkg
-
-ifeq ($(wildcard $(PKG_TOOL)),)
-	PKG_TOOL = $(VERB) cd $(BUILDDIR) && $(PKG) --contentid
-endif
-
-MAKE_PKG = $(PKG_TOOL) $(3) $(1) $(2)
-
-MAKE_FSELF = $(VERB) $(FSELF) $(1) $(2)
-MAKE_SFO = $(VERB) $(SFO) --fromxml --title "$(3)" --appid "$(4)" $(1) $(2)
-RETAIL_PKG = $(VERB) $(PACKAGE_FINALIZE) $(1)
 
 ifneq ($(SELF_TOOL),$(SELF_NPDRM))
-	SIGN_SELF_NPDRM = $(SELF_TOOL) --sce-type=SELF --compress-data=TRUE --skip-sections=TRUE --self-auth-id=1010000001000003 --self-vendor-id=01000002 --self-type=NPDRM --self-app-version=0001000000000000 --self-fw-version=0003004000000000 --self-add-shdrs=TRUE --np-license-type=FREE --np-app-type=EXEC --np-real-fname=EBOOT.BIN --np-content-id=$(3) --key-revision=$(4) --encrypt $(1) $(2)
+	SIGN_SELF_NPDRM = $(SELF_TOOL) --sce-type=SELF --compress-data=TRUE --skip-sections=FALSE --self-auth-id=1010000001000003 --self-vendor-id=01000002 --self-type=NPDRM --self-app-version=0001000000000000 --self-fw-version=0003004000000000 --np-license-type=FREE --np-app-type=EXEC --np-real-fname=EBOOT.BIN --np-content-id=$(3) --key-revision=$(4) --encrypt $(1) $(2)
 else
 	SIGN_SELF_NPDRM = $(SELF_TOOL) $(1) $(2) (3)
 endif
 
+# make_gpkg: github.com/jjolano/make_gpkg
+PKG_TOOL = $(VERB) ../make_gpkg/make_gpkg
+
+ifeq ($(wildcard $(PKG_TOOL)),)
+	PKG_TOOL = $(VERB) $(PKG) --contentid
+endif
+
+MAKE_PKG = $(PKG_TOOL) $(3) $(1) $(2)
+
+# make_fself: github.com/jjolano/make_fself
+FSELF_TOOL = $(VERB) ../make_fself/make_fself
+
+ifeq ($(wildcard $(FSELF_TOOL)),)
+	FSELF_TOOL = $(VERB) $(FSELF)
+endif
+
+MAKE_FSELF = $(FSELF_TOOL) $(1) $(2)
+
+MAKE_SFO = $(VERB) $(SFO) --fromxml --title "$(3)" --appid "$(4)" $(1) $(2)
+FINALIZE_PKG = $(VERB) $(PACKAGE_FINALIZE) $(1)
+
 ifndef VERBOSE
 	SILENCE := > /dev/null
 	SIGN_SELF_NPDRM += $(SILENCE)
-	RETAIL_PKG += $(SILENCE)
+	FINALIZE_PKG += $(SILENCE)
 	MAKE_FSELF += $(SILENCE)
 	MAKE_PKG += $(SILENCE)
 	MAKE_SFO += $(SILENCE)
@@ -105,7 +109,7 @@ clean		:
 		  $(VERB) rm -f $(OFILES) $(TARGET).elf $(TARGET).zip app/PARAM.HIS
 		  $(VERB) rm -rf $(BUILDDIR)
 
-dist		: pkg-dex pkg-gex pkg-rex $(TARGET).zip
+dist		: pkg-dex pkg-cex pkg-rex $(TARGET).zip
 
 dist2		: his dist
 
@@ -133,9 +137,9 @@ pkg-dex		: eboot-us
 		  $(call MAKE_SFO,$(SFOXML),$(BUILDDIR)/x$@/PARAM.SFO,$(TITLE_DEX),$(APPID_DEX))
 		  $(VERB) ln -fs $(BUILDDIR)/$</EBOOT.BIN $(BUILDDIR)/x$@/USRDIR/
 		  $(VERB) mkdir -p $(BUILDDIR)/$@
-		  $(call MAKE_PKG,x$@/,$(BUILDDIR)/$@/$(CONTENTID_DEX).pkg,$(CONTENTID_DEX))
+		  $(call MAKE_PKG,$(BUILDDIR)/x$@/,$(BUILDDIR)/$@/$(CONTENTID_DEX).pkg,$(CONTENTID_DEX))
 
-pkg-gex		: eboot-os
+pkg-cex		: eboot-os
 		  $(VERB) echo creating pkg [$@] ...
 		  $(VERB) mkdir -p $(BUILDDIR)/x$@/USRDIR
 		  $(VERB) ln -fs $(ICON0) $(BUILDDIR)/x$@/
@@ -144,8 +148,8 @@ pkg-gex		: eboot-os
 		  $(call MAKE_SFO,$(SFOXML),$(BUILDDIR)/x$@/PARAM.SFO,$(TITLE),$(APPID))
 		  $(VERB) ln -fs $(BUILDDIR)/$</EBOOT.BIN $(BUILDDIR)/x$@/USRDIR/
 		  $(VERB) mkdir -p $(BUILDDIR)/$@
-		  $(call MAKE_PKG,x$@/,$(BUILDDIR)/$@/$(CONTENTID).pkg,$(CONTENTID))
-		  $(call RETAIL_PKG,$(BUILDDIR)/$@/$(CONTENTID).pkg)
+		  $(call MAKE_PKG,$(BUILDDIR)/x$@/,$(BUILDDIR)/$@/$(CONTENTID).pkg,$(CONTENTID))
+		  $(call FINALIZE_PKG,$(BUILDDIR)/$@/$(CONTENTID).pkg)
 
 pkg-rex		: eboot-ns
 		  $(VERB) echo creating pkg [$@] ...
@@ -156,7 +160,7 @@ pkg-rex		: eboot-ns
 		  $(call MAKE_SFO,$(SFOXML),$(BUILDDIR)/x$@/PARAM.SFO,$(TITLE),$(APPID))
 		  $(VERB) ln -fs $(BUILDDIR)/$</EBOOT.BIN $(BUILDDIR)/x$@/USRDIR/
 		  $(VERB) mkdir -p $(BUILDDIR)/$@
-		  $(call MAKE_PKG,x$@/,$(BUILDDIR)/$@/$(CONTENTID).pkg,$(CONTENTID))
+		  $(call MAKE_PKG,$(BUILDDIR)/x$@/,$(BUILDDIR)/$@/$(CONTENTID).pkg,$(CONTENTID))
 
 his		: 
 		  $(VERB) ../make_his/make_his ChangeLog.txt app/PARAM.HIS
