@@ -1347,9 +1347,10 @@ void event_client_drop(ftp_client* clnt)
 			// close file fd
 			sysFsClose(client_cvar[clnt].fd);
 		}
+
+		delete [] client_cvar[clnt].buffer;
 	}
 
-	delete [] client_cvar[clnt].buffer;
 	client_cvar.erase(clnt);
 
 	if(clnt->sock_data != -1)
