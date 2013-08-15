@@ -77,6 +77,11 @@ void ftp_client::control_sendCode(unsigned int code, string message, bool multi)
 	control_sendCustom(out.str() + message);
 }
 
+void ftp_client::control_sendCode(unsigned int code, std::string message)
+{
+	control_sendCode(code, message, false);
+}
+
 bool ftp_client::data_open(datahnd handler, short events)
 {
 	// try to get data connection
@@ -217,7 +222,7 @@ void ftpInitialize(void* arg)
 	while(GFX->GetAppStatus())
 	{
 		nfds_t nfds = pfd.size();
-		int p = poll(&pfd.front(), nfds, 1000);
+		int p = poll(&(pfd.front()), nfds, 1000);
 
 		if(p == -1)
 		{
@@ -288,8 +293,8 @@ void ftpInitialize(void* arg)
 			}
 			else
 			{
-				int clnt_control = data_control.at(pfd[i].fd);
-				clnt = &client.at(clnt_control);
+				int clnt_control = data_control[pfd[i].fd];
+				clnt = &(client[clnt_control]);
 			}
 
 			// Disconnect event
@@ -371,7 +376,7 @@ void ftpInitialize(void* arg)
 					if(it != command.end())
 					{
 						// call handler
-						(it->second)(clnt, cmd, args);
+						(*it->second)(clnt, cmd, args);
 					}
 					else
 					{

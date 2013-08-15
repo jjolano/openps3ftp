@@ -75,7 +75,7 @@ include $(PSL1GHT)/ppu_rules
 # Libraries
 #
 LIBPATHS	:= -L$(PORTLIBS)/lib $(LIBPSL1GHT_LIB)
-LIBS		:= -lNoRSX -lnet -lnetctl -lio -lsysfs -lfreetype -lpixman-1 -lz -lrt -llv2 -lrsx -lgcm_sys -lsysutil -lsysmodule
+LIBS		:= -lNoRSX -lgcm_sys -lrsx -lsysutil -lnetctl -lnet -lio -lsysfs -lfreetype -lz -lrt -llv2 -lsysmodule
 
 # Includes
 #
@@ -106,12 +106,10 @@ all		: $(TARGET).elf
 
 clean		: 
 		  $(VERB) echo clean ...
-		  $(VERB) rm -f $(OFILES) $(TARGET).elf $(TARGET).zip app/PARAM.HIS
+		  $(VERB) rm -f $(OFILES) $(TARGET).elf $(TARGET).zip
 		  $(VERB) rm -rf $(BUILDDIR)
 
 dist		: pkg-dex pkg-cex pkg-rex $(TARGET).zip
-
-dist2		: his dist
 
 eboot-us	: $(TARGET).elf
 		  $(VERB) echo creating EBOOT.BIN [$@] ...
@@ -132,8 +130,6 @@ pkg-dex		: eboot-us
 		  $(VERB) echo creating pkg [$@] ...
 		  $(VERB) mkdir -p $(BUILDDIR)/x$@/USRDIR
 		  $(VERB) ln -fs $(ICON0) $(BUILDDIR)/x$@/
-		  $(VERB) touch $(CURDIR)/app/PARAM.HIS
-		  $(VERB) ln -fs $(CURDIR)/app/PARAM.HIS $(BUILDDIR)/x$@/ 2> /dev/null
 		  $(call MAKE_SFO,$(SFOXML),$(BUILDDIR)/x$@/PARAM.SFO,$(TITLE_DEX),$(APPID_DEX))
 		  $(VERB) ln -fs $(BUILDDIR)/$</EBOOT.BIN $(BUILDDIR)/x$@/USRDIR/
 		  $(VERB) mkdir -p $(BUILDDIR)/$@
@@ -143,8 +139,6 @@ pkg-cex		: eboot-os
 		  $(VERB) echo creating pkg [$@] ...
 		  $(VERB) mkdir -p $(BUILDDIR)/x$@/USRDIR
 		  $(VERB) ln -fs $(ICON0) $(BUILDDIR)/x$@/
-		  $(VERB) touch $(CURDIR)/app/PARAM.HIS
-		  $(VERB) ln -fs $(CURDIR)/app/PARAM.HIS $(BUILDDIR)/x$@/ 2> /dev/null
 		  $(call MAKE_SFO,$(SFOXML),$(BUILDDIR)/x$@/PARAM.SFO,$(TITLE),$(APPID))
 		  $(VERB) ln -fs $(BUILDDIR)/$</EBOOT.BIN $(BUILDDIR)/x$@/USRDIR/
 		  $(VERB) mkdir -p $(BUILDDIR)/$@
@@ -155,15 +149,10 @@ pkg-rex		: eboot-ns
 		  $(VERB) echo creating pkg [$@] ...
 		  $(VERB) mkdir -p $(BUILDDIR)/x$@/USRDIR
 		  $(VERB) ln -fs $(ICON0) $(BUILDDIR)/x$@/
-		  $(VERB) touch $(CURDIR)/app/PARAM.HIS
-		  $(VERB) ln -fs $(CURDIR)/app/PARAM.HIS $(BUILDDIR)/x$@/ 2> /dev/null
 		  $(call MAKE_SFO,$(SFOXML),$(BUILDDIR)/x$@/PARAM.SFO,$(TITLE),$(APPID))
 		  $(VERB) ln -fs $(BUILDDIR)/$</EBOOT.BIN $(BUILDDIR)/x$@/USRDIR/
 		  $(VERB) mkdir -p $(BUILDDIR)/$@
 		  $(call MAKE_PKG,$(BUILDDIR)/x$@/,$(BUILDDIR)/$@/$(CONTENTID).pkg,$(CONTENTID))
-
-his		: 
-		  $(VERB) ../make_his/make_his ChangeLog.txt app/PARAM.HIS
 
 $(TARGET).elf	: $(OFILES)
 		  $(VERB) echo linking $@ ...

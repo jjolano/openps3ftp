@@ -1,5 +1,4 @@
-#ifndef OPF_FTP_H
-#define OPF_FTP_H
+#pragma once
 
 #include <string>
 
@@ -15,7 +14,7 @@ struct ftp_client {
 
 	void control_sendCustom(std::string message);
 	void control_sendCode(unsigned int code, std::string message, bool multi);
-#define  response(a,b) control_sendCode(a,b,false)
+	void control_sendCode(unsigned int code, std::string message);
 
 	bool data_open(datahnd handler, short events);
 	int data_send(char* data, int bytes);
@@ -30,5 +29,3 @@ typedef void (*cmdhnd)(ftp_client* clnt, std::string cmd, std::string args);
 extern "C" {
 	int closesocket(int socket);
 }
-
-#endif /* OPF_FTP_H */

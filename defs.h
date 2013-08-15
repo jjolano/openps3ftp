@@ -1,5 +1,4 @@
-#ifndef OPF_DEFINES_H
-#define OPF_DEFINES_H
+#pragma once
 
 #include <net/poll.h>
 
@@ -23,11 +22,8 @@
 #define CHANGES			"Changes in " APP_NAME " version " APP_VERSION ":\n- Remote Play flag added for PSVita\n- Server now a single-threaded model instead of multi-threaded\n- Login detail requirement removed\n- Stability and performance greatly improved\n- dev_blind mounter integrated\n- Improved compatibility with all FTP clients\n\nSee ChangeLog.txt for complete changes and history."
 
 // Server types
-#define DATA_TYPE_LIST	0x0001
-#define DATA_TYPE_MLSD	0x0002
-#define DATA_TYPE_NLST	0x0004
-#define DATA_TYPE_STOR	0x0008
-#define DATA_TYPE_RETR	0x0010
+#define DATA_TYPE_DIR	1
+#define DATA_TYPE_FILE	2
 
 #define FTP_DATA_EVENT_SEND	(POLLOUT | POLLWRNORM)
 #define FTP_DATA_EVENT_RECV	(POLLIN | POLLRDNORM)
@@ -36,6 +32,3 @@
 #define CMDBUFFER		1024
 #define LISTEN_BACKLOG	10
 #define DATA_BUFFER		32768	// you can tune this value, see what works best
-
-#endif /* OPF_DEFINES_H */
-
