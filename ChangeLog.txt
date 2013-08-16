@@ -1,4 +1,4 @@
-[Version 3.0 - August 14, 2013]
+[Version 3.0 - August 16, 2013]
 - Interface now uses PS3 internal fonts
 - Interface should now support all screen resolutions equally
 - dev_blind functionality integrated, can be activated by pressing SELECT

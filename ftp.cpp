@@ -10,9 +10,9 @@
 
 #include <map>
 #include <vector>
+#include <utility>
 #include <string>
 #include <sstream>
-#include <algorithm>
 
 #include <NoRSX.h>
 #include <sys/thread.h>
@@ -25,16 +25,27 @@
 
 using namespace std;
 
+struct ci_less
+{
+	bool operator() (const string & s1, const string & s2) const
+	{
+		return stricmp(s1.c_str(), s2.c_str()) < 0;
+	}
+};
+
+typedef map<string,cmdhnd,ci_less> ftp_cmds;
+typedef map<int,ftp_client> ftp_clnts;
+
 vector<pollfd> pfd;
-map<int,ftp_client> client;
 map<int,int> data_control;
-map<string,cmdhnd> command;
+ftp_clnts client;
+ftp_cmds command;
 
 void event_client_drop(ftp_client* clnt);
 
 void ftpTerminate()
 {
-	for(map<int,ftp_client>::iterator cit = client.begin(); cit != client.end(); cit++)
+	for(ftp_clnts::iterator cit = client.begin(); cit != client.end(); cit++)
 	{
 		event_client_drop(&(cit->second));
 		(cit->second).data_close();
@@ -44,11 +55,6 @@ void ftpTerminate()
 	{
 		closesocket(it->fd);
 	}
-
-	pfd.clear();
-	client.clear();
-	data_control.clear();
-	command.clear();
 }
 
 void register_cmd(string cmd, cmdhnd handler)
@@ -91,7 +97,7 @@ bool ftp_client::data_open(datahnd handler, short events)
 		{
 			// legacy PORT 20 connection
 			sockaddr_in sa;
-			socklen_t len = sizeof sa;
+			socklen_t len = sizeof(sa);
 			
 			getpeername(sock_control, (sockaddr*)&sa, &len);
 			sa.sin_port = htons(20);
@@ -136,7 +142,7 @@ bool ftp_client::data_open(datahnd handler, short events)
 	return true;
 }
 
-int ftp_client::data_send(char* data, int bytes)
+int ftp_client::data_send(const char* data, int bytes)
 {
 	if(sock_data == -1)
 	{
@@ -188,9 +194,6 @@ void ftpInitialize(void* arg)
 {
 	// Obtain graphics pointer
 	NoRSX* GFX = static_cast<NoRSX*>(arg);
-
-	// Register FTP command handlers
-	register_cmds();
 	
 	// Create server socket
 	int sock_listen = socket(PF_INET, SOCK_STREAM, 0);
@@ -210,10 +213,14 @@ void ftpInitialize(void* arg)
 
 	listen(sock_listen, LISTEN_BACKLOG);
 
+	// Add to poll
 	pollfd listen_pfd;
 	listen_pfd.fd = sock_listen;
 	listen_pfd.events = POLLIN;
 	pfd.push_back(listen_pfd);
+
+	// Register FTP command handlers
+	register_cmds();
 
 	// Allocate memory for commands
 	char* data = new char[CMDBUFFER];
@@ -222,7 +229,7 @@ void ftpInitialize(void* arg)
 	while(GFX->GetAppStatus())
 	{
 		nfds_t nfds = pfd.size();
-		int p = poll(&(pfd.front()), nfds, 1000);
+		int p = poll(&pfd[0], nfds, 100);
 
 		if(p == -1)
 		{
@@ -234,7 +241,7 @@ void ftpInitialize(void* arg)
 		}
 
 		// Loop if poll > 0
-		for(unsigned int i = 0; (p > 0 && i < nfds); i++)
+		for(u16 i = 0; (p > 0 && i < nfds); i++)
 		{
 			if(pfd[i].revents == 0)
 			{
@@ -243,13 +250,20 @@ void ftpInitialize(void* arg)
 
 			p--;
 
+			int sock_fd = pfd[i].fd;
+
 			// Listener socket event
-			if(pfd[i].fd == sock_listen)
+			if(sock_fd == sock_listen)
 			{
 				if(pfd[i].revents & POLLIN)
 				{
 					// accept new connection
 					int nfd = accept(sock_listen, NULL, NULL);
+
+					if(nfd == -1)
+					{
+						continue;
+					}
 
 					// add to pollfds
 					pollfd new_pfd;
@@ -263,7 +277,6 @@ void ftpInitialize(void* arg)
 					clnt.sock_data = -1;
 					clnt.sock_pasv = -1;
 					clnt.data_handler = NULL;
-					clnt.active = true;
 					client[nfd] = clnt;
 
 					// welcome
@@ -282,10 +295,10 @@ void ftpInitialize(void* arg)
 			}
 
 			// get client info
-			map<int,ftp_client>::iterator it;
+			ftp_clnts::iterator it;
 			ftp_client* clnt;
 
-			it = client.find(pfd[i].fd);
+			it = client.find(sock_fd);
 
 			if(it != client.end())
 			{
@@ -293,21 +306,22 @@ void ftpInitialize(void* arg)
 			}
 			else
 			{
-				int clnt_control = data_control[pfd[i].fd];
-				clnt = &(client[clnt_control]);
+				clnt = &(client[data_control[sock_fd]]);
 			}
 
 			// Disconnect event
-			if((pfd[i].revents & (POLLNVAL|POLLHUP|POLLERR)) || clnt->active == false)
+			if((pfd[i].revents & (POLLNVAL|POLLHUP|POLLERR)))
 			{
 				// socket disconnected
 				if(it != client.end())
 				{
 					// client dropped
 					event_client_drop(clnt);
-					closesocket(pfd[i].fd);
+					closesocket(sock_fd);
 					clnt->data_close();
-					client.erase(pfd[i].fd);
+					
+					client.erase(sock_fd);
+					pfd.erase(pfd.begin() + i);
 				}
 				else
 				{
@@ -315,7 +329,6 @@ void ftpInitialize(void* arg)
 					clnt->data_close();
 				}
 
-				pfd.erase(pfd.begin() + i);
 				nfds--;
 				continue;
 			}
@@ -324,7 +337,7 @@ void ftpInitialize(void* arg)
 			if(pfd[i].revents & FTP_DATA_EVENT_SEND)
 			{
 				// call data handler
-				(*clnt->data_handler)(pfd[i].fd);
+				(clnt->data_handler)(sock_fd);
 				continue;
 			}
 
@@ -334,15 +347,16 @@ void ftpInitialize(void* arg)
 				if(it != client.end())
 				{
 					// Control socket
-					int bytes = recv(pfd[i].fd, data, CMDBUFFER - 1, 0);
+					int bytes = recv(sock_fd, data, CMDBUFFER - 1, 0);
 
 					if(bytes <= 0)
 					{
 						// invalid, drop client
 						event_client_drop(clnt);
-						closesocket(pfd[i].fd);
+						closesocket(sock_fd);
 						clnt->data_close();
-						client.erase(pfd[i].fd);
+						
+						client.erase(sock_fd);
 						pfd.erase(pfd.begin() + i);
 						nfds--;
 						continue;
@@ -356,7 +370,7 @@ void ftpInitialize(void* arg)
 
 					// handle command
 					string cmdstr(data);
-					cmdstr.resize(bytes - 2);
+					cmdstr.resize(cmdstr.size() - 2);
 
 					string::size_type pos = cmdstr.find(' ', 0);
 
@@ -368,15 +382,13 @@ void ftpInitialize(void* arg)
 						args = cmdstr.substr(pos + 1);
 					}
 
-					transform(cmd.begin(), cmd.end(), cmd.begin(), ::toupper);
-
 					// find command handler
-					map<string,cmdhnd>::iterator it = command.find(cmd);
+					ftp_cmds::iterator it = command.find(cmd);
 
 					if(it != command.end())
 					{
 						// call handler
-						(*it->second)(clnt, cmd, args);
+						(it->second)(clnt, cmd, args);
 					}
 					else
 					{
@@ -388,7 +400,7 @@ void ftpInitialize(void* arg)
 				{
 					// Data socket
 					// call data handler
-					(*clnt->data_handler)(pfd[i].fd);
+					(clnt->data_handler)(sock_fd);
 				}
 
 				continue;

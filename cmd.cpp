@@ -8,14 +8,14 @@
  * ----------------------------------------------------------------------------
  */
 
-#include <cstdio>
 #include <ctime>
 #include <cstring>
 #include <iomanip>
 #include <map>
+#include <vector>
+#include <utility>
 #include <string>
 #include <sstream>
-#include <vector>
 #include <algorithm>
 
 #include <sys/file.h>
@@ -56,6 +56,11 @@ string getAbsPath(string cwd, string nd)
 	{
 		// already absolute
 		return nd;
+	}
+
+	if(nd[nd.size() - 1] == '/')
+	{
+		nd.resize(nd.size() - 1);
 	}
 
 	if(cwd[cwd.size() - 1] != '/')
@@ -132,13 +137,13 @@ void data_list(int sock_data)
 		{
 			data_msg << 'd';
 		}
-		else if(S_ISREG(stat.st_mode))
-		{
-			data_msg << '-';
-		}
 		else if(S_ISLNK(stat.st_mode))
 		{
 			data_msg << 'l';
+		}
+		else
+		{
+			data_msg << '-';
 		}
 
 		// permissions
@@ -191,21 +196,30 @@ void data_list(int sock_data)
 		// filename
 		data_msg << filename;
 
+		// ending
+		data_msg << '\r';
+		data_msg << '\n';
+
 		// send to data socket
-		string data_str;
-		data_str = data_msg.str();
-		strncpy(client_cvar[clnt].buffer, data_str.c_str(), data_str.size());
-		clnt->data_send(client_cvar[clnt].buffer, data_str.size());
+		if(clnt->data_send(data_msg.str().c_str(), data_msg.tellp()) <= 0)
+		{
+			clnt->control_sendCode(451, "Data transfer error");
+
+			sysFsClosedir(fd);
+			data_client.erase(sock_data);
+			clnt->data_close();
+			client_cvar[clnt].fd = -1;
+		}
 	}
 	else
 	{
 		// finished directory listing
-		sysFsClosedir(fd);
 		clnt->control_sendCode(226, "Transfer complete");
+		
+		sysFsClosedir(fd);
 		data_client.erase(sock_data);
 		clnt->data_close();
 		client_cvar[clnt].fd = -1;
-		delete [] client_cvar[clnt].buffer;
 	}
 }
 
@@ -288,21 +302,30 @@ void data_mlsd(int sock_data)
 		// filename
 		data_msg << filename;
 
+		// ending
+		data_msg << '\r';
+		data_msg << '\n';
+
 		// send to data socket
-		string data_str;
-		data_str = data_msg.str();
-		strncpy(client_cvar[clnt].buffer, data_str.c_str(), data_str.size());
-		clnt->data_send(client_cvar[clnt].buffer, data_str.size());
+		if(clnt->data_send(data_msg.str().c_str(), data_msg.tellp()) <= 0)
+		{
+			clnt->control_sendCode(451, "Data transfer error");
+
+			sysFsClosedir(fd);
+			data_client.erase(sock_data);
+			clnt->data_close();
+			client_cvar[clnt].fd = -1;
+		}
 	}
 	else
 	{
 		// finished directory listing
-		sysFsClosedir(fd);
 		clnt->control_sendCode(226, "Transfer complete");
+		
+		sysFsClosedir(fd);
 		data_client.erase(sock_data);
 		clnt->data_close();
 		client_cvar[clnt].fd = -1;
-		delete [] client_cvar[clnt].buffer;
 	}
 }
 
@@ -318,14 +341,26 @@ void data_nlst(int sock_data)
 	{
 		// send to data socket
 		string data_str(entry.d_name);
-		strncpy(client_cvar[clnt].buffer, data_str.c_str(), data_str.size());
-		clnt->data_send(client_cvar[clnt].buffer, data_str.size());
+		
+		data_str += '\r';
+		data_str += '\n';
+		
+		if(clnt->data_send(data_str.c_str(), data_str.size()) <= 0)
+		{
+			clnt->control_sendCode(451, "Data transfer error");
+
+			sysFsClosedir(fd);
+			data_client.erase(sock_data);
+			clnt->data_close();
+			client_cvar[clnt].fd = -1;
+		}
 	}
 	else
 	{
 		// finished directory listing
-		sysFsClosedir(fd);
 		clnt->control_sendCode(226, "Transfer complete");
+		
+		sysFsClosedir(fd);
 		data_client.erase(sock_data);
 		clnt->data_close();
 		client_cvar[clnt].fd = -1;
@@ -352,11 +387,12 @@ void data_stor(int sock_data)
 	if(read > 0)
 	{
 		// data available, write to disk
-		if(sysFsWrite(fd, client_cvar[clnt].buffer, (u64)read, &written) != 0 || written < (u64)read)
+		if(sysFsWrite(fd, client_cvar[clnt].buffer, (u64)read, &written) == -1 || written < (u64)read)
 		{
 			// write error
-			sysFsClose(fd);
 			clnt->control_sendCode(452, "Disk write error - maybe disk is full");
+
+			sysFsClose(fd);
 			data_client.erase(sock_data);
 			clnt->data_close();
 			client_cvar[clnt].fd = -1;
@@ -366,8 +402,9 @@ void data_stor(int sock_data)
 	else
 	{
 		// finished file transfer
-		sysFsClose(fd);
 		clnt->control_sendCode(226, "Transfer complete");
+		
+		sysFsClose(fd);
 		data_client.erase(sock_data);
 		clnt->data_close();
 		client_cvar[clnt].fd = -1;
@@ -394,8 +431,9 @@ void data_retr(int sock_data)
 		if((u64)clnt->data_send(client_cvar[clnt].buffer, (int)read) < read)
 		{
 			// send error
-			sysFsClose(fd);
 			clnt->control_sendCode(451, "Socket send error");
+			
+			sysFsClose(fd);
 			data_client.erase(sock_data);
 			clnt->data_close();
 			client_cvar[clnt].fd = -1;
@@ -405,8 +443,9 @@ void data_retr(int sock_data)
 	else
 	{
 		// finished file transfer
-		sysFsClose(fd);
 		clnt->control_sendCode(226, "Transfer complete");
+		
+		sysFsClose(fd);
 		data_client.erase(sock_data);
 		clnt->data_close();
 		client_cvar[clnt].fd = -1;
@@ -416,14 +455,14 @@ void data_retr(int sock_data)
 
 void cmd_success(ftp_client* clnt, string cmd, string args)
 {
-	clnt->control_sendCode(200, cmd + " OK");
+	clnt->control_sendCode(200, cmd + " ok");
 }
 
 void cmd_success_auth(ftp_client* clnt, string cmd, string args)
 {
 	if(isClientAuthorized(clnt))
 	{
-		clnt->control_sendCode(200, cmd + " OK");
+		clnt->control_sendCode(200, cmd + " ok");
 	}
 	else
 	{
@@ -455,8 +494,8 @@ void cmd_syst(ftp_client* clnt, string cmd, string args)
 
 void cmd_quit(ftp_client* clnt, string cmd, string args)
 {
-	clnt->active = false;
 	clnt->control_sendCode(221, "Goodbye");
+	closesocket(clnt->sock_control);
 }
 
 // cmd_feat: server ftp extensions list
@@ -742,9 +781,20 @@ void cmd_abor(ftp_client* clnt, string cmd, string args)
 	{
 		clnt->control_sendCode(226, "ABOR command successful");
 
-		if(clnt->sock_data != -1)
+		if(client_cvar[clnt].fd != -1)
 		{
-			client_cvar[clnt].fd = -1;
+			if(client_cvar[clnt].type == DATA_TYPE_DIR)
+			{
+				// close directory fd
+				sysFsClosedir(client_cvar[clnt].fd);
+			}
+			else
+			{
+				// close file fd
+				sysFsClose(client_cvar[clnt].fd);
+				delete [] client_cvar[clnt].buffer;
+			}
+
 			data_client.erase(clnt->sock_data);
 		}
 
@@ -770,7 +820,6 @@ void cmd_list(ftp_client* clnt, string cmd, string args)
 				{
 					// register data handler and set type dvar
 					client_cvar[clnt].type = DATA_TYPE_DIR;
-					client_cvar[clnt].buffer = new char[DATA_BUFFER];
 					data_client[clnt->sock_data] = clnt;
 
 					clnt->control_sendCode(150, "Accepted data connection");
@@ -814,7 +863,6 @@ void cmd_mlsd(ftp_client* clnt, string cmd, string args)
 				{
 					// register data handler and set type dvar
 					client_cvar[clnt].type = DATA_TYPE_DIR;
-					client_cvar[clnt].buffer = new char[DATA_BUFFER];
 					data_client[clnt->sock_data] = clnt;
 
 					clnt->control_sendCode(150, "Accepted data connection");
@@ -858,7 +906,6 @@ void cmd_nlst(ftp_client* clnt, string cmd, string args)
 				{
 					// register data handler and set type dvar
 					client_cvar[clnt].type = DATA_TYPE_DIR;
-					client_cvar[clnt].buffer = new char[DATA_BUFFER];
 					data_client[clnt->sock_data] = clnt;
 
 					clnt->control_sendCode(150, "Accepted data connection");
@@ -935,7 +982,8 @@ void cmd_stor(ftp_client* clnt, string cmd, string args)
 				else
 				{
 					// cannot open
-					clnt->control_sendCode(550, "Cannot access directory");
+					client_cvar[clnt].fd = -1;
+					clnt->control_sendCode(550, "Cannot access file");
 				}
 			}
 			else
@@ -988,7 +1036,8 @@ void cmd_retr(ftp_client* clnt, string cmd, string args)
 				else
 				{
 					// cannot open
-					clnt->control_sendCode(550, "Cannot access directory");
+					client_cvar[clnt].fd = -1;
+					clnt->control_sendCode(550, "Cannot access file");
 				}
 			}
 			else
@@ -1346,15 +1395,11 @@ void event_client_drop(ftp_client* clnt)
 		{
 			// close file fd
 			sysFsClose(client_cvar[clnt].fd);
+			delete [] client_cvar[clnt].buffer;
 		}
 
-		delete [] client_cvar[clnt].buffer;
+		data_client.erase(clnt->sock_data);
 	}
 
 	client_cvar.erase(clnt);
-
-	if(clnt->sock_data != -1)
-	{
-		data_client.erase(clnt->sock_data);
-	}
 }
