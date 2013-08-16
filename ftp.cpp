@@ -12,6 +12,7 @@
 #include <vector>
 #include <utility>
 #include <string>
+#include <cstring>
 #include <sstream>
 
 #include <NoRSX.h>
