@@ -159,7 +159,7 @@ int ftp_client::data_recv(char* data, int bytes)
 		return -1;
 	}
 
-	return recv(sock_data, data, bytes, MSG_WAITALL);
+	return recv(sock_data, data, bytes, 0);
 }
 
 void ftp_client::data_close()

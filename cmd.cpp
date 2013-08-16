@@ -384,6 +384,17 @@ void data_stor(int sock_data)
 
 	read = clnt->data_recv(client_cvar[clnt].buffer, DATA_BUFFER - 1);
 
+	if(read == -1)
+	{
+		clnt->control_sendCode(451, "Data receive error");
+
+		sysFsClose(fd);
+		data_client.erase(sock_data);
+		clnt->data_close();
+		client_cvar[clnt].fd = -1;
+		delete [] client_cvar[clnt].buffer;
+	}
+
 	if(read > 0)
 	{
 		// data available, write to disk
