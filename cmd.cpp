@@ -382,7 +382,7 @@ void data_stor(int sock_data)
 		client_cvar[clnt].rest = 0;
 	}
 
-	read = clnt->data_recv(client_cvar[clnt].buffer, DATA_BUFFER - 1);
+	read = clnt->data_recv(client_cvar[clnt].buffer, DATA_BUFFER);
 
 	if(read == -1)
 	{
@@ -437,7 +437,7 @@ void data_retr(int sock_data)
 		client_cvar[clnt].rest = 0;
 	}
 
-	if(sysFsRead(fd, client_cvar[clnt].buffer, DATA_BUFFER - 1, &read) == 0 && read > 0)
+	if(sysFsRead(fd, client_cvar[clnt].buffer, DATA_BUFFER, &read) == 0 && read > 0)
 	{
 		if((u64)clnt->data_send(client_cvar[clnt].buffer, (int)read) < read)
 		{

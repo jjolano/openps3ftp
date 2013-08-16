@@ -31,4 +31,4 @@
 // Server defines
 #define CMDBUFFER		1024
 #define LISTEN_BACKLOG	10
-#define DATA_BUFFER		32768	// you can tune this value, see what works best
+#define DATA_BUFFER		16384	// you can tune this value, see what works best
