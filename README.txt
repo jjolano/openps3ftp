@@ -20,10 +20,13 @@ What makes OpenPS3FTP stand out from the rest?
 - Supports transfer resuming
 =============================
 
-Implemented error codes:
-0x1337BEEF - Socket binding failed. Just restart. The only reason I think this would happen is if you launch OpenPS3FTP right after exiting it.
-0x13371010 - Socket polling failed. Probably only happens if the system decides to screw up.
-0x1337ABCD - Error on listener socket. Probably only happens if you're screwing around with the server.
+Implemented error codes (shouldn't happen under typical use anyway):
+0x1337BEEF - Server initialization failed.
+0x1337DEAD - Connection polling failed.
+0x1337CAFE - Out of memory.
+
+Any other error code is unknown and should be reported to me. Please include
+the FTP connection log.
 
 Note to developers:
 Do what you like with the source code - however when releasing something that

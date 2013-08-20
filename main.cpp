@@ -8,8 +8,6 @@
  * ----------------------------------------------------------------------------
  */
 
-#include <string>
-
 #include <NoRSX.h>
 #include <ppu-lv2.h>
 #include <net/net.h>
@@ -22,8 +20,8 @@
 
 using namespace std;
 
-#define MSG_OK		(msgType)(MSG_DIALOG_NORMAL|MSG_DIALOG_BTN_TYPE_OK|MSG_DIALOG_DISABLE_CANCEL_ON)
-#define MSG_YESNO	(msgType)(MSG_DIALOG_NORMAL|MSG_DIALOG_BTN_TYPE_YESNO)
+msgType MSG_OK = (msgType)(MSG_DIALOG_NORMAL|MSG_DIALOG_BTN_TYPE_OK|MSG_DIALOG_DISABLE_CANCEL_ON);
+msgType MSG_YESNO = (msgType)(MSG_DIALOG_NORMAL|MSG_DIALOG_BTN_TYPE_YESNO);
 
 // FTP server starter
 void ftpInitialize(void *arg);
@@ -43,17 +41,28 @@ int main(s32 argc, char* argv[])
 	s32 state;
 	netCtlGetState(&state);
 
-	if(state != NET_CTL_STATE_IPObtained)
+	while(state != NET_CTL_STATE_IPObtained)
 	{
-		// not connected to network - terminate program
-		MSG.Dialog(MSG_OK, ERR_NOCONN);
+		MSG.Dialog(MSG_YESNO, ERR_NOCONN_Q);
 
-		netCtlTerm();
-		netDeinitialize();
-		GFX->NoRSX_Exit();
-		ioPadEnd();
-		return 1;
+		if(MSG.GetResponse(MSG_DIALOG_BTN_YES) != 1)
+		{
+			netCtlTerm();
+			netDeinitialize();
+			GFX->NoRSX_Exit();
+			ioPadEnd();
+			return 1;
+		}
+
+		netCtlGetState(&state);
 	}
+
+	// Set application running state
+	GFX->AppStart();
+
+	// Create thread for server
+	sys_ppu_thread_t id;
+	sysThreadCreate(&id, ftpInitialize, GFX, 1500, 0x1000, THREAD_JOINABLE, const_cast<char*>("oftp"));
 
 	// Retrieve detailed connection information (ip address)
 	net_ctl_info info;
@@ -76,18 +85,10 @@ int main(s32 argc, char* argv[])
 	F1.PrintfToBitmap(65, 325, &PCL, COLOR_WHITE, "SELECT: dev_blind mounter");
 	F1.PrintfToBitmap(65, 375, &PCL, COLOR_WHITE, "START: Exit " APP_NAME);
 	F1.PrintfToBitmap(65, 425, &PCL, COLOR_WHITE, "L1: Credits/Acknowledgements");
-	F1.PrintfToBitmap(65, 475, &PCL, COLOR_WHITE, "R1: Changes in this version");
 
 	// Pad IO variables
 	padInfo padinfo;
 	padData paddata;
-
-	// Set application running state
-	GFX->AppStart();
-
-	// Create thread for server
-	sys_ppu_thread_t id;
-	sysThreadCreate(&id, ftpInitialize, GFX, 1500, 0x2000, THREAD_JOINABLE, const_cast<char*>("oftp"));
 
 	// Main thread loop
 	while(GFX->GetAppStatus())
@@ -111,12 +112,6 @@ int main(s32 argc, char* argv[])
 			{
 				// Credits
 				MSG.Dialog(MSG_OK, CREDITS);
-			}
-
-			if(paddata.BTN_R1)
-			{
-				// Changes
-				MSG.Dialog(MSG_OK, CHANGES);
 			}
 
 			if(paddata.BTN_SELECT)

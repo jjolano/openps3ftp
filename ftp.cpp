@@ -12,8 +12,8 @@
 #include <vector>
 #include <utility>
 #include <string>
-#include <cstring>
 #include <sstream>
+#include <algorithm>
 
 #include <NoRSX.h>
 #include <sys/thread.h>
@@ -26,24 +26,22 @@
 
 using namespace std;
 
-struct ci_less
-{
-	bool operator() (const string & s1, const string & s2) const
-	{
-		return stricmp(s1.c_str(), s2.c_str()) < 0;
-	}
-};
-
-typedef map<string,cmdhnd,ci_less> ftp_cmds;
+typedef map<int,int> ftp_drefs;
+typedef map<string,cmdhnd> ftp_chnds;
+typedef map<int,void (*)(ftp_client* clnt)> ftp_dhnds;
 typedef map<int,ftp_client> ftp_clnts;
+typedef vector<pollfd> ftp_socks;
 
-vector<pollfd> pfd;
-map<int,int> data_control;
+ftp_socks pfd;
+ftp_chnds command;
+ftp_drefs datarefs;
+ftp_dhnds datafunc;
 ftp_clnts client;
-ftp_cmds command;
 
 void event_client_drop(ftp_client* clnt);
+void register_cmds();
 
+// Terminates FTP server and all connections
 void ftpTerminate()
 {
 	for(ftp_clnts::iterator cit = client.begin(); cit != client.end(); cit++)
@@ -52,18 +50,17 @@ void ftpTerminate()
 		(cit->second).data_close();
 	}
 
-	for(vector<pollfd>::iterator it = pfd.begin(); it != pfd.end(); it++)
+	for(ftp_socks::iterator it = pfd.begin(); it != pfd.end(); it++)
 	{
 		closesocket(it->fd);
 	}
 }
 
+// Registers an FTP command to a function
 void register_cmd(string cmd, cmdhnd handler)
 {
 	command.insert(make_pair(cmd, handler));
 }
-
-void register_cmds();
 
 void ftp_client::control_sendCustom(string message)
 {
@@ -84,12 +81,12 @@ void ftp_client::control_sendCode(unsigned int code, string message, bool multi)
 	control_sendCustom(out.str() + message);
 }
 
-void ftp_client::control_sendCode(unsigned int code, std::string message)
+void ftp_client::control_sendCode(unsigned int code, string message)
 {
 	control_sendCode(code, message, false);
 }
 
-bool ftp_client::data_open(datahnd handler, short events)
+bool ftp_client::data_open(void (*handler)(ftp_client* clnt), short events)
 {
 	// try to get data connection
 	if(sock_data == -1)
@@ -129,9 +126,6 @@ bool ftp_client::data_open(datahnd handler, short events)
 		}
 	}
 
-	// register data handler
-	data_handler = handler;
-
 	// register pollfd for data connection
 	pollfd data_pfd;
 	data_pfd.fd = sock_data;
@@ -139,27 +133,18 @@ bool ftp_client::data_open(datahnd handler, short events)
 	pfd.push_back(data_pfd);
 
 	// reference
-	data_control[sock_data] = sock_control;
+	datarefs[sock_data] = sock_control;
+	datafunc[sock_data] = handler;
 	return true;
 }
 
 int ftp_client::data_send(const char* data, int bytes)
 {
-	if(sock_data == -1)
-	{
-		return -1;
-	}
-
 	return send(sock_data, data, bytes, 0);
 }
 
 int ftp_client::data_recv(char* data, int bytes)
 {
-	if(sock_data == -1)
-	{
-		return -1;
-	}
-
 	return recv(sock_data, data, bytes, 0);
 }
 
@@ -168,7 +153,7 @@ void ftp_client::data_close()
 	if(sock_data != -1)
 	{
 		// remove from pollfd
-		for(vector<pollfd>::iterator it = pfd.begin(); it != pfd.end(); it++)
+		for(ftp_socks::iterator it = pfd.begin(); it != pfd.end(); it++)
 		{
 			if(it->fd == sock_data)
 			{
@@ -177,8 +162,8 @@ void ftp_client::data_close()
 		}
 
 		// remove references and close socket
-		data_handler = NULL;
-		data_control.erase(sock_data);
+		datafunc.erase(sock_data);
+		datarefs.erase(sock_data);
 		closesocket(sock_data);
 		sock_data = -1;
 	}
@@ -206,7 +191,6 @@ void ftpInitialize(void* arg)
 
 	if(bind(sock_listen, (struct sockaddr*)&myaddr, sizeof myaddr) == -1)
 	{
-		// 0x1337BEEF: Socket bind error
 		GFX->AppExit();
 		closesocket(sock_listen);
 		sysThreadExit(0x1337BEEF);
@@ -214,31 +198,38 @@ void ftpInitialize(void* arg)
 
 	listen(sock_listen, LISTEN_BACKLOG);
 
-	// Add to poll
-	pollfd listen_pfd;
-	listen_pfd.fd = sock_listen;
-	listen_pfd.events = POLLIN;
-	pfd.push_back(listen_pfd);
-
 	// Register FTP command handlers
 	register_cmds();
 
 	// Allocate memory for commands
 	char* data = new char[CMDBUFFER];
 
+	if(data == NULL)
+	{
+		// how did this happen?
+		GFX->AppExit();
+		closesocket(sock_listen);
+		sysThreadExit(0x1337CAFE);
+	}
+
+	// Add server to poll
+	pollfd listen_pfd;
+	listen_pfd.fd = sock_listen;
+	listen_pfd.events = POLLIN;
+	pfd.push_back(listen_pfd);
+
 	// Main thread loop
 	while(GFX->GetAppStatus())
 	{
 		nfds_t nfds = pfd.size();
-		int p = poll(&pfd[0], nfds, 100);
+		int p = poll(&pfd[0], nfds, 500);
 
 		if(p == -1)
 		{
-			// 0x13371010: Socket poll error
 			GFX->AppExit();
 			delete [] data;
 			ftpTerminate();
-			sysThreadExit(0x13371010);
+			sysThreadExit(0x1337DEAD);
 		}
 
 		// Loop if poll > 0
@@ -269,7 +260,7 @@ void ftpInitialize(void* arg)
 					// add to pollfds
 					pollfd new_pfd;
 					new_pfd.fd = nfd;
-					new_pfd.events = FTP_DATA_EVENT_RECV;
+					new_pfd.events = DATA_EVENT_RECV;
 					pfd.push_back(new_pfd);
 
 					// add to clients
@@ -277,22 +268,31 @@ void ftpInitialize(void* arg)
 					clnt.sock_control = nfd;
 					clnt.sock_data = -1;
 					clnt.sock_pasv = -1;
-					clnt.data_handler = NULL;
 					client[nfd] = clnt;
 
 					// welcome
-					clnt.control_sendCode(220, APP_NAME " version " APP_VERSION, true);
-					clnt.control_sendCode(220, "by " APP_AUTHOR, false);
-					continue;
+					clnt.control_sendCode(220, APP_NAME " version " APP_VERSION " by " APP_AUTHOR, false);
 				}
 				else
 				{
-					// 0x1337ABCD: some error happened to the server
-					GFX->AppExit();
-					delete [] data;
-					ftpTerminate();
-					sysThreadExit(0x1337ABCD);
+					// error on listener socket, attempt to reestablish
+					closesocket(sock_listen);
+					
+					sock_listen = socket(PF_INET, SOCK_STREAM, 0);
+
+					if(bind(sock_listen, (struct sockaddr*)&myaddr, sizeof myaddr) == -1)
+					{
+						GFX->AppExit();
+						closesocket(sock_listen);
+						sysThreadExit(0x1337BEEF);
+					}
+
+					listen(sock_listen, LISTEN_BACKLOG);
+
+					pfd[i].fd = sock_listen;
 				}
+
+				continue;
 			}
 
 			// get client info
@@ -307,13 +307,12 @@ void ftpInitialize(void* arg)
 			}
 			else
 			{
-				clnt = &(client[data_control[sock_fd]]);
+				clnt = &(client[datarefs[sock_fd]]);
 			}
 
 			// Disconnect event
 			if((pfd[i].revents & (POLLNVAL|POLLHUP|POLLERR)))
 			{
-				// socket disconnected
 				if(it != client.end())
 				{
 					// client dropped
@@ -326,7 +325,6 @@ void ftpInitialize(void* arg)
 				}
 				else
 				{
-					// data connection dropped
 					clnt->data_close();
 				}
 
@@ -335,15 +333,15 @@ void ftpInitialize(void* arg)
 			}
 
 			// Sending data event
-			if(pfd[i].revents & FTP_DATA_EVENT_SEND)
+			if(pfd[i].revents & DATA_EVENT_SEND)
 			{
 				// call data handler
-				(clnt->data_handler)(sock_fd);
+				(datafunc[sock_fd])(clnt);
 				continue;
 			}
 
 			// Receiving data event
-			if(pfd[i].revents & FTP_DATA_EVENT_RECV)
+			if(pfd[i].revents & DATA_EVENT_RECV)
 			{
 				if(it != client.end())
 				{
@@ -371,9 +369,18 @@ void ftpInitialize(void* arg)
 
 					// handle command
 					string cmdstr(data);
-					cmdstr.resize(cmdstr.size() - 2);
 
-					string::size_type pos = cmdstr.find(' ', 0);
+					string::size_type pos = cmdstr.find('\r', 0);
+
+					if(pos == string::npos)
+					{
+						// invalid, continue
+						continue;
+					}
+
+					cmdstr = cmdstr.substr(0, pos);
+
+					pos = cmdstr.find(' ', 0);
 
 					string cmd = cmdstr.substr(0, pos);
 					string args;
@@ -383,25 +390,27 @@ void ftpInitialize(void* arg)
 						args = cmdstr.substr(pos + 1);
 					}
 
-					// find command handler
-					ftp_cmds::iterator it = command.find(cmd);
+					transform(cmd.begin(), cmd.end(), cmd.begin(), ::toupper);
 
-					if(it != command.end())
+					// find command handler
+					ftp_chnds::iterator cit = command.find(cmd);
+
+					if(cit != command.end())
 					{
 						// call handler
-						(it->second)(clnt, cmd, args);
+						(cit->second)(clnt, cmd, args);
 					}
 					else
 					{
 						// command not found
-						clnt->control_sendCode(502, "Command not implemented", false);
+						clnt->control_sendCode(502, cmd + " not implemented", false);
 					}
 				}
 				else
 				{
 					// Data socket
 					// call data handler
-					(clnt->data_handler)(sock_fd);
+					(datafunc[sock_fd])(clnt);
 				}
 
 				continue;

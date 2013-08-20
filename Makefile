@@ -12,6 +12,7 @@ APPID_DEX	:= TEST91337
 
 SFOXML		:= $(CURDIR)/app/sfo.xml
 ICON0		:= $(CURDIR)/app/ICON0.PNG
+HIP		:= $(CURDIR)/ChangeLog.txt
 
 LICENSEID	:= AF43D15A870659F4
 
@@ -24,6 +25,15 @@ CONTENTID_DEX	:= UP0001-$(APPID_DEX)_00-$(LICENSEID)
 # scetool: github.com/naehrwert/scetool
 SELF_TOOL = $(VERB) ../scetool/scetool
 
+# make_gpkg: github.com/jjolano/make_gpkg
+PKG_TOOL = $(VERB) ../make_gpkg/make_gpkg
+
+# make_fself: github.com/jjolano/make_fself
+FSELF_TOOL = $(VERB) ../make_fself/make_fself
+
+# make_his: github.com/jjolano/make_his
+HIS_TOOL = $(VERB) ../make_his/make_his
+
 ifeq ($(wildcard $(SELF_TOOL)),)
 	SELF_TOOL = $(VERB) $(SELF_NPDRM)
 endif
@@ -34,23 +44,19 @@ else
 	SIGN_SELF_NPDRM = $(SELF_TOOL) $(1) $(2) (3)
 endif
 
-# make_gpkg: github.com/jjolano/make_gpkg
-PKG_TOOL = $(VERB) ../make_gpkg/make_gpkg
-
 ifeq ($(wildcard $(PKG_TOOL)),)
 	PKG_TOOL = $(VERB) $(PKG) --contentid
 endif
 
 MAKE_PKG = $(PKG_TOOL) $(3) $(1) $(2)
 
-# make_fself: github.com/jjolano/make_fself
-FSELF_TOOL = $(VERB) ../make_fself/make_fself
-
 ifeq ($(wildcard $(FSELF_TOOL)),)
 	FSELF_TOOL = $(VERB) $(FSELF)
 endif
 
 MAKE_FSELF = $(FSELF_TOOL) $(1) $(2)
+
+MAKE_HIS = $(HIS_TOOL) $(1) $(2)
 
 MAKE_SFO = $(VERB) $(SFO) --fromxml --title "$(3)" --appid "$(4)" $(1) $(2)
 FINALIZE_PKG = $(VERB) $(PACKAGE_FINALIZE) $(1)
@@ -131,6 +137,7 @@ pkg-dex		: eboot-us
 		  $(VERB) mkdir -p $(BUILDDIR)/x$@/USRDIR
 		  $(VERB) ln -fs $(ICON0) $(BUILDDIR)/x$@/
 		  $(call MAKE_SFO,$(SFOXML),$(BUILDDIR)/x$@/PARAM.SFO,$(TITLE_DEX),$(APPID_DEX))
+		  $(call MAKE_HIS,$(HIP),$(BUILDDIR)/x$@/PARAM.HIS)
 		  $(VERB) ln -fs $(BUILDDIR)/$</EBOOT.BIN $(BUILDDIR)/x$@/USRDIR/
 		  $(VERB) mkdir -p $(BUILDDIR)/$@
 		  $(call MAKE_PKG,$(BUILDDIR)/x$@/,$(BUILDDIR)/$@/$(CONTENTID_DEX).pkg,$(CONTENTID_DEX))
@@ -140,6 +147,7 @@ pkg-cex		: eboot-os
 		  $(VERB) mkdir -p $(BUILDDIR)/x$@/USRDIR
 		  $(VERB) ln -fs $(ICON0) $(BUILDDIR)/x$@/
 		  $(call MAKE_SFO,$(SFOXML),$(BUILDDIR)/x$@/PARAM.SFO,$(TITLE),$(APPID))
+		  $(call MAKE_HIS,$(HIP),$(BUILDDIR)/x$@/PARAM.HIS)
 		  $(VERB) ln -fs $(BUILDDIR)/$</EBOOT.BIN $(BUILDDIR)/x$@/USRDIR/
 		  $(VERB) mkdir -p $(BUILDDIR)/$@
 		  $(call MAKE_PKG,$(BUILDDIR)/x$@/,$(BUILDDIR)/$@/$(CONTENTID).pkg,$(CONTENTID))
@@ -150,6 +158,7 @@ pkg-rex		: eboot-ns
 		  $(VERB) mkdir -p $(BUILDDIR)/x$@/USRDIR
 		  $(VERB) ln -fs $(ICON0) $(BUILDDIR)/x$@/
 		  $(call MAKE_SFO,$(SFOXML),$(BUILDDIR)/x$@/PARAM.SFO,$(TITLE),$(APPID))
+		  $(call MAKE_HIS,$(HIP),$(BUILDDIR)/x$@/PARAM.HIS)
 		  $(VERB) ln -fs $(BUILDDIR)/$</EBOOT.BIN $(BUILDDIR)/x$@/USRDIR/
 		  $(VERB) mkdir -p $(BUILDDIR)/$@
 		  $(call MAKE_PKG,$(BUILDDIR)/x$@/,$(BUILDDIR)/$@/$(CONTENTID).pkg,$(CONTENTID))

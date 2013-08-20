@@ -11,24 +11,22 @@
 #define DB_MOUNTPOINT	"/dev_blind"
 
 // Message boxes
-#define ERR_NOCONN		APP_NAME " requires a network connection. Please make sure that your system is connected to a network before starting " APP_NAME "."
-#define DB_MOUNT_Q		"Do you want to mount dev_blind?\nDisclaimer: I cannot be held liable if you mess up and brick your system."
+#define ERR_NOCONN_Q	APP_NAME " requires a network connection in order to function.\n\nRecheck network connection?"
+#define DB_MOUNT_Q		"Do you want to mount dev_blind?\nDisclaimer: You access your flash at your own risk."
 #define DB_UNMOUNT_Q	"Do you want to unmount dev_blind?"
 #define DB_MOUNT_S		"dev_blind mounted at " DB_MOUNTPOINT "."
 #define DB_UNMOUNT_S	"dev_blind was successfully unmounted."
 
-#define CREDITS			APP_NAME " version " APP_VERSION " by " APP_AUTHOR " (Twitter: @" APP_AUTHOR ")\nAcknowledgements:\n- atreyu187 (tester)\n- @ooPo\n- @NeoSabin\n- @GregoryRasputin\n- deroad (@Wargio)\n\nOf course, thank *you* for using " APP_NAME "."
-
-#define CHANGES			"Changes in " APP_NAME " version " APP_VERSION ":\n- Remote Play flag added for PSVita\n- Server now a single-threaded model instead of multi-threaded\n- Login detail requirement removed\n- Stability and performance greatly improved\n- dev_blind mounter integrated\n- Improved compatibility with all FTP clients\n\nSee ChangeLog.txt for complete changes and history."
+#define CREDITS			APP_NAME " version " APP_VERSION " by " APP_AUTHOR "\nAcknowledgements:\n- atreyu187 (tester)\n- @ooPo\n- @NeoSabin\n- @GregoryRasputin\n- deroad (@Wargio)\n\nAnd of course, thank *you* for using " APP_NAME "."
 
 // Server types
 #define DATA_TYPE_DIR	1
 #define DATA_TYPE_FILE	2
 
-#define FTP_DATA_EVENT_SEND	(POLLOUT | POLLWRNORM)
-#define FTP_DATA_EVENT_RECV	(POLLIN | POLLRDNORM)
+#define DATA_EVENT_SEND	(POLLOUT | POLLWRNORM)
+#define DATA_EVENT_RECV	(POLLIN | POLLRDNORM)
 
 // Server defines
 #define CMDBUFFER		1024
 #define LISTEN_BACKLOG	10
-#define DATA_BUFFER		16384	// you can tune this value, see what works best
+#define DATA_BUFFER		16384
