@@ -115,7 +115,7 @@ clean		:
 		  $(VERB) rm -f $(OFILES) $(TARGET).elf $(TARGET).zip
 		  $(VERB) rm -rf $(BUILDDIR)
 
-dist		: pkg-dex pkg-cex pkg-rex $(TARGET).zip
+dist		: clean pkg-dex pkg-cex pkg-rex $(TARGET).zip
 
 eboot-us	: $(TARGET).elf
 		  $(VERB) echo creating EBOOT.BIN [$@] ...
