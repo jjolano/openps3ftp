@@ -14,7 +14,7 @@ SFOXML		:= $(CURDIR)/app/sfo.xml
 ICON0		:= $(CURDIR)/app/ICON0.PNG
 HIP		:= $(CURDIR)/ChangeLog.txt
 
-LICENSEID	:= AF43D15A870659F4
+LICENSEID	:= $(shell openssl rand -hex 8 | tr [:lower:] [:upper:])
 
 CONTENTID	:= UP0001-$(APPID)_00-$(LICENSEID)
 CONTENTID_DEX	:= UP0001-$(APPID_DEX)_00-$(LICENSEID)
@@ -81,7 +81,7 @@ include $(PSL1GHT)/ppu_rules
 # Libraries
 #
 LIBPATHS	:= -L$(PORTLIBS)/lib $(LIBPSL1GHT_LIB)
-LIBS		:= -lNoRSX -lgcm_sys -lrsx -lsysutil -lnetctl -lnet -lio -lsysfs -lfreetype -lz -lrt -llv2 -lsysmodule
+LIBS		:= -lNoRSX -lgcm_sys -lrsx -lsysutil -lnetctl -lnet -lio -lfreetype -lz -lrt -llv2 -lsysmodule
 
 # Includes
 #

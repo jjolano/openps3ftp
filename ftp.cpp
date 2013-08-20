@@ -364,6 +364,7 @@ void ftpInitialize(void* arg)
 					if(bytes <= 2)
 					{
 						// invalid command, continue
+						clnt->control_sendCode(500, "Invalid command", false);
 						continue;
 					}
 
@@ -375,6 +376,7 @@ void ftpInitialize(void* arg)
 					if(pos == string::npos)
 					{
 						// invalid, continue
+						clnt->control_sendCode(500, "Invalid command", false);
 						continue;
 					}
 

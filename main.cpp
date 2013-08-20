@@ -118,7 +118,7 @@ int main(s32 argc, char* argv[])
 			{
 				// dev_blind stuff
 				sysFSStat stat;
-				if(sysFsStat(DB_MOUNTPOINT, &stat) == 0)
+				if(sysLv2FsStat(DB_MOUNTPOINT, &stat) == 0)
 				{
 					// dev_blind exists - ask to unmount
 					MSG.Dialog(MSG_YESNO, DB_UNMOUNT_Q);

@@ -19,11 +19,20 @@ What makes OpenPS3FTP stand out from the rest?
 - Ability to change file permissions (CHMOD)
 - Supports transfer resuming
 =============================
+What build should I use?
+
+All builds contain identical program code, but each are signed differently.
+Thus, you will have to install the build that is suitable for your firmware.
+
+- If you are on firmware 3.55 or older, use the CEX (pkg-cex) build.
+- If you are on firmware 3.60 or newer, use the REX (pkg-rex) build.
+- If you are on a true DEX firmware, use the DEX (pkg-dex) build.
+=============================
 
 Implemented error codes (shouldn't happen under typical use anyway):
 0x1337BEEF - Server initialization failed.
 0x1337DEAD - Connection polling failed.
-0x1337CAFE - Out of memory.
+0x1337CAFE - Failed to allocate required memory block.
 
 Any other error code is unknown and should be reported to me. Please include
 the FTP connection log.
@@ -32,9 +41,11 @@ Note to developers:
 Do what you like with the source code - however when releasing something that
 makes use of this source code, I would appreciate the attribution.
 
-Compiling OpenPS3FTP from source:
-- I recommend that you have scetool. Make sure the path to scetool is correct in the Makefile.
-- `make dist` to create a cex (old-keyrev, pseudo-retail), rex (new-keyrev) and dex build.
+Recommended Compilation Tools:
+-- scetool: github.com/naehrwert/scetool
+-- make_gpkg: github.com/jjolano/make_gpkg
+-- make_fself: github.com/jjolano/make_fself
+-- make_his: github.com/jjolano/make_his
 
 =============================
 GitHub (v3.0+): https://github.com/jjolano/openps3ftp
