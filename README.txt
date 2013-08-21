@@ -5,7 +5,7 @@ OpenPS3FTP is an open source FTP server for the PlayStation 3. It supports
 the basic FTP commands that the typical user would need to transfer files
 in and out of their console.
 
-OpenPS3FTP is built using libraries from the PSL1GHT SDK (commit 534e589).
+OpenPS3FTP is built using libraries from the PSL1GHT SDK.
 
 Big thanks to atreyu187 from PSX-SCENE for helping me test out this release.
 
@@ -40,6 +40,9 @@ the FTP connection log.
 Note to developers:
 Do what you like with the source code - however when releasing something that
 makes use of this source code, I would appreciate the attribution.
+
+With this version, it should be much easier to integrate into your program
+compared to v2.3 and older.
 
 Recommended Compilation Tools:
 -- scetool: github.com/naehrwert/scetool
