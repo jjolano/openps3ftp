@@ -44,7 +44,7 @@ makes use of this source code, I would appreciate the attribution.
 With this version, it should be much easier to integrate into your program
 compared to v2.3 and older.
 
-Recommended Compilation Tools:
+Required Compilation Tools:
 - scetool: github.com/naehrwert/scetool
 - make_gpkg: github.com/jjolano/make_gpkg
 - make_fself: github.com/jjolano/make_fself
