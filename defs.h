@@ -27,6 +27,6 @@
 #define DATA_EVENT_RECV	(POLLIN | POLLRDNORM)
 
 // Server defines
-#define CMDBUFFER		1024
+#define CMDBUFFER		4096
 #define LISTEN_BACKLOG	10
-#define DATA_BUFFER		16384
+#define DATA_BUFFER		65536

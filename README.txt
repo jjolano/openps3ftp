@@ -15,8 +15,8 @@ What makes OpenPS3FTP stand out from the rest?
 - Theoretically unlimited simultaneous transfers (depends on storage device)
 - Open Source
 - Greater stability when transferring multiple files
-- Supports all FTP clients
-- Ability to change file permissions (CHMOD)
+- Supports virtually all FTP clients
+- Ability to change file permissions (SITE CHMOD, used by FileZilla)
 - Supports transfer resuming
 =============================
 What build should I use?
@@ -45,10 +45,10 @@ With this version, it should be much easier to integrate into your program
 compared to v2.3 and older.
 
 Recommended Compilation Tools:
--- scetool: github.com/naehrwert/scetool
--- make_gpkg: github.com/jjolano/make_gpkg
--- make_fself: github.com/jjolano/make_fself
--- make_his: github.com/jjolano/make_his
+- scetool: github.com/naehrwert/scetool
+- make_gpkg: github.com/jjolano/make_gpkg
+- make_fself: github.com/jjolano/make_fself
+- make_his: github.com/jjolano/make_his
 
 =============================
 GitHub (v3.0+): https://github.com/jjolano/openps3ftp
@@ -61,4 +61,4 @@ Thank you for using OpenPS3FTP!
 
 John Olano (jjolano)
 Twitter: @jjolano
-Donations: http://bit.ly/gmzGcI
+Donations/Beer: http://bit.ly/gmzGcI

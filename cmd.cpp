@@ -110,119 +110,144 @@ vector<unsigned short> parsePORT(string args)
 	return vec;
 }
 
+void closedata(ftp_client* clnt)
+{
+	if(client_cvar[clnt].fd != -1)
+	{
+		if(client_cvar[clnt].type == DATA_TYPE_DIR)
+		{
+			sysLv2FsCloseDir(client_cvar[clnt].fd);
+		}
+		else
+		{
+			sysLv2FsClose(client_cvar[clnt].fd);
+			delete [] client_cvar[clnt].buffer;
+		}
+
+		client_cvar[clnt].fd = -1;
+	}
+
+	clnt->data_close();
+}
+
 void data_list(ftp_client* clnt)
 {
 	sysFSDirent entry;
 	u64 read;
 
-	if(sysLv2FsReadDir(client_cvar[clnt].fd, &entry, &read) == 0 && read > 0)
+	if(sysLv2FsReadDir(client_cvar[clnt].fd, &entry, &read) == -1)
 	{
-		string filename(entry.d_name);
+		// failed to read directory
+		clnt->control_sendCode(451, "Failed to read directory");
+		closedata(clnt);
+		return;
+	}
 
-		if(client_cvar[clnt].cwd == "/"
-		   && (filename == "app_home" || filename == "host_root"))
+	if(read <= 0)
+	{
+		// transfer complete
+		clnt->control_sendCode(226, "Transfer complete");
+		closedata(clnt);
+		return;
+	}
+
+	// folder-specific filter
+	if(client_cvar[clnt].cwd == "/")
+	{
+		if(strcmp(entry.d_name, "app_home") == 0
+		|| strcmp(entry.d_name, "host_root") == 0)
 		{
-			// skip app_home and host_root since they lock up
+			// these lock up directory listing when accessed
 			return;
 		}
-		
-		sysFSStat stat;
-		s32 ret = sysLv2FsStat(getAbsPath(client_cvar[clnt].cwd, filename).c_str(), &stat);
+	}
 
-		if(ret == -1)
-		{
-			// skip entry
-			return;
-		}
+	// obtain file information
+	sysFSStat stat;
+	s32 ret = sysLv2FsStat(getAbsPath(client_cvar[clnt].cwd, entry.d_name).c_str(), &stat);
 
-		ostringstream data_msg;
+	if(ret == -1)
+	{
+		// skip file that failed to access for whatever reason
+		return;
+	}
 
-		// file type
-		if(S_ISDIR(stat.st_mode))
-		{
-			data_msg << 'd';
-		}
-		else if(S_ISLNK(stat.st_mode))
-		{
-			data_msg << 'l';
-		}
-		else
-		{
-			data_msg << '-';
-		}
+	// prepare data message
+	ostringstream data_msg;
 
-		// permissions
-		data_msg << ((stat.st_mode & S_IRUSR) ? 'r' : '-');
-		data_msg << ((stat.st_mode & S_IWUSR) ? 'w' : '-');
-		data_msg << ((stat.st_mode & S_IXUSR) ? 'x' : '-');
-		data_msg << ((stat.st_mode & S_IRGRP) ? 'r' : '-');
-		data_msg << ((stat.st_mode & S_IWGRP) ? 'w' : '-');
-		data_msg << ((stat.st_mode & S_IXGRP) ? 'x' : '-');
-		data_msg << ((stat.st_mode & S_IROTH) ? 'r' : '-');
-		data_msg << ((stat.st_mode & S_IWOTH) ? 'w' : '-');
-		data_msg << ((stat.st_mode & S_IXOTH) ? 'x' : '-');
-		data_msg << ' ';
-
-		// inodes
-		data_msg << setw(3) << 1;
-		data_msg << ' ';
-
-		// userid
-		data_msg << left << setw(8) << stat.st_uid;
-		data_msg << ' ';
-
-		// groupid
-		data_msg << left << setw(8) << stat.st_gid;
-		data_msg << ' ';
-
-		// size
-		data_msg << setw(7) << stat.st_size;
-		data_msg << ' ';
-
-		// modified
-		char tstr[13];
-		time_t rawtime;
-		time(&rawtime);
-		tm* now = localtime(&rawtime);
-		tm* modified = localtime(&stat.st_mtime);
-
-		if(modified->tm_year < now->tm_year || (now->tm_mon - modified->tm_mon) >= 5)
-		{
-			strftime(tstr, 12, "%b %e  %Y", modified);
-		}
-		else
-		{
-			strftime(tstr, 12, "%b %e %H:%M", modified);
-		}
-
-		data_msg << tstr;
-		data_msg << ' ';
-
-		// filename
-		data_msg << filename;
-
-		// ending
-		data_msg << '\r';
-		data_msg << '\n';
-
-		// send to data socket
-		if(clnt->data_send(data_msg.str().c_str(), data_msg.tellp()) < 0)
-		{
-			clnt->control_sendCode(451, "Data transfer error");
-
-			sysLv2FsCloseDir(client_cvar[clnt].fd);
-			clnt->data_close();
-			client_cvar[clnt].fd = -1;
-		}
+	// file type
+	if(S_ISDIR(stat.st_mode))
+	{
+		data_msg << 'd';
+	}
+	else if(S_ISLNK(stat.st_mode))
+	{
+		data_msg << 'l';
 	}
 	else
 	{
-		// finished directory listing
-		clnt->control_sendCode(226, "Transfer complete");
-		
-		sysLv2FsCloseDir(client_cvar[clnt].fd);
-		clnt->data_close();
-		client_cvar[clnt].fd = -1;
+		data_msg << '-';
+	}
+
+	// permissions
+	data_msg << ((stat.st_mode & S_IRUSR) ? 'r' : '-');
+	data_msg << ((stat.st_mode & S_IWUSR) ? 'w' : '-');
+	data_msg << ((stat.st_mode & S_IXUSR) ? 'x' : '-');
+	data_msg << ((stat.st_mode & S_IRGRP) ? 'r' : '-');
+	data_msg << ((stat.st_mode & S_IWGRP) ? 'w' : '-');
+	data_msg << ((stat.st_mode & S_IXGRP) ? 'x' : '-');
+	data_msg << ((stat.st_mode & S_IROTH) ? 'r' : '-');
+	data_msg << ((stat.st_mode & S_IWOTH) ? 'w' : '-');
+	data_msg << ((stat.st_mode & S_IXOTH) ? 'x' : '-');
+	data_msg << ' ';
+
+	// inodes
+	data_msg << setw(3) << 1;
+	data_msg << ' ';
+
+	// userid
+	data_msg << left << setw(8) << stat.st_uid;
+	data_msg << ' ';
+
+	// groupid
+	data_msg << left << setw(8) << stat.st_gid;
+	data_msg << ' ';
+
+	// size
+	data_msg << setw(7) << stat.st_size;
+	data_msg << ' ';
+
+	// modified
+	char tstr[13];
+	time_t rawtime;
+	time(&rawtime);
+	tm* now = localtime(&rawtime);
+	tm* modified = localtime(&stat.st_mtime);
+
+	if(modified->tm_year < now->tm_year || (now->tm_mon - modified->tm_mon) >= 5)
+	{
+		strftime(tstr, 12, "%b %e  %Y", modified);
+	}
+	else
+	{
+		strftime(tstr, 12, "%b %e %H:%M", modified);
+	}
+
+	data_msg << tstr;
+	data_msg << ' ';
+
+	// filename
+	data_msg << entry.d_name;
+
+	// ending
+	data_msg << '\r';
+	data_msg << '\n';
+
+	// send to data socket
+	if(clnt->data_send(data_msg.str().c_str(), data_msg.tellp()) == -1)
+	{
+		clnt->control_sendCode(451, "Data transfer error");
+		closedata(clnt);
 	}
 }
 
@@ -231,99 +256,105 @@ void data_mlsd(ftp_client* clnt)
 	sysFSDirent entry;
 	u64 read;
 
-	if(sysLv2FsReadDir(client_cvar[clnt].fd, &entry, &read) == 0 && read > 0)
+	if(sysLv2FsReadDir(client_cvar[clnt].fd, &entry, &read) == -1)
 	{
-		string filename(entry.d_name);
+		// failed to read directory
+		clnt->control_sendCode(451, "Failed to read directory");
+		closedata(clnt);
+		return;
+	}
 
-		if(client_cvar[clnt].cwd == "/"
-		   && (filename == "app_home" || filename == "host_root"))
+	if(read <= 0)
+	{
+		// transfer complete
+		clnt->control_sendCode(226, "Transfer complete");
+		closedata(clnt);
+		return;
+	}
+
+	// folder-specific filter
+	if(client_cvar[clnt].cwd == "/")
+	{
+		if(strcmp(entry.d_name, "app_home") == 0
+		|| strcmp(entry.d_name, "host_root") == 0)
 		{
-			// skip app_home and host_root since they lock up
+			// these lock up directory listing when accessed
 			return;
 		}
+	}
 
-		sysFSStat stat;
-		s32 ret = sysLv2FsStat(getAbsPath(client_cvar[clnt].cwd, filename).c_str(), &stat);
+	// obtain file information
+	sysFSStat stat;
+	s32 ret = sysLv2FsStat(getAbsPath(client_cvar[clnt].cwd, entry.d_name).c_str(), &stat);
 
-		if(ret == -1)
-		{
-			return;
-		}
+	if(ret == -1)
+	{
+		// skip file that failed to access for whatever reason
+		return;
+	}
 
-		ostringstream data_msg;
+	// prepare data message
+	ostringstream data_msg;
 
-		// type
-		data_msg << "type=";
+	// type
+	data_msg << "type=";
 
-		if(filename == ".")
-		{
-			data_msg << "cdir";
-		}
-		else if(filename == "..")
-		{
-			data_msg << "pdir";
-		}
-		else if(S_ISDIR(stat.st_mode))
-		{
-			data_msg << "dir";
-		}
-		else
-		{
-			data_msg << "file";
-		}
-
-		data_msg << ';';
-
-		// size
-		data_msg << "siz" << (S_ISDIR(stat.st_mode) ? 'd' : 'e') << '=';
-		data_msg << ';';
-
-		// modified
-		char tstr[15];
-		strftime(tstr, 14, "%Y%m%d%H%M%S", localtime(&stat.st_mtime));
-
-		data_msg << "modify=";
-		data_msg << tstr;
-		data_msg << ';';
-
-		// permissions
-		data_msg << "UNIX.mode=0";
-		data_msg << ((stat.st_mode & S_IRWXU) >> 6);
-		data_msg << ((stat.st_mode & S_IRWXG) >> 3);
-		data_msg << (stat.st_mode & S_IRWXO);
-		data_msg << ';';
-
-		// userid
-		data_msg << "UNIX.uid=" << stat.st_uid << ';';
-
-		// groupid
-		data_msg << "UNIX.gid=" << stat.st_gid << ';';
-
-		// filename
-		data_msg << filename;
-
-		// ending
-		data_msg << '\r';
-		data_msg << '\n';
-
-		// send to data socket
-		if(clnt->data_send(data_msg.str().c_str(), data_msg.tellp()) < 0)
-		{
-			clnt->control_sendCode(451, "Data transfer error");
-
-			sysLv2FsCloseDir(client_cvar[clnt].fd);
-			clnt->data_close();
-			client_cvar[clnt].fd = -1;
-		}
+	if(strcmp(entry.d_name, ".") == 0)
+	{
+		data_msg << "cdir";
+	}
+	else if(strcmp(entry.d_name, "..") == 0)
+	{
+		data_msg << "pdir";
+	}
+	else if(S_ISDIR(stat.st_mode))
+	{
+		data_msg << "dir";
 	}
 	else
 	{
-		// finished directory listing
-		clnt->control_sendCode(226, "Transfer complete");
-		
-		sysLv2FsCloseDir(client_cvar[clnt].fd);
-		clnt->data_close();
-		client_cvar[clnt].fd = -1;
+		data_msg << "file";
+	}
+
+	data_msg << ';';
+
+	// size
+	data_msg << "siz" << (S_ISDIR(stat.st_mode) ? 'd' : 'e') << '=';
+	data_msg << ';';
+
+	// modified
+	char tstr[15];
+	strftime(tstr, 14, "%Y%m%d%H%M%S", localtime(&stat.st_mtime));
+
+	data_msg << "modify=";
+	data_msg << tstr;
+	data_msg << ';';
+
+	// permissions
+	data_msg << "UNIX.mode=0";
+	data_msg << ((stat.st_mode & S_IRWXU) >> 6);
+	data_msg << ((stat.st_mode & S_IRWXG) >> 3);
+	data_msg << (stat.st_mode & S_IRWXO);
+	data_msg << ';';
+
+	// userid
+	data_msg << "UNIX.uid=" << stat.st_uid << ';';
+
+	// groupid
+	data_msg << "UNIX.gid=" << stat.st_gid << ';';
+
+	// filename
+	data_msg << entry.d_name;
+
+	// ending
+	data_msg << '\r';
+	data_msg << '\n';
+
+	// send to data socket
+	if(clnt->data_send(data_msg.str().c_str(), data_msg.tellp()) == -1)
+	{
+		clnt->control_sendCode(451, "Data transfer error");
+		closedata(clnt);
 	}
 }
 
@@ -332,31 +363,33 @@ void data_nlst(ftp_client* clnt)
 	sysFSDirent entry;
 	u64 read;
 
-	if(sysLv2FsReadDir(client_cvar[clnt].fd, &entry, &read) == 0 && read > 0)
+	if(sysLv2FsReadDir(client_cvar[clnt].fd, &entry, &read) == -1)
 	{
-		// send to data socket
-		string data_str(entry.d_name);
-		
-		data_str += '\r';
-		data_str += '\n';
-		
-		if(clnt->data_send(data_str.c_str(), data_str.size()) < 0)
-		{
-			clnt->control_sendCode(451, "Data transfer error");
-
-			sysLv2FsCloseDir(client_cvar[clnt].fd);
-			clnt->data_close();
-			client_cvar[clnt].fd = -1;
-		}
+		// failed to read directory
+		clnt->control_sendCode(451, "Failed to read directory");
+		closedata(clnt);
+		return;
 	}
-	else
+
+	if(read <= 0)
 	{
-		// finished directory listing
+		// transfer complete
 		clnt->control_sendCode(226, "Transfer complete");
-		
-		sysLv2FsCloseDir(client_cvar[clnt].fd);
-		clnt->data_close();
-		client_cvar[clnt].fd = -1;
+		closedata(clnt);
+		return;
+	}
+
+	// prepare data message
+	string data_str(entry.d_name);
+
+	data_str += '\r';
+	data_str += '\n';
+
+	// send to data socket
+	if(clnt->data_send(data_str.c_str(), data_str.size()) == -1)
+	{
+		clnt->control_sendCode(451, "Data transfer error");
+		closedata(clnt);
 	}
 }
 
@@ -367,39 +400,28 @@ void data_stor(ftp_client* clnt)
 
 	read = clnt->data_recv(client_cvar[clnt].buffer, DATA_BUFFER);
 
-	if(read == -1)
-	{
-		clnt->control_sendCode(451, "Data receive error");
-
-		sysLv2FsClose(client_cvar[clnt].fd);
-		clnt->data_close();
-		client_cvar[clnt].fd = -1;
-		delete [] client_cvar[clnt].buffer;
-	}
-
 	if(read > 0)
 	{
 		// data available, write to disk
 		if(sysLv2FsWrite(client_cvar[clnt].fd, client_cvar[clnt].buffer, (u64)read, &written) == -1 || written < (u64)read)
 		{
 			// write error
-			clnt->control_sendCode(452, "Disk write error - maybe disk is full");
-
-			sysLv2FsClose(client_cvar[clnt].fd);
-			clnt->data_close();
-			client_cvar[clnt].fd = -1;
-			delete [] client_cvar[clnt].buffer;
+			clnt->control_sendCode(452, "Failed to write data to file");
+			closedata(clnt);
 		}
 	}
 	else
 	{
-		// finished file transfer
-		clnt->control_sendCode(226, "Transfer complete");
-		
-		sysLv2FsClose(client_cvar[clnt].fd);
-		clnt->data_close();
-		client_cvar[clnt].fd = -1;
-		delete [] client_cvar[clnt].buffer;
+		if(read == -1)
+		{
+			clnt->control_sendCode(451, "Error in data transmission");
+			closedata(clnt);
+		}
+		else
+		{
+			clnt->control_sendCode(226, "Transfer complete");
+			closedata(clnt);
+		}
 	}
 }
 
@@ -407,28 +429,24 @@ void data_retr(ftp_client* clnt)
 {
 	u64 read;
 
-	if(sysLv2FsRead(client_cvar[clnt].fd, client_cvar[clnt].buffer, DATA_BUFFER, &read) == 0 && read > 0)
+	if(sysLv2FsRead(client_cvar[clnt].fd, client_cvar[clnt].buffer, DATA_BUFFER, &read) == -1)
 	{
-		if((u64)clnt->data_send(client_cvar[clnt].buffer, (int)read) < read)
-		{
-			// send error
-			clnt->control_sendCode(451, "Socket send error");
-			
-			sysLv2FsClose(client_cvar[clnt].fd);
-			clnt->data_close();
-			client_cvar[clnt].fd = -1;
-			delete [] client_cvar[clnt].buffer;
-		}
+		clnt->control_sendCode(452, "Failed to read data from file");
+		closedata(clnt);
+		return;
 	}
-	else
+
+	if(read <= 0)
 	{
-		// finished file transfer
 		clnt->control_sendCode(226, "Transfer complete");
-		
-		sysLv2FsClose(client_cvar[clnt].fd);
-		clnt->data_close();
-		client_cvar[clnt].fd = -1;
-		delete [] client_cvar[clnt].buffer;
+		closedata(clnt);
+		return;
+	}
+
+	if((u64)clnt->data_send(client_cvar[clnt].buffer, (int)read) < read)
+	{
+		clnt->control_sendCode(451, "Error in data transmission");
+		closedata(clnt);
 	}
 }
 
@@ -543,8 +561,10 @@ void cmd_pass(ftp_client* clnt, string cmd, string args)
 	if(args.empty())
 	{
 		clnt->control_sendCode(501, "No password specified");
+		return;
 	}
 
+	client_cvar[clnt].cmd = "";
 	client_cvar[clnt].authorized = true;
 	clnt->control_sendCode(230, "Successfully logged in");
 }
@@ -649,7 +669,7 @@ void cmd_pasv(ftp_client* clnt, string cmd, string args)
 		return;
 	}
 	
-	clnt->data_close();
+	closedata(clnt);
 
 	sockaddr_in sa;
 	socklen_t len = sizeof(sa);
@@ -666,6 +686,7 @@ void cmd_pasv(ftp_client* clnt, string cmd, string args)
 		clnt->sock_pasv = -1;
 
 		clnt->control_sendCode(425, "Cannot open data connection");
+		return;
 	}
 
 	listen(clnt->sock_pasv, 1);
@@ -710,7 +731,7 @@ void cmd_port(ftp_client* clnt, string cmd, string args)
 		return;
 	}
 
-	clnt->data_close();
+	closedata(clnt);
 
 	sockaddr_in sa;
 	sa.sin_family = AF_INET;
@@ -728,7 +749,7 @@ void cmd_port(ftp_client* clnt, string cmd, string args)
 		closesocket(clnt->sock_data);
 		clnt->sock_data = -1;
 
-		clnt->control_sendCode(425, "Cannot open data connection");
+		clnt->control_sendCode(434, "Cannot connect to host");
 	}
 	else
 	{
@@ -747,24 +768,8 @@ void cmd_abor(ftp_client* clnt, string cmd, string args)
 		return;
 	}
 
-	if(client_cvar[clnt].fd != -1)
-	{
-		if(client_cvar[clnt].type == DATA_TYPE_DIR)
-		{
-			// close directory fd
-			sysLv2FsCloseDir(client_cvar[clnt].fd);
-		}
-		else
-		{
-			// close file fd
-			sysLv2FsClose(client_cvar[clnt].fd);
-			delete [] client_cvar[clnt].buffer;
-		}
-	}
-
-	clnt->data_close();
-
 	clnt->control_sendCode(226, "ABOR command successful");
+	closedata(clnt);
 }
 
 void cmd_list(ftp_client* clnt, string cmd, string args)
@@ -1153,6 +1158,8 @@ void cmd_rnto(ftp_client* clnt, string cmd, string args)
 		return;
 	}
 
+	client_cvar[clnt].cmd = "";
+
 	string path = getAbsPath(client_cvar[clnt].cwd, args);
 
 	if(sysLv2FsRename(client_cvar[clnt].rnfr.c_str(), path.c_str()) == 0)
@@ -1330,20 +1337,6 @@ void register_cmds()
 
 void event_client_drop(ftp_client* clnt)
 {
-	if(client_cvar[clnt].fd != -1)
-	{
-		if(client_cvar[clnt].type == DATA_TYPE_DIR)
-		{
-			// close directory fd
-			sysLv2FsCloseDir(client_cvar[clnt].fd);
-		}
-		else
-		{
-			// close file fd
-			sysLv2FsClose(client_cvar[clnt].fd);
-			delete [] client_cvar[clnt].buffer;
-		}
-	}
-
+	closedata(clnt);
 	client_cvar.erase(clnt);
 }
