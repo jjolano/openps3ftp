@@ -47,7 +47,6 @@ void ftpTerminate()
 	for(ftp_clnts::iterator cit = client.begin(); cit != client.end(); cit++)
 	{
 		event_client_drop(&(cit->second));
-		(cit->second).data_close();
 	}
 
 	for(ftp_socks::iterator it = pfd.begin(); it != pfd.end(); it++)
@@ -212,6 +211,8 @@ void ftpInitialize(void* arg)
 		sysThreadExit(0x1337CAFE);
 	}
 
+	memset(data, 0, CMDBUFFER);
+
 	// Add server to poll
 	pollfd listen_pfd;
 	listen_pfd.fd = sock_listen;
@@ -296,36 +297,41 @@ void ftpInitialize(void* arg)
 			}
 
 			// get client info
-			ftp_clnts::iterator it;
+			ftp_drefs::iterator it;
 			ftp_client* clnt;
 
-			it = client.find(sock_fd);
+			it = datarefs.find(sock_fd);
 
-			if(it != client.end())
+			if(it != datarefs.end())
 			{
-				clnt = &(it->second);
+				clnt = &(client[it->second]);
 			}
 			else
 			{
-				clnt = &(client[datarefs[sock_fd]]);
+				clnt = &(client[sock_fd]);
 			}
 
 			// Disconnect event
 			if((pfd[i].revents & (POLLNVAL|POLLHUP|POLLERR)))
 			{
-				if(it != client.end())
+				if(it == datarefs.end())
 				{
 					// client dropped
 					event_client_drop(clnt);
 					closesocket(sock_fd);
-					clnt->data_close();
 					
 					client.erase(sock_fd);
 					pfd.erase(pfd.begin() + i);
 				}
 				else
 				{
-					clnt->data_close();
+					// data connection
+					datafunc.erase(clnt->sock_data);
+					datarefs.erase(clnt->sock_data);
+					closesocket(clnt->sock_data);
+					clnt->sock_data = -1;
+
+					pfd.erase(pfd.begin() + i);
 				}
 
 				nfds--;
@@ -343,7 +349,7 @@ void ftpInitialize(void* arg)
 			// Receiving data event
 			if(pfd[i].revents & DATA_EVENT_RECV)
 			{
-				if(it != client.end())
+				if(it == datarefs.end())
 				{
 					// Control socket
 					int bytes = recv(sock_fd, data, CMDBUFFER - 1, 0);
@@ -353,7 +359,6 @@ void ftpInitialize(void* arg)
 						// invalid, drop client
 						event_client_drop(clnt);
 						closesocket(sock_fd);
-						clnt->data_close();
 						
 						client.erase(sock_fd);
 						pfd.erase(pfd.begin() + i);

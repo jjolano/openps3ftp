@@ -81,7 +81,8 @@ string getAbsPath(string cwd, string nd)
 
 bool fileExists(string path)
 {
-	return (sysLv2FsStat(path.c_str(), NULL) == 0);
+	sysFSStat stat;
+	return (sysLv2FsStat(path.c_str(), &stat) == 0);
 }
 
 bool isDirectory(string path)
