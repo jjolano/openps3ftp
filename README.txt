@@ -7,7 +7,9 @@ in and out of their console.
 
 OpenPS3FTP is built using libraries from the PSL1GHT SDK.
 
-Big thanks to atreyu187 from PSX-SCENE for helping me test out this release.
+Testers (thank you!):
+- atreyu187
+- coldlm
 
 =============================
 What makes OpenPS3FTP stand out from the rest?
