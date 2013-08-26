@@ -33,7 +33,7 @@ Implemented error codes (shouldn't happen under typical use anyway):
 0x1337CAFE - Failed to allocate required memory block.
 
 Any other error code is unknown and should be reported to me. Please include
-the FTP connection log.
+the FTP connection log, if possible.
 
 Note to developers:
 Do what you like with the source code - however when releasing something that
