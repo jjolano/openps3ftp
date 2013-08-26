@@ -45,11 +45,6 @@ map<ftp_client*,ftp_cvars> client_cvar;
 
 bool isClientAuthorized(ftp_client* clnt)
 {
-	if(clnt == NULL)
-	{
-		return false;
-	}
-
 	map<ftp_client*,ftp_cvars>::iterator it = client_cvar.find(clnt);
 	return (it != client_cvar.end() ? (it->second).authorized : false);
 }
@@ -164,8 +159,10 @@ void data_list(ftp_client* clnt)
 	}
 
 	// obtain file information
+	string path = getAbsPath(client_cvar[clnt].cwd, entry.d_name);
+
 	sysFSStat stat;
-	s32 ret = sysLv2FsStat(getAbsPath(client_cvar[clnt].cwd, entry.d_name).c_str(), &stat);
+	s32 ret = sysLv2FsStat(path.c_str(), &stat);
 
 	if(ret == -1)
 	{
@@ -236,113 +233,6 @@ void data_list(ftp_client* clnt)
 
 	data_msg << tstr;
 	data_msg << ' ';
-
-	// filename
-	data_msg << entry.d_name;
-
-	// ending
-	data_msg << '\r';
-	data_msg << '\n';
-
-	// send to data socket
-	if(clnt->data_send(data_msg.str().c_str(), data_msg.tellp()) == -1)
-	{
-		clnt->control_sendCode(451, "Data transfer error");
-		closedata(clnt);
-	}
-}
-
-void data_mlsd(ftp_client* clnt)
-{
-	sysFSDirent entry;
-	u64 read;
-
-	if(sysLv2FsReadDir(client_cvar[clnt].fd, &entry, &read) == -1)
-	{
-		// failed to read directory
-		clnt->control_sendCode(451, "Failed to read directory");
-		closedata(clnt);
-		return;
-	}
-
-	if(read <= 0)
-	{
-		// transfer complete
-		clnt->control_sendCode(226, "Transfer complete");
-		closedata(clnt);
-		return;
-	}
-
-	// folder-specific filter
-	if(client_cvar[clnt].cwd == "/")
-	{
-		if(strcmp(entry.d_name, "app_home") == 0
-		|| strcmp(entry.d_name, "host_root") == 0)
-		{
-			// these lock up directory listing when accessed
-			return;
-		}
-	}
-
-	// obtain file information
-	sysFSStat stat;
-	s32 ret = sysLv2FsStat(getAbsPath(client_cvar[clnt].cwd, entry.d_name).c_str(), &stat);
-
-	if(ret == -1)
-	{
-		// skip file that failed to access for whatever reason
-		return;
-	}
-
-	// prepare data message
-	ostringstream data_msg;
-
-	// type
-	data_msg << "type=";
-
-	if(strcmp(entry.d_name, ".") == 0)
-	{
-		data_msg << "cdir";
-	}
-	else if(strcmp(entry.d_name, "..") == 0)
-	{
-		data_msg << "pdir";
-	}
-	else if(S_ISDIR(stat.st_mode))
-	{
-		data_msg << "dir";
-	}
-	else
-	{
-		data_msg << "file";
-	}
-
-	data_msg << ';';
-
-	// size
-	data_msg << "siz" << (S_ISDIR(stat.st_mode) ? 'd' : 'e') << '=';
-	data_msg << ';';
-
-	// modified
-	char tstr[15];
-	strftime(tstr, 14, "%Y%m%d%H%M%S", localtime(&stat.st_mtime));
-
-	data_msg << "modify=";
-	data_msg << tstr;
-	data_msg << ';';
-
-	// permissions
-	data_msg << "UNIX.mode=0";
-	data_msg << ((stat.st_mode & S_IRWXU) >> 6);
-	data_msg << ((stat.st_mode & S_IRWXG) >> 3);
-	data_msg << (stat.st_mode & S_IRWXO);
-	data_msg << ';';
-
-	// userid
-	data_msg << "UNIX.uid=" << stat.st_uid << ';';
-
-	// groupid
-	data_msg << "UNIX.gid=" << stat.st_gid << ';';
 
 	// filename
 	data_msg << entry.d_name;
@@ -503,8 +393,6 @@ void cmd_feat(ftp_client* clnt, string cmd, string args)
 	feat.push_back("REST STREAM");
 	feat.push_back("PASV");
 	feat.push_back("MDTM");
-	feat.push_back("MLST type*;size*;sizd*;modify*;UNIX.mode*;UNIX.uid*;UNIX.gid*;");
-	feat.push_back("MLSD");
 	feat.push_back("SIZE");
 
 	clnt->control_sendCode(211, "Features:", true);
@@ -532,14 +420,10 @@ void cmd_user(ftp_client* clnt, string cmd, string args)
 		return;
 	}
 
-	ftp_cvars cvars = {};
-	
-	cvars.authorized = false;
-	cvars.cmd = "USER";
-	cvars.fd = -1;
-	cvars.cwd = "/";
-
-	client_cvar[clnt] = cvars;
+	client_cvar[clnt].authorized = false;
+	client_cvar[clnt].cmd = "USER";
+	client_cvar[clnt].fd = -1;
+	client_cvar[clnt].cwd = "/";
 
 	clnt->control_sendCode(331, "Username " + args + " OK. Password required");
 }
@@ -553,9 +437,10 @@ void cmd_pass(ftp_client* clnt, string cmd, string args)
 		return;
 	}
 
-	if(client_cvar[clnt].cmd != "USER")
+	if(client_cvar.find(clnt) == client_cvar.end()
+	|| client_cvar[clnt].cmd != "USER")
 	{
-		clnt->control_sendCode(503, "Bad command sequence");
+		clnt->control_sendCode(503, "Login with USER first");
 		return;
 	}
 
@@ -565,8 +450,9 @@ void cmd_pass(ftp_client* clnt, string cmd, string args)
 		return;
 	}
 
-	client_cvar[clnt].cmd = "";
+	client_cvar[clnt].cmd.clear();
 	client_cvar[clnt].authorized = true;
+	
 	clnt->control_sendCode(230, "Successfully logged in");
 }
 
@@ -802,43 +688,8 @@ void cmd_list(ftp_client* clnt, string cmd, string args)
 		client_cvar[clnt].type = DATA_TYPE_DIR;
 
 		clnt->control_sendCode(150, "Accepted data connection");
-	}
-	else
-	{
-		sysLv2FsCloseDir(fd);
-		clnt->control_sendCode(425, "Cannot open data connection");
-	}
-}
 
-void cmd_mlsd(ftp_client* clnt, string cmd, string args)
-{
-	if(!isClientAuthorized(clnt))
-	{
-		clnt->control_sendCode(530, "Not logged in");
-		return;
-	}
-
-	if(client_cvar[clnt].fd != -1)
-	{
-		clnt->control_sendCode(450, "Transfer already in progress");
-		return;
-	}
-
-	s32 fd;
-	if(sysLv2FsOpenDir(client_cvar[clnt].cwd.c_str(), &fd) == -1)
-	{
-		// cannot open
-		clnt->control_sendCode(550, "Cannot access directory");
-		return;
-	}
-
-	// open data connection
-	if(clnt->data_open(data_mlsd, DATA_EVENT_SEND))
-	{
-		client_cvar[clnt].fd = fd;
-		client_cvar[clnt].type = DATA_TYPE_DIR;
-
-		clnt->control_sendCode(150, "Accepted data connection");
+		data_list(clnt);
 	}
 	else
 	{
@@ -876,6 +727,8 @@ void cmd_nlst(ftp_client* clnt, string cmd, string args)
 		client_cvar[clnt].type = DATA_TYPE_DIR;
 
 		clnt->control_sendCode(150, "Accepted data connection");
+
+		data_nlst(clnt);
 	}
 	else
 	{
@@ -948,6 +801,8 @@ void cmd_stor(ftp_client* clnt, string cmd, string args)
 		client_cvar[clnt].type = DATA_TYPE_FILE;
 
 		clnt->control_sendCode(150, "Accepted data connection");
+
+		data_stor(clnt);
 	}
 	else
 	{
@@ -1016,6 +871,8 @@ void cmd_retr(ftp_client* clnt, string cmd, string args)
 		client_cvar[clnt].type = DATA_TYPE_FILE;
 
 		clnt->control_sendCode(150, "Accepted data connection");
+
+		data_retr(clnt);
 	}
 	else
 	{
@@ -1155,11 +1012,11 @@ void cmd_rnto(ftp_client* clnt, string cmd, string args)
 
 	if(client_cvar[clnt].cmd != "RNFR")
 	{
-		clnt->control_sendCode(503, "Bad command sequence");
+		clnt->control_sendCode(503, "Use RNFR first");
 		return;
 	}
 
-	client_cvar[clnt].cmd = "";
+	client_cvar[clnt].cmd.clear();
 
 	string path = getAbsPath(client_cvar[clnt].cwd, args);
 
@@ -1320,7 +1177,6 @@ void register_cmds()
 	register_cmd("PORT", cmd_port);
 	register_cmd("ABOR", cmd_abor);
 	register_cmd("LIST", cmd_list);
-	register_cmd("MLSD", cmd_mlsd);
 	register_cmd("NLST", cmd_nlst);
 	register_cmd("STOR", cmd_stor);
 	register_cmd("APPE", cmd_stor);

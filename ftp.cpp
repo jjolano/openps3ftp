@@ -26,7 +26,7 @@
 
 using namespace std;
 
-typedef map<int,int> ftp_drefs;
+typedef map<int,ftp_client*> ftp_drefs;
 typedef map<string,cmdhnd> ftp_chnds;
 typedef map<int,void (*)(ftp_client* clnt)> ftp_dhnds;
 typedef map<int,ftp_client> ftp_clnts;
@@ -132,7 +132,7 @@ bool ftp_client::data_open(void (*handler)(ftp_client* clnt), short events)
 	pfd.push_back(data_pfd);
 
 	// reference
-	datarefs[sock_data] = sock_control;
+	datarefs[sock_data] = this;
 	datafunc[sock_data] = handler;
 	return true;
 }
@@ -234,7 +234,8 @@ void ftpInitialize(void* arg)
 		}
 
 		// Loop if poll > 0
-		for(u16 i = 0; (p > 0 && i < nfds); i++)
+		u16 i;
+		for(i = 0; (p > 0 && i < nfds); i++)
 		{
 			if(pfd[i].revents == 0)
 			{
@@ -276,21 +277,11 @@ void ftpInitialize(void* arg)
 				}
 				else
 				{
-					// error on listener socket, attempt to reestablish
-					closesocket(sock_listen);
-					
-					sock_listen = socket(PF_INET, SOCK_STREAM, 0);
-
-					if(bind(sock_listen, (struct sockaddr*)&myaddr, sizeof myaddr) == -1)
-					{
-						GFX->AppExit();
-						closesocket(sock_listen);
-						sysThreadExit(0x1337BEEF);
-					}
-
-					listen(sock_listen, LISTEN_BACKLOG);
-
-					pfd[i].fd = sock_listen;
+					// server fail
+					GFX->AppExit();
+					delete [] data;
+					ftpTerminate();
+					sysThreadExit(0x1337DEAD);
 				}
 
 				continue;
@@ -304,7 +295,7 @@ void ftpInitialize(void* arg)
 
 			if(it != datarefs.end())
 			{
-				clnt = &(client[it->second]);
+				clnt = it->second;
 			}
 			else
 			{

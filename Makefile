@@ -66,7 +66,7 @@ include $(PSL1GHT)/ppu_rules
 # Libraries
 #
 LIBPATHS	:= -L$(PORTLIBS)/lib $(LIBPSL1GHT_LIB)
-LIBS		:= -lNoRSX -lgcm_sys -lrsx -lsysutil -lnetctl -lnet -lio -lfreetype -lz -lrt -llv2 -lsysmodule
+LIBS		:= -lNoRSX -lgcm_sys -lrsx -lsysutil -lnetctl -lnet -lio -lsysfs -lrt -llv2 -lfreetype -lz -lsysmodule
 
 # Includes
 #

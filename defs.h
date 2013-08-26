@@ -17,7 +17,7 @@
 #define DB_MOUNT_S		"dev_blind mounted at " DB_MOUNTPOINT "."
 #define DB_UNMOUNT_S	"dev_blind was successfully unmounted."
 
-#define CREDITS			APP_NAME " version " APP_VERSION " by " APP_AUTHOR "\nAcknowledgements:\n- atreyu187\n- coldlm\n- @ooPo\n- @NeoSabin\n- @GregoryRasputin\n- deroad (@Wargio)\n\nAnd of course, thank *you* for using " APP_NAME "."
+#define CREDITS			APP_NAME " version " APP_VERSION " by " APP_AUTHOR "\nAcknowledgements:\n- atreyu187\n- coldlm\n- @MastaChaOS\n- @ooPo\n- @NeoSabin\n- @GregoryRasputin\n- deroad (@Wargio)\n\nAnd of course, thank *you* for using " APP_NAME "."
 
 // Server types
 #define DATA_TYPE_DIR	1
@@ -30,3 +30,25 @@
 #define CMDBUFFER		4096
 #define LISTEN_BACKLOG	10
 #define DATA_BUFFER		65536
+
+// Possible disk IO performance boost using sysfs
+// I haven't had any luck with this since v2.2, as it *still* crashes the system
+// upon usage. I don't know why it's not solved in PSL1GHT.
+//#define _USE_SYSFS_
+
+#ifdef _USE_SYSFS_
+#define sysLv2FsStat					sysFsStat
+#define sysLv2FsCloseDir				sysFsClosedir
+#define sysLv2FsClose					sysFsClose
+#define sysLv2FsReadDir					sysFsReaddir
+#define sysLv2FsWrite					sysFsWrite
+#define sysLv2FsRead					sysFsRead
+#define sysLv2FsRmdir					sysFsRmdir
+#define sysLv2FsMkdir					sysFsMkdir
+#define sysLv2FsOpenDir					sysFsOpendir
+#define sysLv2FsOpen(a,b,c,d,e,f)		sysFsOpen(a,b,c,e,f)
+#define sysLv2FsLSeek64(a,b,c,d)		sysFsLseek(a,(s64)b,c,d)
+#define sysLv2FsFStat					sysFsFstat
+#define sysLv2FsUnlink					sysFsUnlink
+#define sysLv2FsChmod					sysFsChmod
+#endif
