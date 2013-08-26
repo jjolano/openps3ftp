@@ -1,13 +1,13 @@
-[Version 3.0 - August 23, 2013]
-- Interface now uses PS3 internal fonts
-- Interface should now support all screen resolutions equally
+[Version 3.0 - August 27, 2013]
+- Total rewrite of the whole server structure and interface
+- Interface now uses PS3 internal fonts and should be more dynamic
 - dev_blind functionality integrated, can be activated by pressing SELECT
-- Server now single-threaded, as a result better stability
+- Server now single-threaded, as a result better IO stability
 - Performance should now be at full potential of the hardware
-- Directory listing outputs have been perfected, as a result all FTP clients should now be supported
-- Source code available on Beerware license, see README for more info
-- Removed login detail requirement: you can login with any combination
-- Added Remote Play flag for PSVita
+- LIST command formatting more dynamic, should support more FTP clients
+- Source code available on Beerware license, see README.txt for more info
+- Removed login detail requirement - you can login with any combination
+- Added Remote Play flag for PS Vita (untested)
 - Now includes DEX (unsigned) build
 - Now includes REX (new-keyrev) build
 

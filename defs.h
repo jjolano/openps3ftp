@@ -32,9 +32,10 @@
 #define DATA_BUFFER		65536
 
 // Possible disk IO performance boost using sysfs
-// I haven't had any luck with this since v2.2, as it *still* crashes the system
-// upon usage. I don't know why it's not solved in PSL1GHT.
-//#define _USE_SYSFS_
+// I've had trouble with sysfs since v2.2, so someone can recompile with/without
+// sysfs by changing the option below.
+
+#define _USE_SYSFS_
 
 #ifdef _USE_SYSFS_
 #define sysLv2FsStat					sysFsStat

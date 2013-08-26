@@ -266,14 +266,12 @@ void ftpInitialize(void* arg)
 					pfd.push_back(new_pfd);
 
 					// add to clients
-					ftp_client clnt;
-					clnt.sock_control = nfd;
-					clnt.sock_data = -1;
-					clnt.sock_pasv = -1;
-					client[nfd] = clnt;
+					client[nfd].sock_control = nfd;
+					client[nfd].sock_data = -1;
+					client[nfd].sock_pasv = -1;
 
 					// welcome
-					clnt.control_sendCode(220, APP_NAME " version " APP_VERSION " by " APP_AUTHOR, false);
+					client[nfd].control_sendCode(220, APP_NAME " version " APP_VERSION " by " APP_AUTHOR, false);
 				}
 				else
 				{

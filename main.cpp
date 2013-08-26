@@ -15,6 +15,7 @@
 #include <io/pad.h>
 #include <sys/thread.h>
 #include <sys/file.h>
+#include <sysmodule/sysmodule.h>
 
 #include "defs.h"
 
@@ -56,6 +57,10 @@ int main(s32 argc, char* argv[])
 
 		netCtlGetState(&state);
 	}
+
+	// Initialize sysmodules
+	sysModuleLoad(SYSMODULE_FS);
+	sysModuleLoad(SYSMODULE_MUSIC2); // for in-game background music?
 
 	// Set application running state
 	GFX->AppStart();
@@ -166,6 +171,10 @@ int main(s32 argc, char* argv[])
 	// Unload networking
 	netCtlTerm();
 	netDeinitialize();
+
+	// Unload sysmodules
+	sysModuleUnload(SYSMODULE_FS);
+	sysModuleUnload(SYSMODULE_MUSIC2);
 
 	// Parse thread return value if application is not exiting
 	if(!GFX->ExitSignalStatus() && retval > 0)
