@@ -170,6 +170,13 @@ int main(s32 argc, char* argv[])
 				
 				draw = false;
 			}
+			else
+			{
+				sysUtilCheckCallback();
+				flip(GFX->context, x);
+				waitFlip();
+				x = !x;
+			}
 		}
 		else
 		{
