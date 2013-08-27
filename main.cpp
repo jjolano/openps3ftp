@@ -92,7 +92,7 @@ int main(s32 argc, char* argv[])
 	F1.PrintfToBitmap(65, 425, &PCL, COLOR_WHITE, "L1: Credits/Acknowledgements");
 
 	int x = 0;
-	bool draw = true;
+	int draw = 2;
 
 	// Main thread loop
 	while(GFX->GetAppStatus())
@@ -163,29 +163,29 @@ int main(s32 argc, char* argv[])
 			}
 
 			// Draw frame
-			if(draw == true)
+			if(draw > 0)
 			{
 				BMap.DrawBitmap(&PCL);
 				GFX->Flip();
 				
-				draw = false;
+				draw--;
 			}
 			else
 			{
-				sysUtilCheckCallback();
-				flip(GFX->context, x);
 				waitFlip();
+				flip(GFX->context, x);
+				sysUtilCheckCallback();
 				x = !x;
 			}
 		}
 		else
 		{
-			sysUtilCheckCallback();
-			flip(GFX->context, x);
 			waitFlip();
+			flip(GFX->context, x);
+			sysUtilCheckCallback();
 			x = !x;
 
-			draw = true;
+			draw = 2;
 		}
 	}
 
