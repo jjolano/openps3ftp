@@ -432,6 +432,12 @@ void cmd_cwd(ftp_client* clnt, string cmd, string args)
 		clnt->control_sendCode(530, "Not logged in");
 		return;
 	}
+
+	if(args.empty())
+	{
+		clnt->control_sendCode(250, "Current directory unchanged");
+		return;
+	}
 	
 	string path = getAbsPath(client_cvar[clnt].cwd, args);
 
@@ -464,6 +470,12 @@ void cmd_mkd(ftp_client* clnt, string cmd, string args)
 		clnt->control_sendCode(530, "Not logged in");
 		return;
 	}
+
+	if(args.empty())
+	{
+		clnt->control_sendCode(501, "No directory name specified");
+		return;
+	}
 	
 	string path = getAbsPath(client_cvar[clnt].cwd, args);
 
@@ -482,6 +494,12 @@ void cmd_rmd(ftp_client* clnt, string cmd, string args)
 	if(!isClientAuthorized(clnt))
 	{
 		clnt->control_sendCode(530, "Not logged in");
+		return;
+	}
+
+	if(args.empty())
+	{
+		clnt->control_sendCode(501, "No directory name specified");
 		return;
 	}
 	
@@ -902,14 +920,25 @@ void cmd_rest(ftp_client* clnt, string cmd, string args)
 		clnt->control_sendCode(530, "Not logged in");
 		return;
 	}
-	
-	// C++11
-	client_cvar[clnt].rest = strtoull(args.c_str(), NULL, 10);
 
-	if(client_cvar[clnt].rest >= 0)
+	if(args.empty())
 	{
 		ostringstream out;
 		out << client_cvar[clnt].rest;
+
+		clnt->control_sendCode(350, "Current restart point: " + out.str());
+		return;
+	}
+
+	// C++11
+	s64 rest = atoll(args.c_str());
+	
+	if(rest >= 0)
+	{
+		client_cvar[clnt].rest = rest;
+
+		ostringstream out;
+		out << rest;
 
 		clnt->control_sendCode(350, "Restarting at " + out.str());
 	}

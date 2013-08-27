@@ -79,9 +79,9 @@ OFILES		:= $(addsuffix .o, $(basename $(CPPFILES)))
 
 # Define compilation options
 #
-CFLAGS		= -O2 -Wall -mcpu=cell $(MACHDEP) $(INCLUDE)
+CFLAGS		= -O2 -Wextra -mcpu=cell $(MACHDEP) $(INCLUDE)
 CXXFLAGS	= $(CFLAGS)
-LDFLAGS		= $(MACHDEP)
+LDFLAGS		= $(MACHDEP) -s
 
 ifeq ($(strip $(CPPFILES)),)
 	LD	:= $(CC)
@@ -151,7 +151,6 @@ pkg-rex		: eboot-ns
 $(TARGET).elf	: $(OFILES)
 		  $(VERB) echo linking $@ ...
 		  $(VERB) $(LD) $^ $(LDFLAGS) $(LIBPATHS) $(LIBS) -o $@
-		  $(VERB) $(STRIP) $@
 		  $(VERB) $(SPRX) $@
 
 %.o		: %.cpp
