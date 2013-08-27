@@ -24,7 +24,6 @@ Thus, you will have to install the build that is suitable for your firmware.
 
 - If you are on firmware 3.55 or older, use the CEX (pkg-cex) build.
 - If you are on firmware 3.60 or newer, use the REX (pkg-rex) build.
--- Rebug users may have to install in DEX mode.
 - If you are on a true DEX firmware, use the DEX (pkg-dex) build.
 =============================
 
