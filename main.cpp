@@ -91,75 +91,95 @@ int main(s32 argc, char* argv[])
 	F1.PrintfToBitmap(65, 375, &PCL, COLOR_WHITE, "START: Exit " APP_NAME);
 	F1.PrintfToBitmap(65, 425, &PCL, COLOR_WHITE, "L1: Credits/Acknowledgements");
 
-	// Pad IO variables
-	padInfo padinfo;
-	padData paddata;
+	int x = 0;
+	bool draw = true;
 
 	// Main thread loop
 	while(GFX->GetAppStatus())
 	{
-		// Get Pad Status
-		ioPadGetInfo(&padinfo);
-
-		// Handle only for first pad
-		if(padinfo.status[0])
+		if(GFX->GetXMBStatus() == XMB_CLOSE)
 		{
-			ioPadGetData(0, &paddata);
+			// Pad IO variables
+			padInfo padinfo;
+			padData paddata;
+			
+			// Get Pad Status
+			ioPadGetInfo(&padinfo);
 
-			if(paddata.BTN_START)
+			// Handle only for first pad
+			if(padinfo.status[0])
 			{
-				// Exit application
-				GFX->AppExit();
-				break;
-			}
+				ioPadGetData(0, &paddata);
 
-			if(paddata.BTN_L1)
-			{
-				// Credits
-				MSG.Dialog(MSG_OK, CREDITS);
-			}
-
-			if(paddata.BTN_SELECT)
-			{
-				// dev_blind stuff
-				sysFSStat stat;
-				if(sysLv2FsStat(DB_MOUNTPOINT, &stat) == 0)
+				if(paddata.BTN_START)
 				{
-					// dev_blind exists - ask to unmount
-					MSG.Dialog(MSG_YESNO, DB_UNMOUNT_Q);
+					// Exit application
+					GFX->AppExit();
+					break;
+				}
 
-					if(MSG.GetResponse(MSG_DIALOG_BTN_YES) == 1)
+				if(paddata.BTN_L1)
+				{
+					// Credits
+					MSG.Dialog(MSG_OK, CREDITS);
+				}
+
+				if(paddata.BTN_SELECT)
+				{
+					// dev_blind stuff
+					sysFSStat stat;
+					if(sysLv2FsStat(DB_MOUNTPOINT, &stat) == 0)
 					{
-						// syscall unmount
-						lv2syscall1(838, (u64)DB_MOUNTPOINT);
+						// dev_blind exists - ask to unmount
+						MSG.Dialog(MSG_YESNO, DB_UNMOUNT_Q);
 
-						// display success
-						MSG.Dialog(MSG_OK, DB_UNMOUNT_S);
+						if(MSG.GetResponse(MSG_DIALOG_BTN_YES) == 1)
+						{
+							// syscall unmount
+							lv2syscall1(838, (u64)DB_MOUNTPOINT);
+
+							// display success
+							MSG.Dialog(MSG_OK, DB_UNMOUNT_S);
+						}
+					}
+					else
+					{
+						// dev_blind does not exist - ask to mount
+						MSG.Dialog(MSG_YESNO, DB_MOUNT_Q);
+
+						if(MSG.GetResponse(MSG_DIALOG_BTN_YES) == 1)
+						{
+							// syscall mount
+							lv2syscall8(837, (u64)"CELL_FS_IOS:BUILTIN_FLSH1",
+										(u64)"CELL_FS_FAT",
+										(u64)DB_MOUNTPOINT,
+										0, 0 /* readonly */, 0, 0, 0);
+
+							// display success with info
+							MSG.Dialog(MSG_OK, DB_MOUNT_S);
+						}
 					}
 				}
-				else
-				{
-					// dev_blind does not exist - ask to mount
-					MSG.Dialog(MSG_YESNO, DB_MOUNT_Q);
+			}
 
-					if(MSG.GetResponse(MSG_DIALOG_BTN_YES) == 1)
-					{
-						// syscall mount
-						lv2syscall8(837, (u64)"CELL_FS_IOS:BUILTIN_FLSH1",
-									(u64)"CELL_FS_FAT",
-									(u64)DB_MOUNTPOINT,
-									0, 0 /* readonly */, 0, 0, 0);
-
-						// display success with info
-						MSG.Dialog(MSG_OK, DB_MOUNT_S);
-					}
-				}
+			// Draw frame
+			if(draw == true)
+			{
+				BMap.DrawBitmap(&PCL);
+				GFX->Flip();
+				
+				draw = false;
 			}
 		}
+		else
+		{
+			sysUtilCheckCallback();
+			flip(GFX->context, x);
+			waitFlip();
+			x = !x;
 
-		// Draw frame
-		BMap.DrawBitmap(&PCL);
-		GFX->Flip();
+			draw = true;
+		}
 	}
 
 	BMap.ClearBitmap(&PCL);

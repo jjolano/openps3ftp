@@ -26,7 +26,7 @@
 
 using namespace std;
 
-typedef map<int,ftp_client*> ftp_drefs;
+typedef map<int,int> ftp_drefs;
 typedef map<string,cmdhnd> ftp_chnds;
 typedef map<int,void (*)(ftp_client* clnt)> ftp_dhnds;
 typedef map<int,ftp_client> ftp_clnts;
@@ -132,19 +132,9 @@ bool ftp_client::data_open(void (*handler)(ftp_client* clnt), short events)
 	pfd.push_back(data_pfd);
 
 	// reference
-	datarefs[sock_data] = this;
+	datarefs[sock_data] = sock_control;
 	datafunc[sock_data] = handler;
 	return true;
-}
-
-int ftp_client::data_send(const char* data, int bytes)
-{
-	return send(sock_data, data, bytes, 0);
-}
-
-int ftp_client::data_recv(char* data, int bytes)
-{
-	return recv(sock_data, data, bytes, 0);
 }
 
 void ftp_client::data_close()
@@ -152,11 +142,15 @@ void ftp_client::data_close()
 	if(sock_data != -1)
 	{
 		// remove from pollfd
-		for(ftp_socks::iterator it = pfd.begin(); it != pfd.end(); it++)
+		u16 i;
+		nfds_t nfds = pfd.size();
+
+		for(i = 0; i < nfds; i++)
 		{
-			if(it->fd == sock_data)
+			if(pfd[i].fd == sock_data)
 			{
-				pfd.erase(it);
+				pfd.erase(pfd.begin() + i);
+				break;
 			}
 		}
 
@@ -293,7 +287,7 @@ void ftpInitialize(void* arg)
 
 			if(it != datarefs.end())
 			{
-				clnt = it->second;
+				clnt = &(client[it->second]);
 			}
 			else
 			{

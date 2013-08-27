@@ -8,6 +8,7 @@
  * ----------------------------------------------------------------------------
  */
 
+#include <cstdio>
 #include <ctime>
 #include <cstring>
 #include <iomanip>
@@ -117,10 +118,14 @@ void closedata(ftp_client* clnt)
 		else
 		{
 			sysLv2FsClose(client_cvar[clnt].fd);
-			delete [] client_cvar[clnt].buffer;
 		}
 
 		client_cvar[clnt].fd = -1;
+	}
+
+	if(client_cvar[clnt].buffer != NULL)
+	{
+		delete [] client_cvar[clnt].buffer;
 	}
 
 	clnt->data_close();
@@ -171,78 +176,42 @@ void data_list(ftp_client* clnt)
 	}
 
 	// prepare data message
-	ostringstream data_msg;
+	ostringstream file_mode;
 
 	// file type
 	if(S_ISDIR(stat.st_mode))
 	{
-		data_msg << 'd';
+		file_mode << 'd';
 	}
 	else if(S_ISLNK(stat.st_mode))
 	{
-		data_msg << 'l';
+		file_mode << 'l';
 	}
 	else
 	{
-		data_msg << '-';
+		file_mode << '-';
 	}
 
 	// permissions
-	data_msg << ((stat.st_mode & S_IRUSR) ? 'r' : '-');
-	data_msg << ((stat.st_mode & S_IWUSR) ? 'w' : '-');
-	data_msg << ((stat.st_mode & S_IXUSR) ? 'x' : '-');
-	data_msg << ((stat.st_mode & S_IRGRP) ? 'r' : '-');
-	data_msg << ((stat.st_mode & S_IWGRP) ? 'w' : '-');
-	data_msg << ((stat.st_mode & S_IXGRP) ? 'x' : '-');
-	data_msg << ((stat.st_mode & S_IROTH) ? 'r' : '-');
-	data_msg << ((stat.st_mode & S_IWOTH) ? 'w' : '-');
-	data_msg << ((stat.st_mode & S_IXOTH) ? 'x' : '-');
-	data_msg << ' ';
-
-	// inodes
-	data_msg << setw(3) << 1;
-	data_msg << ' ';
-
-	// userid
-	data_msg << left << setw(8) << stat.st_uid;
-	data_msg << ' ';
-
-	// groupid
-	data_msg << left << setw(8) << stat.st_gid;
-	data_msg << ' ';
-
-	// size
-	data_msg << setw(7) << stat.st_size;
-	data_msg << ' ';
+	file_mode << ((stat.st_mode & S_IRUSR) ? 'r' : '-');
+	file_mode << ((stat.st_mode & S_IWUSR) ? 'w' : '-');
+	file_mode << ((stat.st_mode & S_IXUSR) ? 'x' : '-');
+	file_mode << ((stat.st_mode & S_IRGRP) ? 'r' : '-');
+	file_mode << ((stat.st_mode & S_IWGRP) ? 'w' : '-');
+	file_mode << ((stat.st_mode & S_IXGRP) ? 'x' : '-');
+	file_mode << ((stat.st_mode & S_IROTH) ? 'r' : '-');
+	file_mode << ((stat.st_mode & S_IWOTH) ? 'w' : '-');
+	file_mode << ((stat.st_mode & S_IXOTH) ? 'x' : '-');
 
 	// modified
 	char tstr[13];
-	time_t rawtime;
-	time(&rawtime);
-	tm* now = localtime(&rawtime);
-	tm* modified = localtime(&stat.st_mtime);
+	strftime(tstr, 12, "%b %e %H:%M", localtime(&stat.st_mtime));
 
-	if(modified->tm_year < now->tm_year || (now->tm_mon - modified->tm_mon) >= 5)
-	{
-		strftime(tstr, 12, "%b %e  %Y", modified);
-	}
-	else
-	{
-		strftime(tstr, 12, "%b %e %H:%M", modified);
-	}
-
-	data_msg << tstr;
-	data_msg << ' ';
-
-	// filename
-	data_msg << entry.d_name;
-
-	// ending
-	data_msg << '\r';
-	data_msg << '\n';
+	int len = snprintf(client_cvar[clnt].buffer, CMDBUFFER, "%s %-3d %-8d %-8d %10lu %s %s\r\n",
+		file_mode.str().c_str(), 1, 0, 0, stat.st_size, tstr, entry.d_name);
 
 	// send to data socket
-	if(clnt->data_send(data_msg.str().c_str(), data_msg.tellp()) == -1)
+	if(send(clnt->sock_data, client_cvar[clnt].buffer, len, 0) == -1)
 	{
 		clnt->control_sendCode(451, "Data transfer error");
 		closedata(clnt);
@@ -277,7 +246,7 @@ void data_nlst(ftp_client* clnt)
 	data_str += '\n';
 
 	// send to data socket
-	if(clnt->data_send(data_str.c_str(), data_str.size()) == -1)
+	if(send(clnt->sock_data, data_str.c_str(), data_str.size(), 0) == -1)
 	{
 		clnt->control_sendCode(451, "Data transfer error");
 		closedata(clnt);
@@ -289,7 +258,7 @@ void data_stor(ftp_client* clnt)
 	u64 written;
 	int read;
 
-	read = clnt->data_recv(client_cvar[clnt].buffer, DATA_BUFFER);
+	read = recv(clnt->sock_data, client_cvar[clnt].buffer, DATA_BUFFER, 0);
 
 	if(read > 0)
 	{
@@ -334,7 +303,7 @@ void data_retr(ftp_client* clnt)
 		return;
 	}
 
-	if((u64)clnt->data_send(client_cvar[clnt].buffer, (int)read) < read)
+	if((u64)send(clnt->sock_data, client_cvar[clnt].buffer, (int)read, 0) < read)
 	{
 		clnt->control_sendCode(451, "Error in data transmission");
 		closedata(clnt);
@@ -684,6 +653,15 @@ void cmd_list(ftp_client* clnt, string cmd, string args)
 	// open data connection
 	if(clnt->data_open(data_list, DATA_EVENT_SEND))
 	{
+		client_cvar[clnt].buffer = new char[CMDBUFFER];
+
+		if(client_cvar[clnt].buffer == NULL)
+		{
+			sysLv2FsCloseDir(fd);
+			clnt->control_sendCode(451, "Out of memory");
+			return;
+		}
+		
 		client_cvar[clnt].fd = fd;
 		client_cvar[clnt].type = DATA_TYPE_DIR;
 
