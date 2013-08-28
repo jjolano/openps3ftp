@@ -27,8 +27,6 @@ msgType MSG_YESNO = (msgType)(MSG_DIALOG_NORMAL|MSG_DIALOG_BTN_TYPE_YESNO);
 // FTP server starter
 void ftpInitialize(void *arg);
 
-int running;
-
 int main(s32 argc, char* argv[])
 {
 	// Initialize graphics
@@ -66,12 +64,9 @@ int main(s32 argc, char* argv[])
 	sysModuleLoad(SYSMODULE_FS);
 	sysModuleLoad(SYSMODULE_MUSIC2); // for in-game background music?
 
-	// Set server running state
-	running = 1;
-
 	// Create thread for server
 	sys_ppu_thread_t id;
-	sysThreadCreate(&id, ftpInitialize, NULL, 1500, 0x4000, THREAD_JOINABLE, const_cast<char*>("oftp"));
+	sysThreadCreate(&id, ftpInitialize, GFX, 1500, 0x2000, 0, const_cast<char*>("oftp"));
 
 	// Retrieve detailed connection information (ip address)
 	net_ctl_info info;
@@ -95,6 +90,7 @@ int main(s32 argc, char* argv[])
 	F1.PrintfToBitmap(65, 375, &PCL, COLOR_WHITE, "START: Exit " APP_NAME);
 	F1.PrintfToBitmap(65, 425, &PCL, COLOR_WHITE, "L1: Credits/Acknowledgements");
 
+	// drawing
 	int x = 0;
 	int draw = 2;
 
@@ -102,8 +98,11 @@ int main(s32 argc, char* argv[])
 	padInfo padinfo;
 	padData paddata;
 
+	// dev_blind
+	sysFSStat stat;
+
 	// Main thread loop
-	while(GFX->GetAppStatus() && running)
+	while(GFX->GetAppStatus())
 	{
 		if(GFX->GetXMBStatus() == XMB_CLOSE)
 		{
@@ -133,7 +132,6 @@ int main(s32 argc, char* argv[])
 				if(paddata.BTN_SELECT)
 				{
 					// dev_blind stuff
-					sysFSStat stat;
 					if(sysLv2FsStat(DB_MOUNTPOINT, &stat) == 0)
 					{
 						// dev_blind exists - ask to unmount
@@ -203,31 +201,13 @@ int main(s32 argc, char* argv[])
 
 	BMap.ClearBitmap(&PCL);
 
-	// Set server running flag
-	running = 0;
-
-	// Wait for server thread to complete
-	u64 retval;
-	sysThreadJoin(id, &retval);
-
-	// Unload networking
-	netCtlTerm();
-	netDeinitialize();
-
 	// Unload sysmodules
 	sysModuleUnload(SYSMODULE_FS);
 	sysModuleUnload(SYSMODULE_MUSIC2);
 
-	// Parse thread return value if application is not exiting
-	if(!GFX->ExitSignalStatus() && retval > 0)
-	{
-		// Error - see ftp.cpp
-		MSG.ErrorDialog((u32)retval);
-
-		GFX->NoRSX_Exit();
-		ioPadEnd();
-		return 1;
-	}
+	// Unload networking
+	netCtlTerm();
+	netDeinitialize();
 
 	GFX->NoRSX_Exit();
 	ioPadEnd();

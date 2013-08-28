@@ -38,8 +38,6 @@ ftp_drefs datarefs;
 ftp_dhnds datafunc;
 ftp_clnts client;
 
-extern int running;
-
 void event_client_drop(ftp_client* clnt);
 void register_cmds();
 
@@ -185,7 +183,10 @@ void ftp_client::data_close()
 }
 
 void ftpInitialize(void* arg)
-{	
+{
+	// Obtain graphics pointer
+	NoRSX* GFX = static_cast<NoRSX*>(arg);
+
 	// Create server socket
 	int sock_listen = socket(PF_INET, SOCK_STREAM, 0);
 	
@@ -196,9 +197,9 @@ void ftpInitialize(void* arg)
 
 	if(bind(sock_listen, (struct sockaddr*)&myaddr, sizeof myaddr) == -1)
 	{
-		running = 0;
+		GFX->AppExit();
 		closesocket(sock_listen);
-		sysThreadExit(0x1337BEEF);
+		sysThreadExit(1);
 	}
 
 	listen(sock_listen, LISTEN_BACKLOG);
@@ -212,12 +213,10 @@ void ftpInitialize(void* arg)
 	if(data == NULL)
 	{
 		// how did this happen?
-		running = 0;
+		GFX->AppExit();
 		closesocket(sock_listen);
-		sysThreadExit(0x1337CAFE);
+		sysThreadExit(2);
 	}
-
-	memset(data, 0, CMDBUFFER);
 
 	// Add server to poll
 	pollfd listen_pfd;
@@ -226,22 +225,25 @@ void ftpInitialize(void* arg)
 	pfd.push_back(listen_pfd);
 
 	// Main thread loop
-	while(running)
+	while(GFX->GetAppStatus())
 	{
-		int p = poll(&pfd[0], pfd.size(), 500);
+		static nfds_t nfds;
+		static int p;
+		
+		nfds = pfd.size();
+		p = poll(&pfd[0], nfds, 100);
 
 		if(p == -1)
 		{
-			running = 0;
-			delete [] data;
-			data = NULL;
+			GFX->AppExit();
 			ftpTerminate();
-			sysThreadExit(0x1337DEAD);
+			delete [] data;
+			sysThreadExit(3);
 		}
 
 		// Loop if poll > 0
-		u16 i;
-		for(i = 0; (p > 0 && i < pfd.size()); i++)
+		static u16 i;
+		for(i = 0; (p > 0 && i < nfds); i++)
 		{
 			if(pfd[i].revents == 0)
 			{
@@ -250,7 +252,8 @@ void ftpInitialize(void* arg)
 
 			p--;
 
-			int sock_fd = pfd[i].fd;
+			static int sock_fd;
+			sock_fd = pfd[i].fd;
 
 			// Listener socket event
 			if(sock_fd == sock_listen)
@@ -258,7 +261,8 @@ void ftpInitialize(void* arg)
 				if(pfd[i].revents & POLLIN)
 				{
 					// accept new connection
-					int nfd = accept(sock_listen, NULL, NULL);
+					static int nfd;
+					nfd = accept(sock_listen, NULL, NULL);
 
 					if(nfd == -1)
 					{
@@ -266,7 +270,7 @@ void ftpInitialize(void* arg)
 					}
 
 					// add to pollfds
-					pollfd new_pfd;
+					static pollfd new_pfd;
 					new_pfd.fd = nfd;
 					new_pfd.events = DATA_EVENT_RECV;
 					pfd.push_back(new_pfd);
@@ -283,19 +287,18 @@ void ftpInitialize(void* arg)
 				else
 				{
 					// server fail
-					running = 0;
-					delete [] data;
-					data = NULL;
+					GFX->AppExit();
 					ftpTerminate();
-					sysThreadExit(0x1337DEAD);
+					delete [] data;
+					sysThreadExit(4);
 				}
 
 				continue;
 			}
 
 			// get client info
-			ftp_drefs::iterator it;
-			ftp_client* clnt;
+			static ftp_drefs::iterator it;
+			static ftp_client* clnt;
 
 			it = datarefs.find(sock_fd);
 
@@ -330,7 +333,8 @@ void ftpInitialize(void* arg)
 
 					pfd.erase(pfd.begin() + i);
 				}
-				
+
+				nfds--;
 				continue;
 			}
 
@@ -339,6 +343,12 @@ void ftpInitialize(void* arg)
 			{
 				// call data handler
 				(datafunc[sock_fd])(clnt);
+
+				if(clnt->sock_data == -1)
+				{
+					nfds--;
+				}
+
 				continue;
 			}
 
@@ -348,7 +358,8 @@ void ftpInitialize(void* arg)
 				if(it == datarefs.end())
 				{
 					// Control socket
-					int bytes = recv(sock_fd, data, CMDBUFFER - 1, 0);
+					static int bytes;
+					bytes = recv(sock_fd, data, CMDBUFFER - 1, 0);
 
 					if(bytes <= 0)
 					{
@@ -358,6 +369,7 @@ void ftpInitialize(void* arg)
 						
 						client.erase(sock_fd);
 						pfd.erase(pfd.begin() + i);
+						nfds--;
 						continue;
 					}
 
@@ -369,23 +381,17 @@ void ftpInitialize(void* arg)
 					}
 
 					// handle command
-					string cmdstr(data);
+					static string cmdstr;
+					static string cmd;
+					static string args;
+					static string::size_type pos;
 
-					string::size_type pos = cmdstr.find('\r', 0);
-
-					if(pos == string::npos)
-					{
-						// invalid, continue
-						clnt->control_sendCode(500, "Invalid command", false);
-						continue;
-					}
-
-					cmdstr = cmdstr.substr(0, pos);
+					cmdstr = data;
+					cmdstr = cmdstr.substr(0, bytes - 2);
 
 					pos = cmdstr.find(' ', 0);
 
-					string cmd = cmdstr.substr(0, pos);
-					string args;
+					cmd = cmdstr.substr(0, pos);
 
 					if(pos != string::npos)
 					{
@@ -404,11 +410,13 @@ void ftpInitialize(void* arg)
 
 						client.erase(sock_fd);
 						pfd.erase(pfd.begin() + i);
+						nfds--;
 						continue;
 					}
 
 					// find command handler
-					ftp_chnds::iterator cit = command.find(cmd);
+					static ftp_chnds::iterator cit;
+					cit = command.find(cmd);
 
 					if(cit != command.end())
 					{
@@ -426,6 +434,11 @@ void ftpInitialize(void* arg)
 					// Data socket
 					// call data handler
 					(datafunc[sock_fd])(clnt);
+
+					if(clnt->sock_data == -1)
+					{
+						nfds--;
+					}
 				}
 
 				continue;
@@ -433,8 +446,7 @@ void ftpInitialize(void* arg)
 		}
 	}
 
-	delete [] data;
-	data = NULL;
 	ftpTerminate();
+	delete [] data;
 	sysThreadExit(0);
 }

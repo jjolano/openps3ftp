@@ -27,20 +27,12 @@ Thus, you will have to install the build that is suitable for your firmware.
 - If you are on a true DEX firmware, use the DEX (pkg-dex) build.
 =============================
 
-Implemented error codes (shouldn't happen under typical use anyway):
-0x1337BEEF - Server initialization failed.
-0x1337DEAD - Connection polling failed.
-0x1337CAFE - Failed to allocate required memory block.
-
-Any other error code is unknown and should be reported to me. Please include
-the FTP connection log, if possible.
-
 Note to developers:
 Do what you like with the source code - however when releasing something that
 makes use of this source code, I would appreciate the attribution.
 
-With this version, it should be much easier to integrate into your program
-compared to v2.3 and older.
+You do *not* have to release source code, but it is encouraged as it will
+facilitate further development of OpenPS3FTP.
 
 Required Compilation Tools:
 - scetool: github.com/naehrwert/scetool

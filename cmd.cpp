@@ -136,8 +136,8 @@ void closedata(ftp_client* clnt)
 
 void data_list(ftp_client* clnt)
 {
-	sysFSDirent entry;
-	u64 read;
+	static sysFSDirent entry;
+	static u64 read;
 
 	if(sysLv2FsReadDir(client_cvar[clnt].fd, &entry, &read) == -1)
 	{
@@ -167,19 +167,21 @@ void data_list(ftp_client* clnt)
 	}
 
 	// obtain file information
-	string path = getAbsPath(client_cvar[clnt].cwd, entry.d_name);
+	static string path;
+	path = getAbsPath(client_cvar[clnt].cwd, entry.d_name);
 
-	sysFSStat stat;
-	s32 ret = sysLv2FsStat(path.c_str(), &stat);
-
-	if(ret == -1)
+	static sysFSStat stat;
+	if(sysLv2FsStat(path.c_str(), &stat) == -1)
 	{
 		// skip file that failed to access for whatever reason
 		return;
 	}
 
 	// prepare data message
-	ostringstream file_mode;
+	static ostringstream file_mode;
+
+	file_mode.str("");
+	file_mode.clear();
 
 	// file type
 	if(S_ISDIR(stat.st_mode))
@@ -207,10 +209,11 @@ void data_list(ftp_client* clnt)
 	file_mode << ((stat.st_mode & S_IXOTH) ? 'x' : '-');
 
 	// modified
-	char tstr[14];
+	static char tstr[14];
 	strftime(tstr, 13, "%b %e %H:%M", localtime(&stat.st_mtime));
 
-	int len = snprintf(client_cvar[clnt].buffer, CMDBUFFER, "%s %3d %-8d %-8d %10lu %s %s\r\n",
+	static int len;
+	len = snprintf(client_cvar[clnt].buffer, CMDBUFFER, "%s %3d %-8d %-8d %10lu %s %s\r\n",
 		file_mode.str().c_str(), 1, 0, 0, stat.st_size, tstr, entry.d_name);
 
 	// send to data socket
@@ -223,8 +226,8 @@ void data_list(ftp_client* clnt)
 
 void data_nlst(ftp_client* clnt)
 {
-	sysFSDirent entry;
-	u64 read;
+	static sysFSDirent entry;
+	static u64 read;
 
 	if(sysLv2FsReadDir(client_cvar[clnt].fd, &entry, &read) == -1)
 	{
@@ -243,8 +246,9 @@ void data_nlst(ftp_client* clnt)
 	}
 
 	// prepare data message
-	string data_str(entry.d_name);
-
+	static string data_str;
+	
+	data_str = entry.d_name;
 	data_str += '\r';
 	data_str += '\n';
 
@@ -258,8 +262,8 @@ void data_nlst(ftp_client* clnt)
 
 void data_stor(ftp_client* clnt)
 {
-	u64 written;
-	int read;
+	static u64 written;
+	static int read;
 
 	read = recv(clnt->sock_data, client_cvar[clnt].buffer, DATA_BUFFER, 0);
 
@@ -290,7 +294,7 @@ void data_stor(ftp_client* clnt)
 
 void data_retr(ftp_client* clnt)
 {
-	u64 read;
+	static u64 read;
 
 	if(sysLv2FsRead(client_cvar[clnt].fd, client_cvar[clnt].buffer, DATA_BUFFER, &read) == -1)
 	{
@@ -1113,10 +1117,10 @@ void cmd_size(ftp_client* clnt, string cmd, string args)
 	sysFSStat stat;
 	if(sysLv2FsStat(path.c_str(), &stat) == 0)
 	{
-		ostringstream out;
-		out << stat.st_size;
+		string out;
+		out += stat.st_size;
 
-		clnt->control_sendCode(213, out.str());
+		clnt->control_sendCode(213, out);
 	}
 	else
 	{
