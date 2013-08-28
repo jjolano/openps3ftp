@@ -22,8 +22,8 @@ What build should I use?
 All builds contain identical program code, but each are signed differently.
 Thus, you will have to install the build that is suitable for your firmware.
 
-- If you are on firmware 3.55 or older, use the CEX (pkg-cex) build.
-- If you are on firmware 3.60 or newer, use the REX (pkg-rex) build.
+- If you are on firmware 3.40-3.56, use the CEX (pkg-cex) build.
+- If you are on CUSTOM firmware 3.60 or newer, use the REX (pkg-rex) build.
 - If you are on a true DEX firmware, use the DEX (pkg-dex) build.
 =============================
 

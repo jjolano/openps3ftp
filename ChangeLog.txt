@@ -4,7 +4,6 @@
 - dev_blind functionality integrated, can be activated by pressing SELECT
 - Server now single-threaded, as a result better IO stability
 - Performance should now be at full potential of the hardware
-- LIST command formatting more dynamic, should support more FTP clients
 - Source code available on Beerware license, see README.txt for more info
 - Removed login detail requirement - you can login with any combination
 - Added Remote Play flag for PS Vita (untested)
