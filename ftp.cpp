@@ -12,7 +12,6 @@
 #include <vector>
 #include <utility>
 #include <string>
-#include <sstream>
 #include <algorithm>
 
 #include <NoRSX.h>
@@ -94,11 +93,10 @@ void ftp_client::control_sendCustom(string message)
 void ftp_client::control_sendCode(unsigned int code, string message, bool multi)
 {
 	// format string
-	ostringstream out;
-	out << code << (multi ? '-' : ' ');
+	string cmsg = code + (multi ? "-" : " ") + message;
 
 	// send to control socket
-	control_sendCustom(out.str() + message);
+	control_sendCustom(cmsg);
 }
 
 void ftp_client::control_sendCode(unsigned int code, string message)

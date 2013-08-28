@@ -11,7 +11,6 @@
 #include <cstdio>
 #include <ctime>
 #include <cstring>
-#include <iomanip>
 #include <map>
 #include <vector>
 #include <utility>
@@ -178,35 +177,34 @@ void data_list(ftp_client* clnt)
 	}
 
 	// prepare data message
-	static ostringstream file_mode;
-
-	file_mode.str("");
+	static string file_mode;
+	
 	file_mode.clear();
 
 	// file type
 	if(S_ISDIR(stat.st_mode))
 	{
-		file_mode << 'd';
+		file_mode += 'd';
 	}
 	else if(S_ISLNK(stat.st_mode))
 	{
-		file_mode << 'l';
+		file_mode += 'l';
 	}
 	else
 	{
-		file_mode << '-';
+		file_mode += '-';
 	}
 
 	// permissions
-	file_mode << ((stat.st_mode & S_IRUSR) ? 'r' : '-');
-	file_mode << ((stat.st_mode & S_IWUSR) ? 'w' : '-');
-	file_mode << ((stat.st_mode & S_IXUSR) ? 'x' : '-');
-	file_mode << ((stat.st_mode & S_IRGRP) ? 'r' : '-');
-	file_mode << ((stat.st_mode & S_IWGRP) ? 'w' : '-');
-	file_mode << ((stat.st_mode & S_IXGRP) ? 'x' : '-');
-	file_mode << ((stat.st_mode & S_IROTH) ? 'r' : '-');
-	file_mode << ((stat.st_mode & S_IWOTH) ? 'w' : '-');
-	file_mode << ((stat.st_mode & S_IXOTH) ? 'x' : '-');
+	file_mode += ((stat.st_mode & S_IRUSR) ? 'r' : '-');
+	file_mode += ((stat.st_mode & S_IWUSR) ? 'w' : '-');
+	file_mode += ((stat.st_mode & S_IXUSR) ? 'x' : '-');
+	file_mode += ((stat.st_mode & S_IRGRP) ? 'r' : '-');
+	file_mode += ((stat.st_mode & S_IWGRP) ? 'w' : '-');
+	file_mode += ((stat.st_mode & S_IXGRP) ? 'x' : '-');
+	file_mode += ((stat.st_mode & S_IROTH) ? 'r' : '-');
+	file_mode += ((stat.st_mode & S_IWOTH) ? 'w' : '-');
+	file_mode += ((stat.st_mode & S_IXOTH) ? 'x' : '-');
 
 	// modified
 	static char tstr[14];
@@ -214,7 +212,7 @@ void data_list(ftp_client* clnt)
 
 	static int len;
 	len = snprintf(client_cvar[clnt].buffer, CMDBUFFER, "%s %3d %-8d %-8d %10lu %s %s\r\n",
-		file_mode.str().c_str(), 1, 0, 0, stat.st_size, tstr, entry.d_name);
+		file_mode.c_str(), 1, 0, 0, stat.st_size, tstr, entry.d_name);
 
 	// send to data socket
 	if(send(clnt->sock_data, client_cvar[clnt].buffer, len, 0) == -1)
@@ -570,16 +568,15 @@ void cmd_pasv(ftp_client* clnt, string cmd, string args)
 
 	getsockname(clnt->sock_pasv, (sockaddr*)&sa, &len);
 
-	ostringstream out;
-	out << "Entering Passive Mode (";
-	out << ((htonl(sa.sin_addr.s_addr) & 0xff000000) >> 24) << ',';
-	out << ((htonl(sa.sin_addr.s_addr) & 0x00ff0000) >> 16) << ',';
-	out << ((htonl(sa.sin_addr.s_addr) & 0x0000ff00) >>  8) << ',';
-	out << (htonl(sa.sin_addr.s_addr) & 0x000000ff) << ',';
-	out << ((htons(sa.sin_port) & 0xff00) >> 8) << ',';
-	out << (htons(sa.sin_port) & 0x00ff) << ')';
+	string ret_msg = "Entering Passive Mode (";
+	ret_msg += ((htonl(sa.sin_addr.s_addr) & 0xff000000) >> 24) + ",";
+	ret_msg += ((htonl(sa.sin_addr.s_addr) & 0x00ff0000) >> 16) + ",";
+	ret_msg += ((htonl(sa.sin_addr.s_addr) & 0x0000ff00) >>  8) + ",";
+	ret_msg += (htonl(sa.sin_addr.s_addr) & 0x000000ff) + ",";
+	ret_msg += ((htons(sa.sin_port) & 0xff00) >> 8) + ",";
+	ret_msg += (htons(sa.sin_port) & 0x00ff) + ")";
 
-	clnt->control_sendCode(227, out.str());
+	clnt->control_sendCode(227, ret_msg);
 }
 
 void cmd_port(ftp_client* clnt, string cmd, string args)
@@ -923,10 +920,10 @@ void cmd_rest(ftp_client* clnt, string cmd, string args)
 
 	if(args.empty())
 	{
-		ostringstream out;
-		out << client_cvar[clnt].rest;
+		string rest_str;
+		rest_str = client_cvar[clnt].rest;
 
-		clnt->control_sendCode(350, "Current restart point: " + out.str());
+		clnt->control_sendCode(350, "Current restart point: " + rest_str);
 		return;
 	}
 
@@ -937,10 +934,10 @@ void cmd_rest(ftp_client* clnt, string cmd, string args)
 	{
 		client_cvar[clnt].rest = rest;
 
-		ostringstream out;
-		out << rest;
+		string rest_str;
+		rest_str = rest;
 
-		clnt->control_sendCode(350, "Restarting at " + out.str());
+		clnt->control_sendCode(350, "Restarting at " + rest_str);
 	}
 	else
 	{
