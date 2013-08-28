@@ -156,10 +156,11 @@ void ftp_client::data_close()
 		// remove from pollfd
 		nfds_t nfds = pfd.size();
 		u16 i;
+		int dsock = FD(sock_data);
 		
 		for(i = 0; i < nfds; i++)
 		{
-			if(pfd[i].fd == sock_data)
+			if(pfd[i].fd == dsock)
 			{
 				pfd.erase(pfd.begin() + i);
 				break;
