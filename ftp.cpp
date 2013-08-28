@@ -61,10 +61,19 @@ void ftpTerminate()
 		event_client_drop(clnt);
 	}
 
-	for(ftp_socks::iterator it = pfd.begin(); it != pfd.end(); it++)
+	nfds_t nfds = pfd.size();
+	u16 i;
+
+	for(i = 0; i < nfds; i++)
 	{
-		closesocket(it->fd);
+		closesocket(pfd[i].fd);
 	}
+
+	pfd.clear();
+	client.clear();
+	datafunc.clear();
+	datarefs.clear();
+	command.clear();
 }
 
 // Registers an FTP command to a function
@@ -190,6 +199,16 @@ void ftpInitialize(void* arg)
 	// Obtain graphics pointer
 	NoRSX* GFX = static_cast<NoRSX*>(arg);
 
+	// Allocate memory for commands
+	char* data = new char[CMDBUFFER];
+
+	if(data == NULL)
+	{
+		// how did this happen?
+		GFX->AppExit();
+		sysThreadExit(1);
+	}
+
 	// Create server socket
 	int sock_listen = socket(PF_INET, SOCK_STREAM, 0);
 	
@@ -202,7 +221,7 @@ void ftpInitialize(void* arg)
 	{
 		GFX->AppExit();
 		closesocket(sock_listen);
-		sysThreadExit(1);
+		sysThreadExit(2);
 	}
 
 	listen(sock_listen, LISTEN_BACKLOG);
@@ -210,25 +229,16 @@ void ftpInitialize(void* arg)
 	// Register FTP command handlers
 	register_cmds();
 
-	// Allocate memory for commands
-	char* data = new char[CMDBUFFER];
-
-	if(data == NULL)
-	{
-		// how did this happen?
-		GFX->AppExit();
-		closesocket(sock_listen);
-		sysThreadExit(2);
-	}
-
 	// Add server to poll
 	pollfd listen_pfd;
 	listen_pfd.fd = FD(sock_listen);
 	listen_pfd.events = POLLIN;
 	pfd.push_back(listen_pfd);
 
+	u64 ret_val = 0;
+
 	// Main thread loop
-	while(GFX->GetAppStatus())
+	while(ret_val == 0 && GFX->GetAppStatus())
 	{
 		static nfds_t nfds;
 		static int p;
@@ -239,9 +249,8 @@ void ftpInitialize(void* arg)
 		if(p < 0)
 		{
 			GFX->AppExit();
-			ftpTerminate();
-			delete [] data;
-			sysThreadExit(3);
+			ret_val = 3;
+			break;
 		}
 
 		// Loop if poll > 0
@@ -291,9 +300,8 @@ void ftpInitialize(void* arg)
 				{
 					// server fail
 					GFX->AppExit();
-					ftpTerminate();
-					delete [] data;
-					sysThreadExit(4);
+					ret_val = 4;
+					break;
 				}
 
 				continue;
@@ -417,6 +425,12 @@ void ftpInitialize(void* arg)
 						continue;
 					}
 
+					if(cmd == "EXIT")
+					{
+						GFX->AppExit();
+						break;
+					}
+
 					// find command handler
 					static ftp_chnds::iterator cit;
 					cit = command.find(cmd);
@@ -451,5 +465,6 @@ void ftpInitialize(void* arg)
 
 	ftpTerminate();
 	delete [] data;
-	sysThreadExit(0);
+	
+	sysThreadExit(ret_val);
 }
