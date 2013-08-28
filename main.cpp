@@ -201,6 +201,9 @@ int main(s32 argc, char* argv[])
 
 	BMap.ClearBitmap(&PCL);
 
+	// give one second for the server to close all connections
+	sleep(1);
+
 	// Unload sysmodules
 	sysModuleUnload(SYSMODULE_FS);
 	sysModuleUnload(SYSMODULE_MUSIC2);
