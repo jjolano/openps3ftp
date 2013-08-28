@@ -38,6 +38,8 @@ ftp_drefs datarefs;
 ftp_dhnds datafunc;
 ftp_clnts client;
 
+extern int running;
+
 void event_client_drop(ftp_client* clnt);
 void register_cmds();
 
@@ -151,9 +153,6 @@ void ftp_client::data_close()
 {
 	if(sock_data != -1)
 	{
-		// close socket
-		closesocket(sock_data);
-
 		// remove from pollfd
 		nfds_t nfds = pfd.size();
 		u16 i;
@@ -171,6 +170,9 @@ void ftp_client::data_close()
 		datafunc.erase(sock_data);
 		datarefs.erase(sock_data);
 
+		// close socket
+		closesocket(sock_data);
+
 		sock_data = -1;
 	}
 
@@ -183,10 +185,7 @@ void ftp_client::data_close()
 }
 
 void ftpInitialize(void* arg)
-{
-	// Obtain graphics pointer
-	NoRSX* GFX = static_cast<NoRSX*>(arg);
-	
+{	
 	// Create server socket
 	int sock_listen = socket(PF_INET, SOCK_STREAM, 0);
 	
@@ -197,7 +196,7 @@ void ftpInitialize(void* arg)
 
 	if(bind(sock_listen, (struct sockaddr*)&myaddr, sizeof myaddr) == -1)
 	{
-		GFX->AppExit();
+		running = 0;
 		closesocket(sock_listen);
 		sysThreadExit(0x1337BEEF);
 	}
@@ -213,7 +212,7 @@ void ftpInitialize(void* arg)
 	if(data == NULL)
 	{
 		// how did this happen?
-		GFX->AppExit();
+		running = 0;
 		closesocket(sock_listen);
 		sysThreadExit(0x1337CAFE);
 	}
@@ -227,13 +226,13 @@ void ftpInitialize(void* arg)
 	pfd.push_back(listen_pfd);
 
 	// Main thread loop
-	while(GFX->GetAppStatus())
+	while(running)
 	{
 		int p = poll(&pfd[0], pfd.size(), 500);
 
 		if(p == -1)
 		{
-			GFX->AppExit();
+			running = 0;
 			delete [] data;
 			data = NULL;
 			ftpTerminate();
@@ -278,12 +277,13 @@ void ftpInitialize(void* arg)
 					client[nfd].sock_pasv = -1;
 
 					// welcome
-					client[nfd].control_sendCode(220, APP_NAME " version " APP_VERSION " by " APP_AUTHOR, false);
+					client[nfd].control_sendCode(220, APP_NAME " version " APP_VERSION " by " APP_AUTHOR, true);
+					client[nfd].control_sendCode(220, "Client ID: " + i);
 				}
 				else
 				{
 					// server fail
-					GFX->AppExit();
+					running = 0;
 					delete [] data;
 					data = NULL;
 					ftpTerminate();

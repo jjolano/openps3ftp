@@ -17,7 +17,7 @@
 #define DB_MOUNT_S		"dev_blind mounted at " DB_MOUNTPOINT "."
 #define DB_UNMOUNT_S	"dev_blind was successfully unmounted."
 
-#define CREDITS			APP_NAME " version " APP_VERSION " by " APP_AUTHOR "\nAcknowledgements:\n- atreyu187\n- coldlm\n- @MastaChaOS\n- @ooPo\n- @NeoSabin\n- @GregoryRasputin\n- deroad (@Wargio)\n\nAnd of course, thank *you* for using " APP_NAME "."
+#define CREDITS			APP_NAME " version " APP_VERSION " by " APP_AUTHOR "\nAcknowledgements:\n- atreyu187 (tester)\n- coldlm (tester)\n- @MastaChaOS (tester)\n- @ooPo\n- @NeoSabin\n- @GregoryRasputin\n- deroad (@Wargio)\n\nAnd of course, thank *you* for using " APP_NAME "."
 
 // Server types
 #define DATA_TYPE_DIR	1
