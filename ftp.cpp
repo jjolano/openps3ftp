@@ -41,12 +41,22 @@ ftp_clnts client;
 void event_client_drop(ftp_client* clnt);
 void register_cmds();
 
+void closesocket(int socket)
+{
+	if(socket != -1)
+	{
+		netClose((socket)&~SOCKET_FD_MASK);
+	}
+}
+
 // Terminates FTP server and all connections
 void ftpTerminate()
 {
 	for(ftp_clnts::iterator cit = client.begin(); cit != client.end(); cit++)
 	{
-		event_client_drop(&(cit->second));
+		ftp_client* clnt = &(cit->second);
+		clnt->control_sendCode(421, "Server is shutting down");
+		event_client_drop(clnt);
 	}
 
 	for(ftp_socks::iterator it = pfd.begin(); it != pfd.end(); it++)
@@ -141,10 +151,13 @@ void ftp_client::data_close()
 {
 	if(sock_data != -1)
 	{
-		// remove from pollfd
-		u16 i;
-		nfds_t nfds = pfd.size();
+		// close socket
+		closesocket(sock_data);
 
+		// remove from pollfd
+		nfds_t nfds = pfd.size();
+		u16 i;
+		
 		for(i = 0; i < nfds; i++)
 		{
 			if(pfd[i].fd == sock_data)
@@ -154,10 +167,10 @@ void ftp_client::data_close()
 			}
 		}
 
-		// remove references and close socket
+		// remove references
 		datafunc.erase(sock_data);
 		datarefs.erase(sock_data);
-		closesocket(sock_data);
+
 		sock_data = -1;
 	}
 
@@ -216,20 +229,20 @@ void ftpInitialize(void* arg)
 	// Main thread loop
 	while(GFX->GetAppStatus())
 	{
-		nfds_t nfds = pfd.size();
-		int p = poll(&pfd[0], nfds, 500);
+		int p = poll(&pfd[0], pfd.size(), 500);
 
 		if(p == -1)
 		{
 			GFX->AppExit();
 			delete [] data;
+			data = NULL;
 			ftpTerminate();
 			sysThreadExit(0x1337DEAD);
 		}
 
 		// Loop if poll > 0
 		u16 i;
-		for(i = 0; (p > 0 && i < nfds); i++)
+		for(i = 0; (p > 0 && i < pfd.size()); i++)
 		{
 			if(pfd[i].revents == 0)
 			{
@@ -272,6 +285,7 @@ void ftpInitialize(void* arg)
 					// server fail
 					GFX->AppExit();
 					delete [] data;
+					data = NULL;
 					ftpTerminate();
 					sysThreadExit(0x1337DEAD);
 				}
@@ -316,8 +330,7 @@ void ftpInitialize(void* arg)
 
 					pfd.erase(pfd.begin() + i);
 				}
-
-				nfds--;
+				
 				continue;
 			}
 
@@ -345,7 +358,6 @@ void ftpInitialize(void* arg)
 						
 						client.erase(sock_fd);
 						pfd.erase(pfd.begin() + i);
-						nfds--;
 						continue;
 					}
 
@@ -382,6 +394,19 @@ void ftpInitialize(void* arg)
 
 					transform(cmd.begin(), cmd.end(), cmd.begin(), ::toupper);
 
+					// handle quit internally
+					if(cmd == "QUIT")
+					{
+						clnt->control_sendCode(221, "Goodbye");
+						
+						event_client_drop(clnt);
+						closesocket(sock_fd);
+
+						client.erase(sock_fd);
+						pfd.erase(pfd.begin() + i);
+						continue;
+					}
+
 					// find command handler
 					ftp_chnds::iterator cit = command.find(cmd);
 
@@ -409,6 +434,7 @@ void ftpInitialize(void* arg)
 	}
 
 	delete [] data;
+	data = NULL;
 	ftpTerminate();
 	sysThreadExit(0);
 }

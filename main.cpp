@@ -67,7 +67,7 @@ int main(s32 argc, char* argv[])
 
 	// Create thread for server
 	sys_ppu_thread_t id;
-	sysThreadCreate(&id, ftpInitialize, GFX, 1500, 0x2000, THREAD_JOINABLE, const_cast<char*>("oftp"));
+	sysThreadCreate(&id, ftpInitialize, GFX, 1500, 0x1000, THREAD_JOINABLE, const_cast<char*>("oftp"));
 
 	// Retrieve detailed connection information (ip address)
 	net_ctl_info info;
@@ -94,95 +94,99 @@ int main(s32 argc, char* argv[])
 	int x = 0;
 	int draw = 2;
 
+	// Pad IO variables
+	padInfo padinfo;
+	padData paddata;
+
 	// Main thread loop
 	while(GFX->GetAppStatus())
 	{
-		if(GFX->GetXMBStatus() == XMB_CLOSE)
+		// Get Pad Status
+		ioPadGetInfo(&padinfo);
+
+		// Handle only for first pad
+		if(padinfo.status[0])
 		{
-			// Pad IO variables
-			padInfo padinfo;
-			padData paddata;
-			
-			// Get Pad Status
-			ioPadGetInfo(&padinfo);
+			ioPadGetData(0, &paddata);
 
-			// Handle only for first pad
-			if(padinfo.status[0])
+			if(paddata.BTN_START)
 			{
-				ioPadGetData(0, &paddata);
+				// Exit application
+				GFX->AppExit();
+				break;
+			}
 
-				if(paddata.BTN_START)
-				{
-					// Exit application
-					GFX->AppExit();
-					break;
-				}
+			if(paddata.BTN_L1)
+			{
+				// Credits
+				MSG.Dialog(MSG_OK, CREDITS);
+			}
 
-				if(paddata.BTN_L1)
+			if(paddata.BTN_SELECT)
+			{
+				// dev_blind stuff
+				sysFSStat stat;
+				if(sysLv2FsStat(DB_MOUNTPOINT, &stat) == 0)
 				{
-					// Credits
-					MSG.Dialog(MSG_OK, CREDITS);
-				}
+					// dev_blind exists - ask to unmount
+					MSG.Dialog(MSG_YESNO, DB_UNMOUNT_Q);
 
-				if(paddata.BTN_SELECT)
-				{
-					// dev_blind stuff
-					sysFSStat stat;
-					if(sysLv2FsStat(DB_MOUNTPOINT, &stat) == 0)
+					if(MSG.GetResponse(MSG_DIALOG_BTN_YES) == 1)
 					{
-						// dev_blind exists - ask to unmount
-						MSG.Dialog(MSG_YESNO, DB_UNMOUNT_Q);
+						// syscall unmount
+						lv2syscall1(838, (u64)DB_MOUNTPOINT);
 
-						if(MSG.GetResponse(MSG_DIALOG_BTN_YES) == 1)
-						{
-							// syscall unmount
-							lv2syscall1(838, (u64)DB_MOUNTPOINT);
-
-							// display success
-							MSG.Dialog(MSG_OK, DB_UNMOUNT_S);
-						}
+						// display success
+						MSG.Dialog(MSG_OK, DB_UNMOUNT_S);
 					}
-					else
+				}
+				else
+				{
+					// dev_blind does not exist - ask to mount
+					MSG.Dialog(MSG_YESNO, DB_MOUNT_Q);
+
+					if(MSG.GetResponse(MSG_DIALOG_BTN_YES) == 1)
 					{
-						// dev_blind does not exist - ask to mount
-						MSG.Dialog(MSG_YESNO, DB_MOUNT_Q);
+						// syscall mount
+						lv2syscall8(837, (u64)"CELL_FS_IOS:BUILTIN_FLSH1",
+									(u64)"CELL_FS_FAT",
+									(u64)DB_MOUNTPOINT,
+									0, 0 /* readonly */, 0, 0, 0);
 
-						if(MSG.GetResponse(MSG_DIALOG_BTN_YES) == 1)
-						{
-							// syscall mount
-							lv2syscall8(837, (u64)"CELL_FS_IOS:BUILTIN_FLSH1",
-										(u64)"CELL_FS_FAT",
-										(u64)DB_MOUNTPOINT,
-										0, 0 /* readonly */, 0, 0, 0);
-
-							// display success with info
-							MSG.Dialog(MSG_OK, DB_MOUNT_S);
-						}
+						// display success with info
+						MSG.Dialog(MSG_OK, DB_MOUNT_S);
 					}
 				}
 			}
-
+		}
+		
+		if(GFX->GetXMBStatus() == XMB_CLOSE)
+		{
 			// Draw frame
 			if(draw > 0)
 			{
 				BMap.DrawBitmap(&PCL);
 				GFX->Flip();
-				
+
 				draw--;
 			}
 			else
 			{
+				sysUtilCheckCallback();
+				
 				waitFlip();
 				flip(GFX->context, x);
-				sysUtilCheckCallback();
+				
 				x = !x;
 			}
 		}
 		else
 		{
+			sysUtilCheckCallback();
+			
 			waitFlip();
 			flip(GFX->context, x);
-			sysUtilCheckCallback();
+			
 			x = !x;
 
 			draw = 2;

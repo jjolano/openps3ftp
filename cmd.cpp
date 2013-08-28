@@ -44,6 +44,8 @@ struct ftp_cvars {
 
 map<ftp_client*,ftp_cvars> client_cvar;
 
+void closesocket(int socket);
+
 bool isClientAuthorized(ftp_client* clnt)
 {
 	map<ftp_client*,ftp_cvars>::iterator it = client_cvar.find(clnt);
@@ -108,7 +110,7 @@ vector<unsigned short> parsePORT(string args)
 }
 
 void closedata(ftp_client* clnt)
-{
+{	
 	if(client_cvar[clnt].fd != -1)
 	{
 		if(client_cvar[clnt].type == DATA_TYPE_DIR)
@@ -126,6 +128,7 @@ void closedata(ftp_client* clnt)
 	if(client_cvar[clnt].buffer != NULL)
 	{
 		delete [] client_cvar[clnt].buffer;
+		client_cvar[clnt].buffer = NULL;
 	}
 
 	clnt->data_close();
@@ -139,16 +142,16 @@ void data_list(ftp_client* clnt)
 	if(sysLv2FsReadDir(client_cvar[clnt].fd, &entry, &read) == -1)
 	{
 		// failed to read directory
-		clnt->control_sendCode(451, "Failed to read directory");
 		closedata(clnt);
+		clnt->control_sendCode(451, "Failed to read directory");
 		return;
 	}
 
 	if(read <= 0)
 	{
 		// transfer complete
-		clnt->control_sendCode(226, "Transfer complete");
 		closedata(clnt);
+		clnt->control_sendCode(226, "Transfer complete");
 		return;
 	}
 
@@ -204,17 +207,17 @@ void data_list(ftp_client* clnt)
 	file_mode << ((stat.st_mode & S_IXOTH) ? 'x' : '-');
 
 	// modified
-	char tstr[13];
-	strftime(tstr, 12, "%b %e %H:%M", localtime(&stat.st_mtime));
+	char tstr[14];
+	strftime(tstr, 13, "%b %e %H:%M", localtime(&stat.st_mtime));
 
-	int len = snprintf(client_cvar[clnt].buffer, CMDBUFFER, "%s %-3d %-8d %-8d %10lu %s %s\r\n",
+	int len = snprintf(client_cvar[clnt].buffer, CMDBUFFER, "%s %3d %-8d %-8d %10lu %s %s\r\n",
 		file_mode.str().c_str(), 1, 0, 0, stat.st_size, tstr, entry.d_name);
 
 	// send to data socket
 	if(send(clnt->sock_data, client_cvar[clnt].buffer, len, 0) == -1)
 	{
-		clnt->control_sendCode(451, "Data transfer error");
 		closedata(clnt);
+		clnt->control_sendCode(451, "Data transfer error");
 	}
 }
 
@@ -226,16 +229,16 @@ void data_nlst(ftp_client* clnt)
 	if(sysLv2FsReadDir(client_cvar[clnt].fd, &entry, &read) == -1)
 	{
 		// failed to read directory
-		clnt->control_sendCode(451, "Failed to read directory");
 		closedata(clnt);
+		clnt->control_sendCode(451, "Failed to read directory");
 		return;
 	}
 
 	if(read <= 0)
 	{
 		// transfer complete
-		clnt->control_sendCode(226, "Transfer complete");
 		closedata(clnt);
+		clnt->control_sendCode(226, "Transfer complete");
 		return;
 	}
 
@@ -248,8 +251,8 @@ void data_nlst(ftp_client* clnt)
 	// send to data socket
 	if(send(clnt->sock_data, data_str.c_str(), data_str.size(), 0) == -1)
 	{
-		clnt->control_sendCode(451, "Data transfer error");
 		closedata(clnt);
+		clnt->control_sendCode(451, "Data transfer error");
 	}
 }
 
@@ -266,21 +269,21 @@ void data_stor(ftp_client* clnt)
 		if(sysLv2FsWrite(client_cvar[clnt].fd, client_cvar[clnt].buffer, (u64)read, &written) == -1 || written < (u64)read)
 		{
 			// write error
-			clnt->control_sendCode(452, "Failed to write data to file");
 			closedata(clnt);
+			clnt->control_sendCode(452, "Failed to write data to file");
 		}
 	}
 	else
 	{
 		if(read == -1)
 		{
-			clnt->control_sendCode(451, "Error in data transmission");
 			closedata(clnt);
+			clnt->control_sendCode(451, "Error in data transmission");
 		}
 		else
 		{
-			clnt->control_sendCode(226, "Transfer complete");
 			closedata(clnt);
+			clnt->control_sendCode(226, "Transfer complete");
 		}
 	}
 }
@@ -291,22 +294,22 @@ void data_retr(ftp_client* clnt)
 
 	if(sysLv2FsRead(client_cvar[clnt].fd, client_cvar[clnt].buffer, DATA_BUFFER, &read) == -1)
 	{
-		clnt->control_sendCode(452, "Failed to read data from file");
 		closedata(clnt);
+		clnt->control_sendCode(452, "Failed to read data from file");
 		return;
 	}
 
 	if(read <= 0)
 	{
-		clnt->control_sendCode(226, "Transfer complete");
 		closedata(clnt);
+		clnt->control_sendCode(226, "Transfer complete");
 		return;
 	}
 
 	if((u64)send(clnt->sock_data, client_cvar[clnt].buffer, (int)read, 0) < read)
 	{
-		clnt->control_sendCode(451, "Error in data transmission");
 		closedata(clnt);
+		clnt->control_sendCode(451, "Error in data transmission");
 	}
 }
 
@@ -345,13 +348,6 @@ void cmd_ignored_auth(ftp_client* clnt, string cmd, string args)
 void cmd_syst(ftp_client* clnt, string cmd, string args)
 {
 	clnt->control_sendCode(215, "UNIX Type: L8");
-}
-
-void cmd_quit(ftp_client* clnt, string cmd, string args)
-{
-	clnt->control_sendCode(221, "Goodbye");
-	
-	closesocket(clnt->sock_control);
 }
 
 // cmd_feat: server ftp extensions list
@@ -1166,7 +1162,6 @@ void register_cmds()
 	register_cmd("NOOP", cmd_success);
 	register_cmd("CLNT", cmd_success);
 	register_cmd("ACCT", cmd_ignored);
-	register_cmd("QUIT", cmd_quit);
 	register_cmd("FEAT", cmd_feat);
 	register_cmd("SYST", cmd_syst);
 	register_cmd("USER", cmd_user);

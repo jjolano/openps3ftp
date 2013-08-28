@@ -17,8 +17,3 @@ struct ftp_client {
 
 // command handler function pointer type
 typedef void (*cmdhnd)(ftp_client* clnt, std::string cmd, std::string args);
-
-// libnet/socket.c
-extern "C" {
-	int closesocket(int socket);
-}
