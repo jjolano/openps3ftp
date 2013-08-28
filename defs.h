@@ -29,7 +29,7 @@
 // Server defines
 #define CMDBUFFER		4096
 #define LISTEN_BACKLOG	10
-#define DATA_BUFFER		65536
+#define DATA_BUFFER		32768
 
 // Possible disk IO performance boost using sysfs
 // I've had trouble with sysfs since v2.2, so someone can recompile with/without

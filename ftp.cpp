@@ -24,6 +24,8 @@
 #include "ftp.h"
 #include "defs.h"
 
+#define FD(socket)			((socket)&~SOCKET_FD_MASK)
+
 using namespace std;
 
 typedef map<int,int> ftp_drefs;
@@ -45,7 +47,7 @@ void closesocket(int socket)
 {
 	if(socket != -1)
 	{
-		netClose((socket)&~SOCKET_FD_MASK);
+		netClose(FD(socket));
 	}
 }
 
@@ -137,7 +139,7 @@ bool ftp_client::data_open(void (*handler)(ftp_client* clnt), short events)
 
 	// register pollfd for data connection
 	pollfd data_pfd;
-	data_pfd.fd = sock_data;
+	data_pfd.fd = FD(sock_data);
 	data_pfd.events = events;
 	pfd.push_back(data_pfd);
 
@@ -220,7 +222,7 @@ void ftpInitialize(void* arg)
 
 	// Add server to poll
 	pollfd listen_pfd;
-	listen_pfd.fd = sock_listen;
+	listen_pfd.fd = FD(sock_listen);
 	listen_pfd.events = POLLIN;
 	pfd.push_back(listen_pfd);
 
@@ -231,9 +233,9 @@ void ftpInitialize(void* arg)
 		static int p;
 		
 		nfds = pfd.size();
-		p = poll(&pfd[0], nfds, 100);
+		p = netPoll(&pfd[0], nfds, 100);
 
-		if(p == -1)
+		if(p < 0)
 		{
 			GFX->AppExit();
 			ftpTerminate();
@@ -253,7 +255,7 @@ void ftpInitialize(void* arg)
 			p--;
 
 			static int sock_fd;
-			sock_fd = pfd[i].fd;
+			sock_fd = pfd[i].fd | SOCKET_FD_MASK;
 
 			// Listener socket event
 			if(sock_fd == sock_listen)
@@ -271,7 +273,7 @@ void ftpInitialize(void* arg)
 
 					// add to pollfds
 					static pollfd new_pfd;
-					new_pfd.fd = nfd;
+					new_pfd.fd = FD(nfd);
 					new_pfd.events = DATA_EVENT_RECV;
 					pfd.push_back(new_pfd);
 
