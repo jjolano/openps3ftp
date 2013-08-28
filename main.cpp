@@ -66,7 +66,7 @@ int main(s32 argc, char* argv[])
 
 	// Create thread for server
 	sys_ppu_thread_t id;
-	sysThreadCreate(&id, ftpInitialize, GFX, 1500, 0x2000, 0, const_cast<char*>("oftp"));
+	sysThreadCreate(&id, ftpInitialize, GFX, 1500, 0x2000, THREAD_JOINABLE, const_cast<char*>("oftp"));
 
 	// Retrieve detailed connection information (ip address)
 	net_ctl_info info;
@@ -201,8 +201,9 @@ int main(s32 argc, char* argv[])
 
 	BMap.ClearBitmap(&PCL);
 
-	// give one second for the server to close all connections
-	sleep(1);
+	// Wait for server thread
+	u64 ret_val = 0;
+	sysThreadJoin(id, &ret_val);
 
 	// Unload sysmodules
 	sysModuleUnload(SYSMODULE_FS);
@@ -211,6 +212,11 @@ int main(s32 argc, char* argv[])
 	// Unload networking
 	netCtlTerm();
 	netDeinitialize();
+
+	if(GFX->ExitSignalStatus() == NO_SIGNAL && ret_val > 0)
+	{
+		MSG.ErrorDialog((u32)ret_val);
+	}
 
 	GFX->NoRSX_Exit();
 	ioPadEnd();

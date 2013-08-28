@@ -177,34 +177,33 @@ void data_list(ftp_client* clnt)
 	}
 
 	// prepare data message
-	static string file_mode;
-	
-	file_mode.clear();
+	static char permissions[11];
 
 	// file type
 	if(S_ISDIR(stat.st_mode))
 	{
-		file_mode += 'd';
+		permissions[0] = 'd';
 	}
 	else if(S_ISLNK(stat.st_mode))
 	{
-		file_mode += 'l';
+		permissions[0] = 'l';
 	}
 	else
 	{
-		file_mode += '-';
+		permissions[0] = '-';
 	}
 
 	// permissions
-	file_mode += ((stat.st_mode & S_IRUSR) ? 'r' : '-');
-	file_mode += ((stat.st_mode & S_IWUSR) ? 'w' : '-');
-	file_mode += ((stat.st_mode & S_IXUSR) ? 'x' : '-');
-	file_mode += ((stat.st_mode & S_IRGRP) ? 'r' : '-');
-	file_mode += ((stat.st_mode & S_IWGRP) ? 'w' : '-');
-	file_mode += ((stat.st_mode & S_IXGRP) ? 'x' : '-');
-	file_mode += ((stat.st_mode & S_IROTH) ? 'r' : '-');
-	file_mode += ((stat.st_mode & S_IWOTH) ? 'w' : '-');
-	file_mode += ((stat.st_mode & S_IXOTH) ? 'x' : '-');
+	permissions[1] = ((stat.st_mode & S_IRUSR) ? 'r' : '-');
+	permissions[2] = ((stat.st_mode & S_IWUSR) ? 'w' : '-');
+	permissions[3] = ((stat.st_mode & S_IXUSR) ? 'x' : '-');
+	permissions[4] = ((stat.st_mode & S_IRGRP) ? 'r' : '-');
+	permissions[5] = ((stat.st_mode & S_IWGRP) ? 'w' : '-');
+	permissions[6] = ((stat.st_mode & S_IXGRP) ? 'x' : '-');
+	permissions[7] = ((stat.st_mode & S_IROTH) ? 'r' : '-');
+	permissions[8] = ((stat.st_mode & S_IWOTH) ? 'w' : '-');
+	permissions[9] = ((stat.st_mode & S_IXOTH) ? 'x' : '-');
+	permissions[10] = '\0';
 
 	// modified
 	static char tstr[14];
@@ -212,7 +211,7 @@ void data_list(ftp_client* clnt)
 
 	static int len;
 	len = snprintf(client_cvar[clnt].buffer, CMDBUFFER, "%s %3d %-8d %-8d %10lu %s %s\r\n",
-		file_mode.c_str(), 1, 0, 0, stat.st_size, tstr, entry.d_name);
+		permissions, 1, 0, 0, stat.st_size, tstr, entry.d_name);
 
 	// send to data socket
 	if(send(clnt->sock_data, client_cvar[clnt].buffer, len, 0) == -1)
@@ -568,15 +567,17 @@ void cmd_pasv(ftp_client* clnt, string cmd, string args)
 
 	getsockname(clnt->sock_pasv, (sockaddr*)&sa, &len);
 
-	string ret_msg = "Entering Passive Mode (";
-	ret_msg += ((htonl(sa.sin_addr.s_addr) & 0xff000000) >> 24) + ",";
-	ret_msg += ((htonl(sa.sin_addr.s_addr) & 0x00ff0000) >> 16) + ",";
-	ret_msg += ((htonl(sa.sin_addr.s_addr) & 0x0000ff00) >>  8) + ",";
-	ret_msg += (htonl(sa.sin_addr.s_addr) & 0x000000ff) + ",";
-	ret_msg += ((htons(sa.sin_port) & 0xff00) >> 8) + ",";
-	ret_msg += (htons(sa.sin_port) & 0x00ff) + ")";
+	char pasv_msg[50];
+	
+	snprintf(pasv_msg, 50, "Entering Passive Mode (%d,%d,%d,%d,%d,%d)\r\n",
+			 ((htonl(sa.sin_addr.s_addr) & 0xff000000) >> 24),
+			 ((htonl(sa.sin_addr.s_addr) & 0x00ff0000) >> 16),
+			 ((htonl(sa.sin_addr.s_addr) & 0x0000ff00) >>  8),
+			 (htonl(sa.sin_addr.s_addr) & 0x000000ff),
+			 ((htons(sa.sin_port) & 0xff00) >> 8),
+			 (htons(sa.sin_port) & 0x00ff));
 
-	clnt->control_sendCode(227, ret_msg);
+	clnt->control_sendCode(227, pasv_msg);
 }
 
 void cmd_port(ftp_client* clnt, string cmd, string args)
@@ -834,15 +835,6 @@ void cmd_retr(ftp_client* clnt, string cmd, string args)
 		return;
 	}
 
-	sysFSStat stat;
-	sysLv2FsFStat(fd, &stat);
-
-	if(stat.st_size < client_cvar[clnt].rest)
-	{
-		clnt->control_sendCode(552, "Restart point exceeds file size");
-		return;
-	}
-
 	if(client_cvar[clnt].rest > 0)
 	{
 		u64 pos;
@@ -920,10 +912,10 @@ void cmd_rest(ftp_client* clnt, string cmd, string args)
 
 	if(args.empty())
 	{
-		string rest_str;
-		rest_str = client_cvar[clnt].rest;
+		ostringstream out;
+		out << client_cvar[clnt].rest;
 
-		clnt->control_sendCode(350, "Current restart point: " + rest_str);
+		clnt->control_sendCode(350, "Current restart point: " + out.str());
 		return;
 	}
 
@@ -934,10 +926,10 @@ void cmd_rest(ftp_client* clnt, string cmd, string args)
 	{
 		client_cvar[clnt].rest = rest;
 
-		string rest_str;
-		rest_str = rest;
+		ostringstream out;
+		out << client_cvar[clnt].rest;
 
-		clnt->control_sendCode(350, "Restarting at " + rest_str);
+		clnt->control_sendCode(350, "Restarting at " + out.str());
 	}
 	else
 	{
@@ -1048,7 +1040,7 @@ void cmd_site(ftp_client* clnt, string cmd, string args)
 		return;
 	}
 
-	string ftpstr(args);
+	string ftpstr = args;
 
 	string::size_type pos = ftpstr.find(' ', 0);
 	string sitecmd = ftpstr.substr(0, pos);
@@ -1114,10 +1106,10 @@ void cmd_size(ftp_client* clnt, string cmd, string args)
 	sysFSStat stat;
 	if(sysLv2FsStat(path.c_str(), &stat) == 0)
 	{
-		string out;
-		out += stat.st_size;
+		ostringstream out;
+		out << stat.st_size;
 
-		clnt->control_sendCode(213, out);
+		clnt->control_sendCode(213, out.str());
 	}
 	else
 	{

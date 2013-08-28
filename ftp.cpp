@@ -12,6 +12,7 @@
 #include <vector>
 #include <utility>
 #include <string>
+#include <sstream>
 #include <algorithm>
 
 #include <NoRSX.h>
@@ -93,7 +94,10 @@ void ftp_client::control_sendCustom(string message)
 void ftp_client::control_sendCode(unsigned int code, string message, bool multi)
 {
 	// format string
-	string cmsg = code + (multi ? "-" : " ") + message;
+	ostringstream out;
+	out << code;
+
+	string cmsg = out.str() + (multi ? '-' : ' ') + message;
 
 	// send to control socket
 	control_sendCustom(cmsg);
@@ -236,7 +240,7 @@ void ftpInitialize(void* arg)
 	u64 ret_val = 0;
 
 	// Main thread loop
-	while(ret_val == 0 && GFX->GetAppStatus())
+	while(GFX->GetAppStatus())
 	{
 		static nfds_t nfds;
 		static int p;
@@ -271,8 +275,7 @@ void ftpInitialize(void* arg)
 				if(pfd[i].revents & POLLIN)
 				{
 					// accept new connection
-					static int nfd;
-					nfd = accept(sock_listen, NULL, NULL);
+					int nfd = accept(sock_listen, NULL, NULL);
 
 					if(nfd == -1)
 					{
@@ -280,7 +283,7 @@ void ftpInitialize(void* arg)
 					}
 
 					// add to pollfds
-					static pollfd new_pfd;
+					pollfd new_pfd;
 					new_pfd.fd = FD(nfd);
 					new_pfd.events = DATA_EVENT_RECV;
 					pfd.push_back(new_pfd);
@@ -292,7 +295,11 @@ void ftpInitialize(void* arg)
 
 					// welcome
 					client[nfd].control_sendCode(220, APP_NAME " version " APP_VERSION " by " APP_AUTHOR, true);
-					client[nfd].control_sendCode(220, "Client ID: " + i);
+
+					ostringstream out;
+					out << i;
+
+					client[nfd].control_sendCode(220, "Client ID: " + out.str());
 				}
 				else
 				{
