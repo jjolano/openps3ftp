@@ -23,13 +23,13 @@
 #define DATA_TYPE_DIR	1
 #define DATA_TYPE_FILE	2
 
-#define DATA_EVENT_SEND	(POLLOUT | POLLWRNORM)
 #define DATA_EVENT_RECV	(POLLIN | POLLRDNORM)
+#define DATA_EVENT_SEND	(DATA_EVENT_RECV | POLLOUT | POLLWRNORM)
 
 // Server defines
 #define CMDBUFFER		4096
 #define LISTEN_BACKLOG	10
-#define DATA_BUFFER		32768
+#define DATA_BUFFER		65536
 
 // Possible disk IO performance boost using sysfs
 // I've had trouble with sysfs since v2.2, so someone can recompile with/without

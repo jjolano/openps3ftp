@@ -52,7 +52,7 @@ void closesocket(int socket)
 }
 
 // Terminates FTP server and all connections
-void ftpTerminate()
+static void ftpTerminate()
 {
 	for(ftp_clnts::iterator cit = client.begin(); cit != client.end(); cit++)
 	{
@@ -169,7 +169,7 @@ void ftp_client::data_close()
 		u16 i;
 		int dsock = FD(sock_data);
 		
-		for(i = 0; i < nfds; i++)
+		for(i = 1; i < nfds; i++)
 		{
 			if(pfd[i].fd == dsock)
 			{
@@ -245,8 +245,11 @@ void ftpInitialize(void* arg)
 		static nfds_t nfds;
 		static int p;
 		
-		nfds = pfd.size();
-		p = netPoll(&pfd[0], nfds, 100);
+		nfds = (nfds_t)pfd.size();
+		
+		// apparently libnet's poll is super inefficient, it slows down
+		// threefold. just gonna use the syscall directly.
+		p = netPoll(&pfd[0], nfds, 250);
 
 		if(p < 0)
 		{
@@ -297,7 +300,7 @@ void ftpInitialize(void* arg)
 					client[nfd].control_sendCode(220, APP_NAME " version " APP_VERSION " by " APP_AUTHOR, true);
 
 					ostringstream out;
-					out << i;
+					out << nfd;
 
 					client[nfd].control_sendCode(220, "Client ID: " + out.str());
 				}
@@ -332,26 +335,23 @@ void ftpInitialize(void* arg)
 			|| pfd[i].revents & POLLHUP
 			|| pfd[i].revents & POLLERR)
 			{
+				closesocket(sock_fd);
+
 				if(it == datarefs.end())
 				{
 					// client dropped
 					event_client_drop(clnt);
-					closesocket(sock_fd);
-					
 					client.erase(sock_fd);
-					pfd.erase(pfd.begin() + i);
 				}
 				else
 				{
 					// data connection
-					datafunc.erase(clnt->sock_data);
-					datarefs.erase(clnt->sock_data);
-					closesocket(clnt->sock_data);
+					datafunc.erase(sock_fd);
+					datarefs.erase(sock_fd);
 					clnt->sock_data = -1;
-
-					pfd.erase(pfd.begin() + i);
 				}
 
+				pfd.erase(pfd.begin() + i);
 				nfds--;
 				continue;
 			}
@@ -456,6 +456,20 @@ void ftpInitialize(void* arg)
 				else
 				{
 					// Data socket
+
+					// handle sending socket drop
+					if(pfd[i].events & DATA_EVENT_SEND)
+					{
+						datafunc.erase(sock_fd);
+						datarefs.erase(sock_fd);
+						closesocket(sock_fd);
+						clnt->sock_data = -1;
+
+						pfd.erase(pfd.begin() + i);
+						nfds--;
+						continue;
+					}
+
 					// call data handler
 					(datafunc[sock_fd])(clnt);
 
