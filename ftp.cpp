@@ -328,7 +328,9 @@ void ftpInitialize(void* arg)
 			}
 
 			// Disconnect event
-			if((pfd[i].revents & (POLLNVAL|POLLHUP|POLLERR)))
+			if(pfd[i].revents & POLLNVAL
+			|| pfd[i].revents & POLLHUP
+			|| pfd[i].revents & POLLERR)
 			{
 				if(it == datarefs.end())
 				{
@@ -392,7 +394,7 @@ void ftpInitialize(void* arg)
 					if(bytes <= 2)
 					{
 						// invalid command, continue
-						clnt->control_sendCode(500, "Invalid command", false);
+						clnt->control_sendCode(500, "Invalid command");
 						continue;
 					}
 
@@ -448,7 +450,7 @@ void ftpInitialize(void* arg)
 					else
 					{
 						// command not found
-						clnt->control_sendCode(502, cmd + " not implemented", false);
+						clnt->control_sendCode(502, cmd + " not implemented");
 					}
 				}
 				else

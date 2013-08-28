@@ -682,8 +682,6 @@ void cmd_list(ftp_client* clnt, string cmd, string args)
 		client_cvar[clnt].type = DATA_TYPE_DIR;
 
 		clnt->control_sendCode(150, "Accepted data connection");
-
-		data_list(clnt);
 	}
 	else
 	{
@@ -721,8 +719,6 @@ void cmd_nlst(ftp_client* clnt, string cmd, string args)
 		client_cvar[clnt].type = DATA_TYPE_DIR;
 
 		clnt->control_sendCode(150, "Accepted data connection");
-
-		data_nlst(clnt);
 	}
 	else
 	{
@@ -774,11 +770,8 @@ void cmd_stor(ftp_client* clnt, string cmd, string args)
 		return;
 	}
 
-	if(client_cvar[clnt].rest > 0)
-	{
-		u64 pos;
-		sysLv2FsLSeek64(fd, client_cvar[clnt].rest, SEEK_SET, &pos);
-	}
+	u64 pos;
+	sysLv2FsLSeek64(fd, client_cvar[clnt].rest, SEEK_SET, &pos);
 
 	if(clnt->data_open(data_stor, DATA_EVENT_RECV))
 	{
@@ -795,8 +788,6 @@ void cmd_stor(ftp_client* clnt, string cmd, string args)
 		client_cvar[clnt].type = DATA_TYPE_FILE;
 
 		clnt->control_sendCode(150, "Accepted data connection");
-
-		data_stor(clnt);
 	}
 	else
 	{
@@ -835,13 +826,10 @@ void cmd_retr(ftp_client* clnt, string cmd, string args)
 		return;
 	}
 
-	if(client_cvar[clnt].rest > 0)
-	{
-		u64 pos;
-		sysLv2FsLSeek64(fd, client_cvar[clnt].rest, SEEK_SET, &pos);
-	}
+	u64 pos;
+	sysLv2FsLSeek64(fd, client_cvar[clnt].rest, SEEK_SET, &pos);
 
-	if(clnt->data_open(data_retr, DATA_EVENT_RECV))
+	if(clnt->data_open(data_retr, DATA_EVENT_SEND))
 	{
 		client_cvar[clnt].buffer = new char[DATA_BUFFER];
 
@@ -856,8 +844,6 @@ void cmd_retr(ftp_client* clnt, string cmd, string args)
 		client_cvar[clnt].type = DATA_TYPE_FILE;
 
 		clnt->control_sendCode(150, "Accepted data connection");
-
-		data_retr(clnt);
 	}
 	else
 	{

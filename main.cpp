@@ -66,7 +66,7 @@ int main(s32 argc, char* argv[])
 
 	// Create thread for server
 	sys_ppu_thread_t id;
-	sysThreadCreate(&id, ftpInitialize, GFX, 1500, 0x2000, THREAD_JOINABLE, const_cast<char*>("oftp"));
+	sysThreadCreate(&id, ftpInitialize, GFX, 1500, 0x4000, THREAD_JOINABLE, const_cast<char*>("oftp"));
 
 	// Retrieve detailed connection information (ip address)
 	net_ctl_info info;
