@@ -108,7 +108,7 @@ static vector<unsigned short> parsePORT(string args)
 	return vec;
 }
 
-static void closedata(ftp_client* clnt)
+void closedata(ftp_client* clnt)
 {	
 	if(client_cvar[clnt].fd != -1)
 	{
@@ -133,7 +133,7 @@ static void closedata(ftp_client* clnt)
 	clnt->data_close();
 }
 
-static void data_list(ftp_client* clnt)
+void data_list(ftp_client* clnt)
 {
 	static sysFSDirent entry;
 	static u64 read;
@@ -221,7 +221,7 @@ static void data_list(ftp_client* clnt)
 	}
 }
 
-static void data_nlst(ftp_client* clnt)
+void data_nlst(ftp_client* clnt)
 {
 	static sysFSDirent entry;
 	static u64 read;
@@ -257,7 +257,7 @@ static void data_nlst(ftp_client* clnt)
 	}
 }
 
-static void data_stor(ftp_client* clnt)
+void data_stor(ftp_client* clnt)
 {
 	static u64 written;
 	static int read;
@@ -289,7 +289,7 @@ static void data_stor(ftp_client* clnt)
 	}
 }
 
-static void data_retr(ftp_client* clnt)
+void data_retr(ftp_client* clnt)
 {
 	static u64 read;
 
@@ -315,12 +315,12 @@ static void data_retr(ftp_client* clnt)
 	}
 }
 
-static void cmd_success(ftp_client* clnt, string cmd, string args)
+void cmd_success(ftp_client* clnt, string cmd, string args)
 {
 	clnt->control_sendCode(200, cmd + " ok");
 }
 
-static void cmd_success_auth(ftp_client* clnt, string cmd, string args)
+void cmd_success_auth(ftp_client* clnt, string cmd, string args)
 {
 	if(!isClientAuthorized(clnt))
 	{
@@ -331,12 +331,12 @@ static void cmd_success_auth(ftp_client* clnt, string cmd, string args)
 	clnt->control_sendCode(200, cmd + " ok");
 }
 
-static void cmd_ignored(ftp_client* clnt, string cmd, string args)
+void cmd_ignored(ftp_client* clnt, string cmd, string args)
 {
 	clnt->control_sendCode(202, cmd + " not implemented");
 }
 
-static void cmd_ignored_auth(ftp_client* clnt, string cmd, string args)
+void cmd_ignored_auth(ftp_client* clnt, string cmd, string args)
 {
 	if(!isClientAuthorized(clnt))
 	{
@@ -347,13 +347,13 @@ static void cmd_ignored_auth(ftp_client* clnt, string cmd, string args)
 	clnt->control_sendCode(202, cmd + " not implemented");
 }
 
-static void cmd_syst(ftp_client* clnt, string cmd, string args)
+void cmd_syst(ftp_client* clnt, string cmd, string args)
 {
 	clnt->control_sendCode(215, "UNIX Type: L8");
 }
 
 // cmd_feat: server ftp extensions list
-static void cmd_feat(ftp_client* clnt, string cmd, string args)
+void cmd_feat(ftp_client* clnt, string cmd, string args)
 {
 	vector<string> feat;
 
@@ -373,7 +373,7 @@ static void cmd_feat(ftp_client* clnt, string cmd, string args)
 }
 
 // cmd_user: this will initialize the client's cvars
-static void cmd_user(ftp_client* clnt, string cmd, string args)
+void cmd_user(ftp_client* clnt, string cmd, string args)
 {
 	if(isClientAuthorized(clnt))
 	{
@@ -396,7 +396,7 @@ static void cmd_user(ftp_client* clnt, string cmd, string args)
 }
 
 // cmd_pass: this will verify username and password and set authorized flag
-static void cmd_pass(ftp_client* clnt, string cmd, string args)
+void cmd_pass(ftp_client* clnt, string cmd, string args)
 {
 	if(isClientAuthorized(clnt))
 	{
@@ -423,7 +423,7 @@ static void cmd_pass(ftp_client* clnt, string cmd, string args)
 	clnt->control_sendCode(230, "Successfully logged in");
 }
 
-static void cmd_cwd(ftp_client* clnt, string cmd, string args)
+void cmd_cwd(ftp_client* clnt, string cmd, string args)
 {
 	if(!isClientAuthorized(clnt))
 	{
@@ -450,7 +450,7 @@ static void cmd_cwd(ftp_client* clnt, string cmd, string args)
 	}
 }
 
-static void cmd_pwd(ftp_client* clnt, string cmd, string args)
+void cmd_pwd(ftp_client* clnt, string cmd, string args)
 {
 	if(!isClientAuthorized(clnt))
 	{
@@ -461,7 +461,7 @@ static void cmd_pwd(ftp_client* clnt, string cmd, string args)
 	clnt->control_sendCode(257, "\"" + client_cvar[clnt].cwd + "\" is the current directory");
 }
 
-static void cmd_mkd(ftp_client* clnt, string cmd, string args)
+void cmd_mkd(ftp_client* clnt, string cmd, string args)
 {
 	if(!isClientAuthorized(clnt))
 	{
@@ -487,7 +487,7 @@ static void cmd_mkd(ftp_client* clnt, string cmd, string args)
 	}
 }
 
-static void cmd_rmd(ftp_client* clnt, string cmd, string args)
+void cmd_rmd(ftp_client* clnt, string cmd, string args)
 {
 	if(!isClientAuthorized(clnt))
 	{
@@ -513,7 +513,7 @@ static void cmd_rmd(ftp_client* clnt, string cmd, string args)
 	}
 }
 
-static void cmd_cdup(ftp_client* clnt, string cmd, string args)
+void cmd_cdup(ftp_client* clnt, string cmd, string args)
 {
 	if(!isClientAuthorized(clnt))
 	{
@@ -533,7 +533,7 @@ static void cmd_cdup(ftp_client* clnt, string cmd, string args)
 	clnt->control_sendCode(250, "Directory change successful");
 }
 
-static void cmd_pasv(ftp_client* clnt, string cmd, string args)
+void cmd_pasv(ftp_client* clnt, string cmd, string args)
 {
 	if(!isClientAuthorized(clnt))
 	{
@@ -581,7 +581,7 @@ static void cmd_pasv(ftp_client* clnt, string cmd, string args)
 	clnt->control_sendCode(227, pasv_msg);
 }
 
-static void cmd_port(ftp_client* clnt, string cmd, string args)
+void cmd_port(ftp_client* clnt, string cmd, string args)
 {
 	if(!isClientAuthorized(clnt))
 	{
@@ -633,7 +633,7 @@ static void cmd_port(ftp_client* clnt, string cmd, string args)
 	}
 }
 
-static void cmd_abor(ftp_client* clnt, string cmd, string args)
+void cmd_abor(ftp_client* clnt, string cmd, string args)
 {
 	if(!isClientAuthorized(clnt))
 	{
@@ -645,7 +645,7 @@ static void cmd_abor(ftp_client* clnt, string cmd, string args)
 	closedata(clnt);
 }
 
-static void cmd_list(ftp_client* clnt, string cmd, string args)
+void cmd_list(ftp_client* clnt, string cmd, string args)
 {
 	if(!isClientAuthorized(clnt))
 	{
@@ -691,7 +691,7 @@ static void cmd_list(ftp_client* clnt, string cmd, string args)
 	}
 }
 
-static void cmd_nlst(ftp_client* clnt, string cmd, string args)
+void cmd_nlst(ftp_client* clnt, string cmd, string args)
 {
 	if(!isClientAuthorized(clnt))
 	{
@@ -728,7 +728,7 @@ static void cmd_nlst(ftp_client* clnt, string cmd, string args)
 	}
 }
 
-static void cmd_stor(ftp_client* clnt, string cmd, string args)
+void cmd_stor(ftp_client* clnt, string cmd, string args)
 {
 	if(!isClientAuthorized(clnt))
 	{
@@ -749,7 +749,13 @@ static void cmd_stor(ftp_client* clnt, string cmd, string args)
 	}
 
 	string path = getAbsPath(client_cvar[clnt].cwd, args);
-	s32 oflags = (SYS_O_WRONLY | SYS_O_CREAT);
+	s32 oflags = SYS_O_WRONLY;
+
+	// add create flag if file doesn't exist
+	if(!fileExists(path))
+	{
+		oflags |= SYS_O_CREAT;
+	}
 
 	if(cmd == "APPE")
 	{
@@ -771,9 +777,12 @@ static void cmd_stor(ftp_client* clnt, string cmd, string args)
 		return;
 	}
 
-#ifdef _USE_SYSFS_
-	sysFsChmod(path.c_str(), (S_IFMT | 0777));
-#endif
+	#ifdef _USE_SYSFS_
+	if(oflags & SYS_O_CREAT)
+	{
+		sysFsChmod(path.c_str(), (S_IFMT | 0777));
+	}
+	#endif
 
 	u64 pos;
 	sysLv2FsLSeek64(fd, client_cvar[clnt].rest, SEEK_SET, &pos);
@@ -801,7 +810,7 @@ static void cmd_stor(ftp_client* clnt, string cmd, string args)
 	}
 }
 
-static void cmd_retr(ftp_client* clnt, string cmd, string args)
+void cmd_retr(ftp_client* clnt, string cmd, string args)
 {
 	if(!isClientAuthorized(clnt))
 	{
@@ -856,7 +865,7 @@ static void cmd_retr(ftp_client* clnt, string cmd, string args)
 	}
 }
 
-static void cmd_stru(ftp_client* clnt, string cmd, string args)
+void cmd_stru(ftp_client* clnt, string cmd, string args)
 {
 	if(!isClientAuthorized(clnt))
 	{
@@ -874,7 +883,7 @@ static void cmd_stru(ftp_client* clnt, string cmd, string args)
 	}
 }
 
-static void cmd_mode(ftp_client* clnt, string cmd, string args)
+void cmd_mode(ftp_client* clnt, string cmd, string args)
 {
 	if(!isClientAuthorized(clnt))
 	{
@@ -892,7 +901,7 @@ static void cmd_mode(ftp_client* clnt, string cmd, string args)
 	}
 }
 
-static void cmd_rest(ftp_client* clnt, string cmd, string args)
+void cmd_rest(ftp_client* clnt, string cmd, string args)
 {
 	if(!isClientAuthorized(clnt))
 	{
@@ -928,7 +937,7 @@ static void cmd_rest(ftp_client* clnt, string cmd, string args)
 	}
 }
 
-static void cmd_dele(ftp_client* clnt, string cmd, string args)
+void cmd_dele(ftp_client* clnt, string cmd, string args)
 {
 	if(!isClientAuthorized(clnt))
 	{
@@ -954,7 +963,7 @@ static void cmd_dele(ftp_client* clnt, string cmd, string args)
 	}
 }
 
-static void cmd_rnfr(ftp_client* clnt, string cmd, string args)
+void cmd_rnfr(ftp_client* clnt, string cmd, string args)
 {
 	if(!isClientAuthorized(clnt))
 	{
@@ -982,7 +991,7 @@ static void cmd_rnfr(ftp_client* clnt, string cmd, string args)
 	}
 }
 
-static void cmd_rnto(ftp_client* clnt, string cmd, string args)
+void cmd_rnto(ftp_client* clnt, string cmd, string args)
 {
 	if(!isClientAuthorized(clnt))
 	{
@@ -1016,7 +1025,7 @@ static void cmd_rnto(ftp_client* clnt, string cmd, string args)
 	}
 }
 
-static void cmd_site(ftp_client* clnt, string cmd, string args)
+void cmd_site(ftp_client* clnt, string cmd, string args)
 {
 	if(!isClientAuthorized(clnt))
 	{
@@ -1077,7 +1086,7 @@ static void cmd_site(ftp_client* clnt, string cmd, string args)
 	}
 }
 
-static void cmd_size(ftp_client* clnt, string cmd, string args)
+void cmd_size(ftp_client* clnt, string cmd, string args)
 {
 	if(!isClientAuthorized(clnt))
 	{
@@ -1107,7 +1116,7 @@ static void cmd_size(ftp_client* clnt, string cmd, string args)
 	}
 }
 
-static void cmd_mdtm(ftp_client* clnt, string cmd, string args)
+void cmd_mdtm(ftp_client* clnt, string cmd, string args)
 {
 	if(!isClientAuthorized(clnt))
 	{

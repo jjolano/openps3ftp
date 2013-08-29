@@ -33,10 +33,9 @@ int main(s32 argc, char* argv[])
 	NoRSX* GFX = new NoRSX();
 	MsgDialog MSG(GFX);
 	
-	// Initialize networking and pad-input
+	// Initialize networking
 	netInitialize();
 	netCtlInit();
-	ioPadInit(7);
 
 	GFX->AppStart();
 
@@ -50,10 +49,10 @@ int main(s32 argc, char* argv[])
 
 		if(MSG.GetResponse(MSG_DIALOG_BTN_YES) != 1)
 		{
+			GFX->AppExit();
 			netCtlTerm();
 			netDeinitialize();
 			GFX->NoRSX_Exit();
-			ioPadEnd();
 			return 1;
 		}
 
@@ -61,12 +60,13 @@ int main(s32 argc, char* argv[])
 	}
 
 	// Initialize sysmodules
+	ioPadInit(7);
 	sysModuleLoad(SYSMODULE_FS);
 	sysModuleLoad(SYSMODULE_MUSIC2); // for in-game background music?
 
 	// Create thread for server
 	sys_ppu_thread_t id;
-	sysThreadCreate(&id, ftpInitialize, (void*)GFX, 1500, 0x4000, THREAD_JOINABLE, const_cast<char*>("oftp"));
+	sysThreadCreate(&id, ftpInitialize, GFX, 1500, 0x4000, THREAD_JOINABLE, const_cast<char*>("oftp"));
 
 	// Retrieve detailed connection information (ip address)
 	net_ctl_info info;
@@ -92,7 +92,6 @@ int main(s32 argc, char* argv[])
 
 	// drawing
 	int x = 0;
-	int draw = 2;
 
 	// Pad IO variables
 	padInfo padinfo;
@@ -114,19 +113,10 @@ int main(s32 argc, char* argv[])
 			{
 				ioPadGetData(0, &paddata);
 
-				if(paddata.BTN_START)
-				{
-					// Exit application
-					GFX->AppExit();
-					break;
-				}
-
 				if(paddata.BTN_L1)
 				{
 					// Credits
 					MSG.Dialog(MSG_OK, CREDITS);
-
-					draw = 2;
 				}
 
 				if(paddata.BTN_SELECT)
@@ -163,39 +153,25 @@ int main(s32 argc, char* argv[])
 							MSG.Dialog(MSG_OK, DB_MOUNT_S);
 						}
 					}
+				}
 
-					draw = 2;
+				if(paddata.BTN_START)
+				{
+					// Exit application
+					GFX->AppExit();
 				}
 			}
 			
 			// Draw frame
-			if(draw > 0)
-			{
-				BMap.DrawBitmap(&PCL);
-				GFX->Flip();
-
-				draw--;
-			}
-			else
-			{
-				sysUtilCheckCallback();
-				
-				waitFlip();
-				flip(GFX->context, x);
-				
-				x = !x;
-			}
+			BMap.DrawBitmap(&PCL);
+			GFX->Flip();
 		}
 		else
 		{
-			sysUtilCheckCallback();
-			
 			waitFlip();
 			flip(GFX->context, x);
-			
 			x = !x;
-
-			draw = 2;
+			sysUtilCheckCallback();
 		}
 	}
 
@@ -204,9 +180,14 @@ int main(s32 argc, char* argv[])
 	// Wait for server thread
 	u64 ret_val = 0;
 	sysThreadJoin(id, &ret_val);
-	//sysThreadDetach(id);
+
+	if(GFX->ExitSignalStatus() == NO_SIGNAL && ret_val > 0)
+	{
+		MSG.ErrorDialog((u32)ret_val);
+	}
 
 	// Unload sysmodules
+	ioPadEnd();
 	sysModuleUnload(SYSMODULE_FS);
 	sysModuleUnload(SYSMODULE_MUSIC2);
 
@@ -214,12 +195,6 @@ int main(s32 argc, char* argv[])
 	netCtlTerm();
 	netDeinitialize();
 
-	if(GFX->ExitSignalStatus() == NO_SIGNAL && ret_val > 0)
-	{
-		MSG.ErrorDialog((u32)ret_val);
-	}
-
 	GFX->NoRSX_Exit();
-	ioPadEnd();
 	return 0;
 }
