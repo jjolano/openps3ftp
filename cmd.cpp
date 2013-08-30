@@ -122,12 +122,7 @@ void closedata(ftp_client* clnt)
 		}
 
 		client_cvar[clnt].fd = -1;
-	}
-
-	if(client_cvar[clnt].buffer != NULL)
-	{
 		delete [] client_cvar[clnt].buffer;
-		client_cvar[clnt].buffer = NULL;
 	}
 
 	clnt->data_close();
@@ -1048,36 +1043,34 @@ void cmd_site(ftp_client* clnt, string cmd, string args)
 
 	if(sitecmd == "CHMOD")
 	{
-		if(pos != string::npos)
+		if(pos == string::npos)
 		{
-			ftpstr = ftpstr.substr(pos + 1);
+			clnt->control_sendCode(501, "Bad CHMOD syntax");
+			return;
+		}
 
-			pos = ftpstr.find(' ', 0);
-			string chmod = ftpstr.substr(0, pos);
+		ftpstr = ftpstr.substr(pos + 1);
 
-			if(pos != string::npos)
-			{
-				args = ftpstr.substr(pos + 1);
+		pos = ftpstr.find(' ', 0);
+		string chmod = ftpstr.substr(0, pos);
 
-				string path = getAbsPath(client_cvar[clnt].cwd, args);
+		if(pos == string::npos)
+		{
+			clnt->control_sendCode(501, "No filename specified");
+			return;
+		}
 
-				if(sysLv2FsChmod(path.c_str(), S_IFMT | atoi(chmod.c_str())) == 0)
-				{
-					clnt->control_sendCode(200, "Successfully set file permissions");
-				}
-				else
-				{
-					clnt->control_sendCode(550, "Cannot set file permissions");
-				}
-			}
-			else
-			{
-				clnt->control_sendCode(501, "No filename specified");
-			}
+		args = ftpstr.substr(pos + 1);
+
+		string path = getAbsPath(client_cvar[clnt].cwd, args);
+
+		if(sysLv2FsChmod(path.c_str(), S_IFMT | atoi(chmod.c_str())) == 0)
+		{
+			clnt->control_sendCode(200, "Successfully set file permissions");
 		}
 		else
 		{
-			clnt->control_sendCode(501, "Bad CHMOD syntax");
+			clnt->control_sendCode(550, "Cannot set file permissions");
 		}
 	}
 	else
@@ -1132,11 +1125,11 @@ void cmd_mdtm(ftp_client* clnt, string cmd, string args)
 
 	string path = getAbsPath(client_cvar[clnt].cwd, args);
 
-	sysFSStat stat;
-	if(sysLv2FsStat(path.c_str(), &stat) == 0)
+	sysFSUtimbuf timbuf;
+	if(sysLv2FsUtime(path.c_str(), &timbuf) == 0)
 	{
 		char tstr[15];
-		strftime(tstr, 14, "%Y%m%d%H%M%S", localtime(&stat.st_mtime));
+		strftime(tstr, 14, "%Y%m%d%H%M%S", localtime(&timbuf.modtime));
 
 		clnt->control_sendCode(213, tstr);
 	}
