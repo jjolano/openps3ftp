@@ -247,7 +247,8 @@ void ftpInitialize(void* arg)
 	{
 		// apparently libnet's poll is super inefficient, it slows down
 		// threefold. just gonna use the syscall directly.
-		int p = netPoll(&pfd[0], nfds, 250);
+		static int p;
+		p = netPoll(&pfd[0], nfds, 250);
 
 		if(p < 0)
 		{
@@ -267,7 +268,8 @@ void ftpInitialize(void* arg)
 
 			p--;
 
-			int sock_fd = pfd[i].fd | SOCKET_FD_MASK;
+			static int sock_fd;
+			sock_fd = (pfd[i].fd | SOCKET_FD_MASK);
 
 			// Listener socket event
 			if(sock_fd == sock_listen)
@@ -314,8 +316,8 @@ void ftpInitialize(void* arg)
 			}
 
 			// get client info
-			ftp_drefs::iterator it;
-			ftp_client* clnt;
+			static ftp_drefs::iterator it;
+			static ftp_client* clnt;
 
 			it = datarefs.find(sock_fd);
 
