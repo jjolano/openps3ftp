@@ -204,7 +204,7 @@ void data_list(ftp_client* clnt)
 	static char tstr[14];
 	strftime(tstr, 13, "%b %e %H:%M", localtime(&stat.st_mtime));
 
-	static int len;
+	static size_t len;
 	len = snprintf(client_cvar[clnt].buffer, CMDBUFFER, "%s %3d %-8d %-8d %10lu %s %s\r\n",
 		permissions, 1, 0, 0, stat.st_size, tstr, entry.d_name);
 
@@ -245,7 +245,7 @@ void data_nlst(ftp_client* clnt)
 	data_str += '\n';
 
 	// send to data socket
-	if(send(clnt->sock_data, data_str.c_str(), data_str.size(), 0) == -1)
+	if(send(clnt->sock_data, data_str.c_str(), (size_t)data_str.size(), 0) == -1)
 	{
 		closedata(clnt);
 		clnt->control_sendCode(451, "Data transfer error");
@@ -297,7 +297,7 @@ void data_retr(ftp_client* clnt)
 
 	if(read > 0)
 	{
-		if((u64)send(clnt->sock_data, client_cvar[clnt].buffer, read, 0) < read)
+		if((u64)send(clnt->sock_data, client_cvar[clnt].buffer, (size_t)read, 0) < read)
 		{
 			closedata(clnt);
 			clnt->control_sendCode(451, "Error in data transmission");
