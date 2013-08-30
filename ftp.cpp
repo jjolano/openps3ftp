@@ -63,9 +63,7 @@ void ftpTerminate()
 		event_client_drop(clnt);
 	}
 
-	nfds_t nfds = pfd.size();
 	u16 i;
-
 	for(i = 0; i < nfds; i++)
 	{
 		closesocket(pfd[i].fd);
@@ -153,7 +151,7 @@ bool ftp_client::data_open(void (*handler)(ftp_client* clnt), short events)
 	// register pollfd for data connection
 	pollfd data_pfd;
 	data_pfd.fd = FD(sock_data);
-	data_pfd.events = events;
+	data_pfd.events = POLLIN | events;
 	pfd.push_back(data_pfd);
 
 	// reference
@@ -358,7 +356,7 @@ void ftpInitialize(void* arg)
 			}
 
 			// Sending data event
-			if(pfd[i].events == DATA_EVENT_SEND)
+			if(pfd[i].revents & DATA_EVENT_SEND)
 			{
 				// call data handler
 				(datafunc[sock_fd])(clnt);
@@ -366,7 +364,7 @@ void ftpInitialize(void* arg)
 			}
 
 			// Receiving data event
-			if(pfd[i].events == DATA_EVENT_RECV)
+			if(pfd[i].revents & DATA_EVENT_RECV)
 			{
 				if(it == datarefs.end())
 				{
