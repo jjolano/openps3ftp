@@ -1,4 +1,4 @@
-[Version 3.0 - August 30, 2013]
+[Version 3.0 - August 31, 2013]
 - Total rewrite of the whole server structure and interface
 - Server engine now SFQ-style, instead of FIFO-style
 - Interface now uses PS3 internal fonts and should be more dynamic
