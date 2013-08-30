@@ -153,12 +153,11 @@ bool ftp_client::data_open(void (*handler)(ftp_client* clnt), short events)
 	data_pfd.fd = FD(sock_data);
 	data_pfd.events = POLLIN | events;
 	pfd.push_back(data_pfd);
+	nfds++;
 
 	// reference
 	datarefs[sock_data] = sock_control;
 	datafunc[sock_data] = handler;
-
-	nfds++;
 	return true;
 }
 
@@ -168,11 +167,9 @@ void ftp_client::data_close()
 	{
 		// remove from pollfd
 		u16 i;
-		int dsock = FD(sock_data);
-		
 		for(i = 1; i < nfds; i++)
 		{
-			if(pfd[i].fd == dsock)
+			if(pfd[i].fd == FD(sock_data))
 			{
 				pfd.erase(pfd.begin() + i);
 				nfds--;
@@ -257,9 +254,38 @@ void ftpInitialize(void* arg)
 			break;
 		}
 
-		// Loop if poll > 0
+		// handle listener socket events
+		if(pfd[0].revents > 0)
+		{
+			p--;
+
+			// accept new connection
+			int nfd = accept(sock_listen, NULL, NULL);
+
+			if(nfd == -1)
+			{
+				continue;
+			}
+
+			// add to pollfds
+			pollfd new_pfd;
+			new_pfd.fd = FD(nfd);
+			new_pfd.events = DATA_EVENT_RECV;
+			pfd.push_back(new_pfd);
+			nfds++;
+
+			// add to clients
+			client[nfd].sock_control = nfd;
+			client[nfd].sock_data = -1;
+			client[nfd].sock_pasv = -1;
+
+			// welcome
+			client[nfd].control_sendCode(220, APP_NAME " v" APP_VERSION);
+		}
+
+		// handle client and data sockets
 		static u16 i;
-		for(i = 0; (p > 0 && i < nfds); i++)
+		for(i = 1; (p > 0 && i < nfds); i++)
 		{
 			if(pfd[i].revents == 0)
 			{
@@ -271,64 +297,14 @@ void ftpInitialize(void* arg)
 			static int sock_fd;
 			sock_fd = (pfd[i].fd | SOCKET_FD_MASK);
 
-			// Listener socket event
-			if(sock_fd == sock_listen)
-			{
-				if(pfd[i].revents & POLLIN)
-				{
-					// accept new connection
-					int nfd = accept(sock_listen, NULL, NULL);
-
-					if(nfd == -1)
-					{
-						continue;
-					}
-
-					// add to pollfds
-					pollfd new_pfd;
-					new_pfd.fd = FD(nfd);
-					new_pfd.events = DATA_EVENT_RECV;
-					pfd.push_back(new_pfd);
-
-					// add to clients
-					client[nfd].sock_control = nfd;
-					client[nfd].sock_data = -1;
-					client[nfd].sock_pasv = -1;
-
-					// welcome
-					client[nfd].control_sendCode(220, APP_NAME " version " APP_VERSION " by " APP_AUTHOR, true);
-
-					ostringstream out;
-					out << nfd;
-
-					client[nfd].control_sendCode(220, "Client ID: " + out.str());
-
-					nfds++;
-					continue;
-				}
-				else
-				{
-					// server fail
-					GFX->AppExit();
-					ret_val = 4;
-					break;
-				}
-			}
-
 			// get client info
 			static ftp_drefs::iterator it;
 			static ftp_client* clnt;
+			static bool isData;
 
 			it = datarefs.find(sock_fd);
-
-			if(it != datarefs.end())
-			{
-				clnt = &(client[it->second]);
-			}
-			else
-			{
-				clnt = &(client[sock_fd]);
-			}
+			isData = (it != datarefs.end());
+			clnt = &(client[isData ? it->second : sock_fd]);
 
 			// Disconnect event
 			if(pfd[i].revents & POLLNVAL
@@ -337,7 +313,7 @@ void ftpInitialize(void* arg)
 			{
 				closesocket(sock_fd);
 
-				if(it == datarefs.end())
+				if(!isData)
 				{
 					// client dropped
 					event_client_drop(clnt);
@@ -362,13 +338,19 @@ void ftpInitialize(void* arg)
 			{
 				// call data handler
 				(datafunc[sock_fd])(clnt);
+
+				if(clnt->sock_data == -1)
+				{
+					i--;
+				}
+
 				continue;
 			}
 
 			// Receiving data event
 			if(pfd[i].revents & DATA_EVENT_RECV)
 			{
-				if(it == datarefs.end())
+				if(!isData)
 				{
 					// Control socket
 					int bytes = recv(sock_fd, data, CMDBUFFER, 0);
@@ -449,6 +431,11 @@ void ftpInitialize(void* arg)
 					// Data socket
 					// call data handler
 					(datafunc[sock_fd])(clnt);
+
+					if(clnt->sock_data == -1)
+					{
+						i--;
+					}
 				}
 
 				continue;
