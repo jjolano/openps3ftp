@@ -92,6 +92,7 @@ int main(s32 argc, char* argv[])
 
 	// drawing
 	int x = 0;
+	int draw = 2;
 
 	// Pad IO variables
 	padInfo padinfo;
@@ -117,6 +118,7 @@ int main(s32 argc, char* argv[])
 				{
 					// Credits
 					MSG.Dialog(MSG_OK, CREDITS);
+					draw = 2;
 				}
 
 				if(paddata.BTN_SELECT)
@@ -153,6 +155,8 @@ int main(s32 argc, char* argv[])
 							MSG.Dialog(MSG_OK, DB_MOUNT_S);
 						}
 					}
+
+					draw = 2;
 				}
 
 				if(paddata.BTN_START)
@@ -163,16 +167,27 @@ int main(s32 argc, char* argv[])
 			}
 			
 			// Draw frame
-			BMap.DrawBitmap(&PCL);
-			GFX->Flip();
+			if(draw > 0)
+			{
+				BMap.DrawBitmap(&PCL);
+				GFX->Flip();
+			}
+			else
+			{
+				waitFlip();
+				flip(GFX->context, x);
+				sysUtilCheckCallback();
+			}
 		}
 		else
 		{
 			waitFlip();
 			flip(GFX->context, x);
-			x = !x;
 			sysUtilCheckCallback();
+			draw = 2;
 		}
+
+		x = !x;
 	}
 
 	BMap.ClearBitmap(&PCL);
