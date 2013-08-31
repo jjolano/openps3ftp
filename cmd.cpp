@@ -1181,6 +1181,9 @@ void register_cmds()
 
 void event_client_drop(ftp_client* clnt)
 {
-	closedata(clnt);
-	client_cvar.erase(clnt);
+	if(client_cvar.find(clnt) != client_cvar.end())
+	{
+		closedata(clnt);
+		client_cvar.erase(clnt);
+	}
 }
