@@ -255,7 +255,7 @@ void ftpInitialize(void* arg)
 		}
 
 		// handle listener socket events
-		if(pfd[0].revents > 0)
+		if(p > 0 && pfd[0].revents > 0)
 		{
 			p--;
 
