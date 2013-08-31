@@ -1125,11 +1125,11 @@ void cmd_mdtm(ftp_client* clnt, string cmd, string args)
 
 	string path = getAbsPath(client_cvar[clnt].cwd, args);
 
-	sysFSUtimbuf timbuf;
-	if(sysLv2FsUtime(path.c_str(), &timbuf) == 0)
+	sysFSStat stat;
+	if(sysLv2FsStat(path.c_str(), &stat) == 0)
 	{
 		char tstr[15];
-		strftime(tstr, 14, "%Y%m%d%H%M%S", localtime(&timbuf.modtime));
+		strftime(tstr, 14, "%Y%m%d%H%M%S", localtime(&stat.st_mtime));
 
 		clnt->control_sendCode(213, tstr);
 	}
