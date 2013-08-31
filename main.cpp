@@ -171,6 +171,7 @@ int main(s32 argc, char* argv[])
 			{
 				BMap.DrawBitmap(&PCL);
 				GFX->Flip();
+				draw--;
 			}
 			else
 			{
