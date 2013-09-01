@@ -8,6 +8,8 @@
  * ----------------------------------------------------------------------------
  */
 
+#include <cstdlib>
+
 #include <NoRSX.h>
 #include <ppu-lv2.h>
 #include <net/net.h>
@@ -27,46 +29,49 @@ msgType MSG_YESNO = (msgType)(MSG_DIALOG_NORMAL|MSG_DIALOG_BTN_TYPE_YESNO);
 // FTP server starter
 void ftpInitialize(void *arg);
 
+// NoRSX pointer
+static NoRSX* GFX;
+
+void cleanup()
+{
+	GFX->NoRSX_Exit();
+	sysModuleUnload(SYSMODULE_MUSIC2);
+	sysModuleUnload(SYSMODULE_FS);
+	ioPadEnd();
+	netCtlTerm();
+	netDeinitialize();
+}
+
 int main(s32 argc, char* argv[])
 {
-	// Initialize graphics
-	NoRSX* GFX = new NoRSX();
-	MsgDialog MSG(GFX);
-	
-	// Initialize networking
+	atexit(cleanup);
+
+	// Initialize sysmodules
 	netInitialize();
 	netCtlInit();
-
-	GFX->AppStart();
+	ioPadInit(7);
+	sysModuleLoad(SYSMODULE_FS);
+	sysModuleLoad(SYSMODULE_MUSIC2);
 
 	// Verify connection state
 	s32 state;
 	netCtlGetState(&state);
 
-	while(state != NET_CTL_STATE_IPObtained)
+	// Initialize graphics
+	GFX = new NoRSX();
+	MsgDialog MSG(GFX);
+
+	GFX->AppStart();
+
+	if(state != NET_CTL_STATE_IPObtained)
 	{
-		MSG.Dialog(MSG_YESNO, ERR_NOCONN_Q);
-
-		if(MSG.GetResponse(MSG_DIALOG_BTN_YES) != 1)
-		{
-			GFX->AppExit();
-			netCtlTerm();
-			netDeinitialize();
-			GFX->NoRSX_Exit();
-			return 1;
-		}
-
-		netCtlGetState(&state);
+		MSG.Dialog(MSG_OK, ERR_NOCONN);
+		return 1;
 	}
-
-	// Initialize sysmodules
-	ioPadInit(7);
-	sysModuleLoad(SYSMODULE_FS);
-	sysModuleLoad(SYSMODULE_MUSIC2); // for in-game background music?
 
 	// Create thread for server
 	sys_ppu_thread_t id;
-	sysThreadCreate(&id, ftpInitialize, GFX, 1500, 0x4000, THREAD_JOINABLE, const_cast<char*>("oftp"));
+	sysThreadCreate(&id, ftpInitialize, GFX, 1500, 0x2000, THREAD_JOINABLE, const_cast<char*>("oftp"));
 
 	// Retrieve detailed connection information (ip address)
 	net_ctl_info info;
@@ -81,14 +86,13 @@ int main(s32 argc, char* argv[])
 	BMap.GenerateBitmap(&PCL);
 	BG.MonoBitmap(COLOR_BLACK, &PCL);
 
-	F1.PrintfToBitmap(65, 75, &PCL, COLOR_WHITE, APP_NAME " version " APP_VERSION);
-	F1.PrintfToBitmap(65, 125, &PCL, COLOR_WHITE, "by " APP_AUTHOR " (compiled " __DATE__ " " __TIME__")");
+	F1.PrintfToBitmap(65, 75, &PCL, COLOR_WHITE, APP_NAME " v" APP_VERSION " by " APP_AUTHOR);
 
-	F1.PrintfToBitmap(65, 225, &PCL, COLOR_WHITE, "IP Address: %s (port 21)", info.ip_address);
+	F1.PrintfToBitmap(65, 175, &PCL, COLOR_WHITE, "Local IP: %s (port 21)", info.ip_address);
 
-	F1.PrintfToBitmap(65, 325, &PCL, COLOR_WHITE, "SELECT: dev_blind mounter");
-	F1.PrintfToBitmap(65, 375, &PCL, COLOR_WHITE, "START: Exit " APP_NAME);
-	F1.PrintfToBitmap(65, 425, &PCL, COLOR_WHITE, "L1: Credits/Acknowledgements");
+	F1.PrintfToBitmap(65, 275, &PCL, COLOR_WHITE, "SELECT: dev_blind mounter");
+	F1.PrintfToBitmap(65, 325, &PCL, COLOR_WHITE, "START: Exit " APP_NAME);
+	F1.PrintfToBitmap(65, 375, &PCL, COLOR_WHITE, "L1: Credits/Acknowledgements");
 
 	// drawing
 	int x = 0;
@@ -118,6 +122,7 @@ int main(s32 argc, char* argv[])
 				{
 					// Credits
 					MSG.Dialog(MSG_OK, CREDITS);
+					
 					draw = 2;
 				}
 
@@ -133,9 +138,17 @@ int main(s32 argc, char* argv[])
 						{
 							// syscall unmount
 							lv2syscall1(838, (u64)DB_MOUNTPOINT);
-
-							// display success
-							MSG.Dialog(MSG_OK, DB_UNMOUNT_S);
+							
+							if(p1 == 0)
+							{
+								// success
+								MSG.Dialog(MSG_OK, DB_SUCCESS);
+							}
+							else
+							{
+								// failure
+								MSG.Dialog(MSG_OK, DB_FAILURE);
+							}
 						}
 					}
 					else
@@ -150,9 +163,17 @@ int main(s32 argc, char* argv[])
 										(u64)"CELL_FS_FAT",
 										(u64)DB_MOUNTPOINT,
 										0, 0 /* readonly */, 0, 0, 0);
-
-							// display success with info
-							MSG.Dialog(MSG_OK, DB_MOUNT_S);
+							
+							if(p1 == 0)
+							{
+								// success
+								MSG.Dialog(MSG_OK, DB_SUCCESS);
+							}
+							else
+							{
+								// failure
+								MSG.Dialog(MSG_OK, DB_FAILURE);
+							}
 						}
 					}
 
@@ -202,15 +223,5 @@ int main(s32 argc, char* argv[])
 		MSG.ErrorDialog((u32)ret_val);
 	}
 
-	// Unload sysmodules
-	ioPadEnd();
-	sysModuleUnload(SYSMODULE_FS);
-	sysModuleUnload(SYSMODULE_MUSIC2);
-
-	// Unload networking
-	netCtlTerm();
-	netDeinitialize();
-
-	GFX->NoRSX_Exit();
 	return 0;
 }

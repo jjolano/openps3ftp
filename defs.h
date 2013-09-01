@@ -11,13 +11,14 @@
 #define DB_MOUNTPOINT	"/dev_blind"
 
 // Message boxes
-#define ERR_NOCONN_Q	APP_NAME " requires a network connection in order to function.\n\nRecheck network connection?"
-#define DB_MOUNT_Q		"Do you want to mount dev_blind?\nDisclaimer: You access your flash at your own risk."
-#define DB_UNMOUNT_Q	"Do you want to unmount dev_blind?"
-#define DB_MOUNT_S		"dev_blind mounted at " DB_MOUNTPOINT "."
-#define DB_UNMOUNT_S	"dev_blind was successfully unmounted."
+#define ERR_NOCONN		APP_NAME " requires a network connection in order to function."
 
-#define CREDITS			APP_NAME " version " APP_VERSION " by " APP_AUTHOR "\nAcknowledgements:\n- atreyu187 (tester)\n- coldlm (tester)\n- @MastaChaOS (tester)\n- @ooPo\n- @NeoSabin\n- @GregoryRasputin\n- deroad (@Wargio)\n\nAnd of course, thank *you* for using " APP_NAME "."
+#define DB_MOUNT_Q		"Do you want to mount dev_blind?"
+#define DB_UNMOUNT_Q	"Do you want to unmount dev_blind?"
+#define DB_SUCCESS		"Operation was successful."
+#define DB_FAILURE		"Operation was unsuccessful."
+
+#define CREDITS			APP_NAME " v" APP_VERSION " by " APP_AUTHOR "\nAcknowledgements:\n- atreyu187 (tester)\n- coldlm (tester)\n- @MastaChaOS (tester)\n- @ooPo\n- @NeoSabin\n- @GregoryRasputin\n- deroad (@Wargio)\n\nAnd of course, thank *you* for using " APP_NAME "."
 
 // Server types
 #define DATA_TYPE_DIR	1
@@ -29,7 +30,7 @@
 // Server defines
 #define LISTEN_BACKLOG	10
 #define CMD_BUFFER		4096
-#define DATA_BUFFER		65536			// if ssd, maybe 262144 will work best
+#define DATA_BUFFER		65536
 
 // Possible disk IO performance boost using sysfs
 // I've had trouble with sysfs since v2.2, so someone can recompile with/without
