@@ -296,11 +296,11 @@ void data_retr(ftp_client* clnt, char* buffer)
 			closedata(clnt);
 			clnt->control_sendCode(451, "Error in data transmission");
 		}
-		else
-		{
-			closedata(clnt);
-			clnt->control_sendCode(226, "Transfer complete");
-		}
+	}
+	else
+	{
+		closedata(clnt);
+		clnt->control_sendCode(226, "Transfer complete");
 	}
 }
 
