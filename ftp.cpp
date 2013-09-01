@@ -157,18 +157,6 @@ void ftp_client::data_close()
 {
 	if(sock_data != -1)
 	{
-		// remove from pollfd
-		u16 i;
-		for(i = 1; i < nfds; i++)
-		{
-			if(pfd[i].fd == FD(sock_data))
-			{
-				pfd.erase(pfd.begin() + i);
-				nfds--;
-				break;
-			}
-		}
-
 		// remove references
 		datafunc.erase(sock_data);
 		datarefs.erase(sock_data);
@@ -330,8 +318,12 @@ void ftpInitialize(void* arg)
 				// call data handler
 				(datafunc[sock_fd])(clnt);
 
+				pfd[i].revents = 0;
+
 				if(clnt->sock_data == -1)
 				{
+					pfd.erase(pfd.begin() + i);
+					nfds--;
 					i--;
 				}
 
@@ -416,6 +408,8 @@ void ftpInitialize(void* arg)
 						// command not found
 						clnt->control_sendCode(502, cmd + " not implemented");
 					}
+
+					pfd[i].revents = 0;
 				}
 				else
 				{
@@ -423,8 +417,12 @@ void ftpInitialize(void* arg)
 					// call data handler
 					(datafunc[sock_fd])(clnt);
 
+					pfd[i].revents = 0;
+
 					if(clnt->sock_data == -1)
 					{
+						pfd.erase(pfd.begin() + i);
+						nfds--;
 						i--;
 					}
 				}
