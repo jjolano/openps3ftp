@@ -30,7 +30,7 @@ using namespace std;
 
 typedef map<int,int> ftp_drefs;
 typedef map<string,cmdhnd> ftp_chnds;
-typedef map<int,void (*)(ftp_client* clnt, char* buffer)> ftp_dhnds;
+typedef map<int,void (*)(ftp_client* clnt)> ftp_dhnds;
 typedef map<int,ftp_client> ftp_clnts;
 typedef vector<pollfd> ftp_socks;
 
@@ -100,7 +100,7 @@ void ftp_client::control_sendCode(unsigned int code, string message)
 	control_sendCode(code, message, false);
 }
 
-bool ftp_client::data_open(void (*handler)(ftp_client* clnt, char* buffer), short events)
+bool ftp_client::data_open(void (*handler)(ftp_client* clnt), short events)
 {
 	// try to get data connection
 	if(sock_data == -1)
@@ -201,14 +201,6 @@ void ftpInitialize(void* arg)
 		sysThreadExit(1);
 	}
 
-	char* buffer = new char[DATA_BUFFER];
-
-	if(buffer == NULL)
-	{
-		GFX->AppExit();
-		sysThreadExit(2);
-	}
-
 	// Create server socket
 	int sock_listen = socket(PF_INET, SOCK_STREAM, 0);
 	
@@ -221,7 +213,7 @@ void ftpInitialize(void* arg)
 	{
 		GFX->AppExit();
 		closesocket(sock_listen);
-		sysThreadExit(3);
+		sysThreadExit(2);
 	}
 
 	listen(sock_listen, LISTEN_BACKLOG);
@@ -249,7 +241,7 @@ void ftpInitialize(void* arg)
 		if(p < 0)
 		{
 			GFX->AppExit();
-			ret_val = 4;
+			ret_val = 3;
 			break;
 		}
 
@@ -336,7 +328,7 @@ void ftpInitialize(void* arg)
 			if(pfd[i].revents & DATA_EVENT_SEND)
 			{
 				// call data handler
-				(datafunc[sock_fd])(clnt, buffer);
+				(datafunc[sock_fd])(clnt);
 
 				if(clnt->sock_data == -1)
 				{
@@ -429,7 +421,7 @@ void ftpInitialize(void* arg)
 				{
 					// Data socket
 					// call data handler
-					(datafunc[sock_fd])(clnt, buffer);
+					(datafunc[sock_fd])(clnt);
 
 					if(clnt->sock_data == -1)
 					{
@@ -444,6 +436,5 @@ void ftpInitialize(void* arg)
 
 	ftpTerminate();
 	delete [] data;
-	delete [] buffer;
 	sysThreadExit(ret_val);
 }

@@ -11,7 +11,7 @@ struct ftp_client {
 	void control_sendCode(unsigned int code, std::string message, bool multi);
 	void control_sendCode(unsigned int code, std::string message);
 
-	bool data_open(void (*handler)(ftp_client* clnt, char* buffer), short events);
+	bool data_open(void (*handler)(ftp_client* clnt), short events);
 	void data_close();
 };
 

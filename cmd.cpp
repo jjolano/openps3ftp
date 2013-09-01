@@ -38,6 +38,8 @@ struct ftp_cvars {
 	u64 rest;			// Used in resuming file transfers
 	s32 fd_dir;			// Data file descriptor for directories
 	s32 fd_file;		// Data file descriptor for files
+	char* buffer_dir;	// Data buffer for directories
+	char* buffer_file;	// Data buffer for files
 };
 
 map<ftp_client*,ftp_cvars> client_cvar;
@@ -111,18 +113,20 @@ void closedata(ftp_client* clnt)
 	{
 		sysLv2FsCloseDir(client_cvar[clnt].fd_dir);
 		client_cvar[clnt].fd_dir = -1;
+		delete [] client_cvar[clnt].buffer_dir;
 	}
 
 	if(client_cvar[clnt].fd_file != -1)
 	{
 		sysLv2FsClose(client_cvar[clnt].fd_file);
 		client_cvar[clnt].fd_file = -1;
+		delete [] client_cvar[clnt].buffer_file;
 	}
 
 	clnt->data_close();
 }
 
-void data_list(ftp_client* clnt, char* buffer)
+void data_list(ftp_client* clnt)
 {
 	static sysFSDirent entry;
 	static u64 read;
@@ -199,18 +203,18 @@ void data_list(ftp_client* clnt, char* buffer)
 	strftime(tstr, 13, "%b %e %H:%M", localtime(&stat.st_mtime));
 
 	static size_t len;
-	len = snprintf(buffer, DATA_BUFFER, "%s %3d %-8d %-8d %10lu %s %s\r\n",
+	len = snprintf(client_cvar[clnt].buffer_dir, CMD_BUFFER, "%s %3d %-8d %-8d %10lu %s %s\r\n",
 		permissions, 1, 0, 0, stat.st_size, tstr, entry.d_name);
 
 	// send to data socket
-	if(send(clnt->sock_data, buffer, len, 0) == -1)
+	if(send(clnt->sock_data, client_cvar[clnt].buffer_dir, len, 0) == -1)
 	{
 		closedata(clnt);
 		clnt->control_sendCode(451, "Data transfer error");
 	}
 }
 
-void data_nlst(ftp_client* clnt, char* buffer)
+void data_nlst(ftp_client* clnt)
 {
 	static sysFSDirent entry;
 	static u64 read;
@@ -246,17 +250,17 @@ void data_nlst(ftp_client* clnt, char* buffer)
 	}
 }
 
-void data_stor(ftp_client* clnt, char* buffer)
+void data_stor(ftp_client* clnt)
 {
 	static u64 written;
 	static int read;
 
-	read = recv(clnt->sock_data, buffer, DATA_BUFFER, 0);
+	read = recv(clnt->sock_data, client_cvar[clnt].buffer_file, DATA_BUFFER, 0);
 
 	if(read > 0)
 	{
 		// data available, write to disk
-		if(sysLv2FsWrite(client_cvar[clnt].fd_file, buffer, (u64)read, &written) == -1 || written < (u64)read)
+		if(sysLv2FsWrite(client_cvar[clnt].fd_file, client_cvar[clnt].buffer_file, (u64)read, &written) == -1 || written < (u64)read)
 		{
 			// write error
 			closedata(clnt);
@@ -278,11 +282,11 @@ void data_stor(ftp_client* clnt, char* buffer)
 	}
 }
 
-void data_retr(ftp_client* clnt, char* buffer)
+void data_retr(ftp_client* clnt)
 {
 	static u64 read;
 
-	if(sysLv2FsRead(client_cvar[clnt].fd_file, buffer, DATA_BUFFER, &read) == -1)
+	if(sysLv2FsRead(client_cvar[clnt].fd_file, client_cvar[clnt].buffer_file, DATA_BUFFER, &read) == -1)
 	{
 		closedata(clnt);
 		clnt->control_sendCode(452, "Failed to read data from file");
@@ -291,7 +295,7 @@ void data_retr(ftp_client* clnt, char* buffer)
 
 	if(read > 0)
 	{
-		if(send(clnt->sock_data, buffer, (size_t)read, 0) == -1)
+		if(send(clnt->sock_data, client_cvar[clnt].buffer_file, (size_t)read, 0) == -1)
 		{
 			closedata(clnt);
 			clnt->control_sendCode(451, "Error in data transmission");
@@ -660,6 +664,14 @@ void cmd_list(ftp_client* clnt, string cmd, string args)
 	// open data connection
 	if(clnt->data_open(data_list, DATA_EVENT_SEND))
 	{
+		client_cvar[clnt].buffer_dir = new char[CMD_BUFFER];
+
+		if(client_cvar[clnt].buffer_dir == NULL)
+		{
+			clnt->control_sendCode(451, "Out of memory");
+			return;
+		}
+
 		client_cvar[clnt].fd_dir = fd;
 		clnt->control_sendCode(150, "Accepted data connection");
 	}
@@ -766,6 +778,14 @@ void cmd_stor(ftp_client* clnt, string cmd, string args)
 
 	if(clnt->data_open(data_stor, DATA_EVENT_RECV))
 	{
+		client_cvar[clnt].buffer_file = new char[DATA_BUFFER];
+
+		if(client_cvar[clnt].buffer_file == NULL)
+		{
+			clnt->control_sendCode(451, "Out of memory");
+			return;
+		}
+
 		client_cvar[clnt].fd_file = fd;
 		clnt->control_sendCode(150, "Accepted data connection");
 	}
@@ -810,6 +830,14 @@ void cmd_retr(ftp_client* clnt, string cmd, string args)
 
 	if(clnt->data_open(data_retr, DATA_EVENT_SEND))
 	{
+		client_cvar[clnt].buffer_file = new char[DATA_BUFFER];
+
+		if(client_cvar[clnt].buffer_file == NULL)
+		{
+			clnt->control_sendCode(451, "Out of memory");
+			return;
+		}
+
 		client_cvar[clnt].fd_file = fd;
 		clnt->control_sendCode(150, "Accepted data connection");
 	}
