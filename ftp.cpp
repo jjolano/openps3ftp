@@ -143,7 +143,7 @@ bool ftp_client::data_open(void (*handler)(ftp_client* clnt, char* buffer), shor
 	// register pollfd for data connection
 	pollfd data_pfd;
 	data_pfd.fd = FD(sock_data);
-	data_pfd.events = POLLIN | events;
+	data_pfd.events = events | POLLERR | POLLHUP | POLLNVAL;
 	pfd.push_back(data_pfd);
 	nfds++;
 
