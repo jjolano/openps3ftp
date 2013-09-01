@@ -36,8 +36,8 @@ struct ftp_cvars {
 	string cwd;			// Client current working directory
 	string rnfr;		// Used for RNFR command
 	u64 rest;			// Used in resuming file transfers
-	s32 fd;				// Data file descriptor
-	int type;			// Type of data transfer
+	s32 fd_dir;			// Data file descriptor for directories
+	s32 fd_file;		// Data file descriptor for files
 };
 
 map<ftp_client*,ftp_cvars> client_cvar;
@@ -107,18 +107,16 @@ static vector<unsigned short> parsePORT(string args)
 
 void closedata(ftp_client* clnt)
 {	
-	if(client_cvar[clnt].fd != -1)
+	if(client_cvar[clnt].fd_dir != -1)
 	{
-		if(client_cvar[clnt].type == DATA_TYPE_DIR)
-		{
-			sysLv2FsCloseDir(client_cvar[clnt].fd);
-		}
-		else
-		{
-			sysLv2FsClose(client_cvar[clnt].fd);
-		}
+		sysLv2FsCloseDir(client_cvar[clnt].fd_dir);
+		client_cvar[clnt].fd_dir = -1;
+	}
 
-		client_cvar[clnt].fd = -1;
+	if(client_cvar[clnt].fd_file != -1)
+	{
+		sysLv2FsClose(client_cvar[clnt].fd_file);
+		client_cvar[clnt].fd_file = -1;
 	}
 
 	clnt->data_close();
@@ -129,7 +127,7 @@ void data_list(ftp_client* clnt, char* buffer)
 	static sysFSDirent entry;
 	static u64 read;
 
-	if(sysLv2FsReadDir(client_cvar[clnt].fd, &entry, &read) == -1)
+	if(sysLv2FsReadDir(client_cvar[clnt].fd_dir, &entry, &read) == -1)
 	{
 		// failed to read directory
 		closedata(clnt);
@@ -217,7 +215,7 @@ void data_nlst(ftp_client* clnt, char* buffer)
 	static sysFSDirent entry;
 	static u64 read;
 
-	if(sysLv2FsReadDir(client_cvar[clnt].fd, &entry, &read) == -1)
+	if(sysLv2FsReadDir(client_cvar[clnt].fd_dir, &entry, &read) == -1)
 	{
 		// failed to read directory
 		closedata(clnt);
@@ -258,7 +256,7 @@ void data_stor(ftp_client* clnt, char* buffer)
 	if(read > 0)
 	{
 		// data available, write to disk
-		if(sysLv2FsWrite(client_cvar[clnt].fd, buffer, (u64)read, &written) == -1 || written < (u64)read)
+		if(sysLv2FsWrite(client_cvar[clnt].fd_file, buffer, (u64)read, &written) == -1 || written < (u64)read)
 		{
 			// write error
 			closedata(clnt);
@@ -284,7 +282,7 @@ void data_retr(ftp_client* clnt, char* buffer)
 {
 	static u64 read;
 
-	if(sysLv2FsRead(client_cvar[clnt].fd, buffer, DATA_BUFFER, &read) == -1)
+	if(sysLv2FsRead(client_cvar[clnt].fd_file, buffer, DATA_BUFFER, &read) == -1)
 	{
 		closedata(clnt);
 		clnt->control_sendCode(452, "Failed to read data from file");
@@ -380,7 +378,8 @@ void cmd_user(ftp_client* clnt, string cmd, string args)
 
 	client_cvar[clnt].authorized = false;
 	client_cvar[clnt].cmd = "USER";
-	client_cvar[clnt].fd = -1;
+	client_cvar[clnt].fd_dir = -1;
+	client_cvar[clnt].fd_file = -1;
 	client_cvar[clnt].cwd = "/";
 
 	clnt->control_sendCode(331, "Username " + args + " OK. Password required");
@@ -644,7 +643,7 @@ void cmd_list(ftp_client* clnt, string cmd, string args)
 		return;
 	}
 
-	if(client_cvar[clnt].fd != -1)
+	if(client_cvar[clnt].fd_dir != -1)
 	{
 		clnt->control_sendCode(450, "Transfer already in progress");
 		return;
@@ -661,9 +660,7 @@ void cmd_list(ftp_client* clnt, string cmd, string args)
 	// open data connection
 	if(clnt->data_open(data_list, DATA_EVENT_SEND))
 	{
-		client_cvar[clnt].fd = fd;
-		client_cvar[clnt].type = DATA_TYPE_DIR;
-
+		client_cvar[clnt].fd_dir = fd;
 		clnt->control_sendCode(150, "Accepted data connection");
 	}
 	else
@@ -681,7 +678,7 @@ void cmd_nlst(ftp_client* clnt, string cmd, string args)
 		return;
 	}
 
-	if(client_cvar[clnt].fd != -1)
+	if(client_cvar[clnt].fd_dir != -1)
 	{
 		clnt->control_sendCode(450, "Transfer already in progress");
 		return;
@@ -698,9 +695,7 @@ void cmd_nlst(ftp_client* clnt, string cmd, string args)
 	// open data connection
 	if(clnt->data_open(data_nlst, DATA_EVENT_SEND))
 	{
-		client_cvar[clnt].fd = fd;
-		client_cvar[clnt].type = DATA_TYPE_DIR;
-
+		client_cvar[clnt].fd_dir = fd;
 		clnt->control_sendCode(150, "Accepted data connection");
 	}
 	else
@@ -718,7 +713,7 @@ void cmd_stor(ftp_client* clnt, string cmd, string args)
 		return;
 	}
 
-	if(client_cvar[clnt].fd != -1)
+	if(client_cvar[clnt].fd_file != -1)
 	{
 		clnt->control_sendCode(450, "Transfer already in progress");
 		return;
@@ -771,9 +766,7 @@ void cmd_stor(ftp_client* clnt, string cmd, string args)
 
 	if(clnt->data_open(data_stor, DATA_EVENT_RECV))
 	{
-		client_cvar[clnt].fd = fd;
-		client_cvar[clnt].type = DATA_TYPE_FILE;
-
+		client_cvar[clnt].fd_file = fd;
 		clnt->control_sendCode(150, "Accepted data connection");
 	}
 	else
@@ -791,7 +784,7 @@ void cmd_retr(ftp_client* clnt, string cmd, string args)
 		return;
 	}
 
-	if(client_cvar[clnt].fd != -1)
+	if(client_cvar[clnt].fd_file != -1)
 	{
 		clnt->control_sendCode(450, "Transfer already in progress");
 		return;
@@ -817,9 +810,7 @@ void cmd_retr(ftp_client* clnt, string cmd, string args)
 
 	if(clnt->data_open(data_retr, DATA_EVENT_SEND))
 	{
-		client_cvar[clnt].fd = fd;
-		client_cvar[clnt].type = DATA_TYPE_FILE;
-
+		client_cvar[clnt].fd_file = fd;
 		clnt->control_sendCode(150, "Accepted data connection");
 	}
 	else

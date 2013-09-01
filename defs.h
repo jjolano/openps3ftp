@@ -21,9 +21,6 @@
 #define CREDITS			APP_NAME " v" APP_VERSION " by " APP_AUTHOR "\nAcknowledgements:\n- atreyu187 (tester)\n- coldlm (tester)\n- @MastaChaOS (tester)\n- @ooPo\n- @NeoSabin\n- @GregoryRasputin\n- deroad (@Wargio)\n\nAnd of course, thank *you* for using " APP_NAME "."
 
 // Server types
-#define DATA_TYPE_DIR	1
-#define DATA_TYPE_FILE	2
-
 #define DATA_EVENT_RECV	(POLLIN | POLLRDNORM)
 #define DATA_EVENT_SEND	(POLLOUT | POLLWRNORM)
 
