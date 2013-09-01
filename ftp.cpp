@@ -30,7 +30,7 @@ using namespace std;
 
 typedef map<int,int> ftp_drefs;
 typedef map<string,cmdhnd> ftp_chnds;
-typedef map<int,void (*)(ftp_client* clnt)> ftp_dhnds;
+typedef map<int,void (*)(ftp_client* clnt, char* buffer)> ftp_dhnds;
 typedef map<int,ftp_client> ftp_clnts;
 typedef vector<pollfd> ftp_socks;
 
@@ -44,14 +44,6 @@ nfds_t nfds;
 
 void event_client_drop(ftp_client* clnt);
 void register_cmds();
-
-void closesocket(int socket)
-{
-	if(socket & SOCKET_FD_MASK)
-	{
-		netClose(FD(socket));
-	}
-}
 
 // Terminates FTP server and all connections
 void ftpTerminate()
@@ -108,7 +100,7 @@ void ftp_client::control_sendCode(unsigned int code, string message)
 	control_sendCode(code, message, false);
 }
 
-bool ftp_client::data_open(void (*handler)(ftp_client* clnt), short events)
+bool ftp_client::data_open(void (*handler)(ftp_client* clnt, char* buffer), short events)
 {
 	// try to get data connection
 	if(sock_data == -1)
@@ -201,13 +193,20 @@ void ftpInitialize(void* arg)
 	NoRSX* GFX = static_cast<NoRSX*>(arg);
 
 	// Allocate memory for commands
-	char* data = new char[CMDBUFFER];
+	char* data = new char[CMD_BUFFER];
 
 	if(data == NULL)
 	{
-		// how did this happen?
 		GFX->AppExit();
 		sysThreadExit(1);
+	}
+
+	char* buffer = new char[DATA_BUFFER];
+
+	if(buffer == NULL)
+	{
+		GFX->AppExit();
+		sysThreadExit(2);
 	}
 
 	// Create server socket
@@ -222,7 +221,7 @@ void ftpInitialize(void* arg)
 	{
 		GFX->AppExit();
 		closesocket(sock_listen);
-		sysThreadExit(2);
+		sysThreadExit(3);
 	}
 
 	listen(sock_listen, LISTEN_BACKLOG);
@@ -250,7 +249,7 @@ void ftpInitialize(void* arg)
 		if(p < 0)
 		{
 			GFX->AppExit();
-			ret_val = 3;
+			ret_val = 4;
 			break;
 		}
 
@@ -337,7 +336,7 @@ void ftpInitialize(void* arg)
 			if(pfd[i].revents & DATA_EVENT_SEND)
 			{
 				// call data handler
-				(datafunc[sock_fd])(clnt);
+				(datafunc[sock_fd])(clnt, buffer);
 
 				if(clnt->sock_data == -1)
 				{
@@ -353,7 +352,7 @@ void ftpInitialize(void* arg)
 				if(!isData)
 				{
 					// Control socket
-					int bytes = recv(sock_fd, data, CMDBUFFER, 0);
+					int bytes = recv(sock_fd, data, CMD_BUFFER, 0);
 
 					if(bytes <= 0)
 					{
@@ -430,7 +429,7 @@ void ftpInitialize(void* arg)
 				{
 					// Data socket
 					// call data handler
-					(datafunc[sock_fd])(clnt);
+					(datafunc[sock_fd])(clnt, buffer);
 
 					if(clnt->sock_data == -1)
 					{
@@ -445,6 +444,6 @@ void ftpInitialize(void* arg)
 
 	ftpTerminate();
 	delete [] data;
-	
+	delete [] buffer;
 	sysThreadExit(ret_val);
 }
