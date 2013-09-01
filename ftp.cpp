@@ -143,7 +143,7 @@ bool ftp_client::data_open(void (*handler)(ftp_client* clnt), short events)
 	// register pollfd for data connection
 	pollfd data_pfd;
 	data_pfd.fd = FD(sock_data);
-	data_pfd.events = events | POLLIN | POLLERR | POLLHUP | POLLNVAL;
+	data_pfd.events = events | POLLIN;
 	pfd.push_back(data_pfd);
 	nfds++;
 
@@ -163,7 +163,6 @@ void ftp_client::data_close()
 
 		// close socket
 		closesocket(sock_data);
-
 		sock_data = -1;
 	}
 
@@ -318,8 +317,6 @@ void ftpInitialize(void* arg)
 				// call data handler
 				(datafunc[sock_fd])(clnt);
 
-				pfd[i].revents = 0;
-
 				if(clnt->sock_data == -1)
 				{
 					pfd.erase(pfd.begin() + i);
@@ -408,16 +405,12 @@ void ftpInitialize(void* arg)
 						// command not found
 						clnt->control_sendCode(502, cmd + " not implemented");
 					}
-
-					pfd[i].revents = 0;
 				}
 				else
 				{
 					// Data socket
 					// call data handler
 					(datafunc[sock_fd])(clnt);
-
-					pfd[i].revents = 0;
 
 					if(clnt->sock_data == -1)
 					{
