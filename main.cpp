@@ -139,16 +139,7 @@ int main(s32 argc, char* argv[])
 							// syscall unmount
 							lv2syscall1(838, (u64)DB_MOUNTPOINT);
 							
-							if(p1 == 0)
-							{
-								// success
-								MSG.Dialog(MSG_OK, DB_SUCCESS);
-							}
-							else
-							{
-								// failure
-								MSG.Dialog(MSG_OK, DB_FAILURE);
-							}
+							MSG.Dialog(MSG_OK, DB_SUCCESS);
 						}
 					}
 					else
@@ -164,16 +155,7 @@ int main(s32 argc, char* argv[])
 										(u64)DB_MOUNTPOINT,
 										0, 0 /* readonly */, 0, 0, 0);
 							
-							if(p1 == 0)
-							{
-								// success
-								MSG.Dialog(MSG_OK, DB_SUCCESS);
-							}
-							else
-							{
-								// failure
-								MSG.Dialog(MSG_OK, DB_FAILURE);
-							}
+							MSG.Dialog(MSG_OK, DB_SUCCESS);
 						}
 					}
 

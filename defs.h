@@ -16,7 +16,6 @@
 #define DB_MOUNT_Q		"Do you want to mount dev_blind?"
 #define DB_UNMOUNT_Q	"Do you want to unmount dev_blind?"
 #define DB_SUCCESS		"Operation was successful."
-#define DB_FAILURE		"Operation was unsuccessful."
 
 #define CREDITS			APP_NAME " v" APP_VERSION " by " APP_AUTHOR "\nAcknowledgements:\n- atreyu187 (tester)\n- coldlm (tester)\n- @MastaChaOS (tester)\n- @ooPo\n- @NeoSabin\n- @GregoryRasputin\n- deroad (@Wargio)\n\nAnd of course, thank *you* for using " APP_NAME "."
 
