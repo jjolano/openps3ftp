@@ -293,7 +293,7 @@ void data_retr(ftp_client* clnt, char* buffer)
 
 	if(read > 0)
 	{
-		if((u64)send(clnt->sock_data, buffer, (size_t)read, 0) < read)
+		if(send(clnt->sock_data, buffer, (size_t)read, 0) == -1)
 		{
 			closedata(clnt);
 			clnt->control_sendCode(451, "Error in data transmission");
