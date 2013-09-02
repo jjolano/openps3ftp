@@ -51,20 +51,14 @@ void ftpTerminate()
 	for(ftp_clnts::iterator cit = client.begin(); cit != client.end(); cit++)
 	{
 		ftp_client* clnt = &(cit->second);
+		
 		clnt->control_sendCode(421, "Server is shutting down");
 		event_client_drop(clnt);
-	}
-
-	u16 i;
-	for(i = 0; i < nfds; i++)
-	{
-		closesocket(pfd[i].fd);
+		closesocket(clnt->sock_control);
 	}
 
 	pfd.clear();
 	client.clear();
-	datafunc.clear();
-	datarefs.clear();
 	command.clear();
 }
 
@@ -157,10 +151,6 @@ void ftp_client::data_close()
 {
 	if(sock_data != -1)
 	{
-		// remove references
-		datafunc.erase(sock_data);
-		datarefs.erase(sock_data);
-
 		// close socket
 		closesocket(sock_data);
 		sock_data = -1;
@@ -319,6 +309,9 @@ void ftpInitialize(void* arg)
 
 				if(clnt->sock_data == -1)
 				{
+					datafunc.erase(sock_fd);
+					datarefs.erase(sock_fd);
+					
 					pfd.erase(pfd.begin() + i);
 					nfds--;
 					i--;
@@ -414,6 +407,9 @@ void ftpInitialize(void* arg)
 
 					if(clnt->sock_data == -1)
 					{
+						datafunc.erase(sock_fd);
+						datarefs.erase(sock_fd);
+
 						pfd.erase(pfd.begin() + i);
 						nfds--;
 						i--;
@@ -425,6 +421,7 @@ void ftpInitialize(void* arg)
 		}
 	}
 
+	closesocket(sock_listen);
 	ftpTerminate();
 	delete [] data;
 	sysThreadExit(ret_val);

@@ -113,14 +113,12 @@ void closedata(ftp_client* clnt)
 	{
 		sysLv2FsCloseDir(client_cvar[clnt].fd_dir);
 		client_cvar[clnt].fd_dir = -1;
-		delete [] client_cvar[clnt].buffer_dir;
 	}
 
 	if(client_cvar[clnt].fd_file != -1)
 	{
 		sysLv2FsClose(client_cvar[clnt].fd_file);
 		client_cvar[clnt].fd_file = -1;
-		delete [] client_cvar[clnt].buffer_file;
 	}
 
 	clnt->data_close();
@@ -413,7 +411,23 @@ void cmd_pass(ftp_client* clnt, string cmd, string args)
 
 	client_cvar[clnt].cmd.clear();
 	client_cvar[clnt].authorized = true;
-	
+
+	client_cvar[clnt].buffer_dir = new char[CMD_BUFFER];
+
+	if(client_cvar[clnt].buffer_dir == NULL)
+	{
+		clnt->control_sendCode(451, "Out of memory (dirlist)");
+		return;
+	}
+
+	client_cvar[clnt].buffer_file = new char[DATA_BUFFER];
+
+	if(client_cvar[clnt].buffer_file == NULL)
+	{
+		clnt->control_sendCode(451, "Out of memory (filedata)");
+		return;
+	}
+
 	clnt->control_sendCode(230, "Successfully logged in");
 }
 
@@ -664,14 +678,6 @@ void cmd_list(ftp_client* clnt, string cmd, string args)
 	// open data connection
 	if(clnt->data_open(data_list, DATA_EVENT_SEND))
 	{
-		client_cvar[clnt].buffer_dir = new char[CMD_BUFFER];
-
-		if(client_cvar[clnt].buffer_dir == NULL)
-		{
-			clnt->control_sendCode(451, "Out of memory");
-			return;
-		}
-
 		client_cvar[clnt].fd_dir = fd;
 		clnt->control_sendCode(150, "Accepted data connection");
 	}
@@ -778,14 +784,6 @@ void cmd_stor(ftp_client* clnt, string cmd, string args)
 
 	if(clnt->data_open(data_stor, DATA_EVENT_RECV))
 	{
-		client_cvar[clnt].buffer_file = new char[DATA_BUFFER];
-
-		if(client_cvar[clnt].buffer_file == NULL)
-		{
-			clnt->control_sendCode(451, "Out of memory");
-			return;
-		}
-
 		client_cvar[clnt].fd_file = fd;
 		clnt->control_sendCode(150, "Accepted data connection");
 	}
@@ -830,14 +828,6 @@ void cmd_retr(ftp_client* clnt, string cmd, string args)
 
 	if(clnt->data_open(data_retr, DATA_EVENT_SEND))
 	{
-		client_cvar[clnt].buffer_file = new char[DATA_BUFFER];
-
-		if(client_cvar[clnt].buffer_file == NULL)
-		{
-			clnt->control_sendCode(451, "Out of memory");
-			return;
-		}
-
 		client_cvar[clnt].fd_file = fd;
 		clnt->control_sendCode(150, "Accepted data connection");
 	}
@@ -1173,5 +1163,8 @@ void event_client_drop(ftp_client* clnt)
 	{
 		closedata(clnt);
 		client_cvar.erase(clnt);
+
+		delete [] client_cvar[clnt].buffer_dir;
+		delete [] client_cvar[clnt].buffer_file;
 	}
 }

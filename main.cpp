@@ -194,10 +194,9 @@ int main(s32 argc, char* argv[])
 		x = !x;
 	}
 
-	BMap.ClearBitmap(&PCL);
-
 	// Wait for server thread
 	u64 ret_val = 0;
+	sysThreadYield();
 	sysThreadJoin(id, &ret_val);
 
 	if(GFX->ExitSignalStatus() == NO_SIGNAL && ret_val > 0)
@@ -205,5 +204,6 @@ int main(s32 argc, char* argv[])
 		MSG.ErrorDialog((u32)ret_val);
 	}
 
+	BMap.ClearBitmap(&PCL);
 	return 0;
 }
