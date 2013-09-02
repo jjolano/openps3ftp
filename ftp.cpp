@@ -48,6 +48,10 @@ void register_cmds();
 // Terminates FTP server and all connections
 void ftpTerminate()
 {
+	command.clear();
+	datarefs.clear();
+	datafunc.clear();
+
 	for(ftp_clnts::iterator cit = client.begin(); cit != client.end(); cit++)
 	{
 		ftp_client* clnt = &(cit->second);
@@ -59,7 +63,6 @@ void ftpTerminate()
 
 	pfd.clear();
 	client.clear();
-	command.clear();
 }
 
 // Registers an FTP command to a function

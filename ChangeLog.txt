@@ -1,6 +1,6 @@
 [Version 3.0 - September 2, 2013]
 - Total rewrite of the whole server structure and interface
-- Server engine now SFQ-style, instead of FIFO-style
+- Server packets now processed round robin, rather than FIFO
 - Interface now uses PS3 internal fonts and should be more dynamic
 - dev_blind functionality integrated, can be activated by pressing SELECT
 - Server now single-threaded, as a result better IO stability
