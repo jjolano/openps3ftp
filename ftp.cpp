@@ -48,21 +48,14 @@ void register_cmds();
 // Terminates FTP server and all connections
 void ftpTerminate()
 {
-	command.clear();
-	datarefs.clear();
-	datafunc.clear();
-
 	for(ftp_clnts::iterator cit = client.begin(); cit != client.end(); cit++)
 	{
 		ftp_client* clnt = &(cit->second);
 		
 		clnt->control_sendCode(421, "Server is shutting down");
-		event_client_drop(clnt);
 		closesocket(clnt->sock_control);
+		event_client_drop(clnt);
 	}
-
-	pfd.clear();
-	client.clear();
 }
 
 // Registers an FTP command to a function

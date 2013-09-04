@@ -1162,9 +1162,10 @@ void event_client_drop(ftp_client* clnt)
 	if(client_cvar.find(clnt) != client_cvar.end())
 	{
 		closedata(clnt);
-		client_cvar.erase(clnt);
 
 		delete [] client_cvar[clnt].buffer_dir;
 		delete [] client_cvar[clnt].buffer_file;
+
+		client_cvar.erase(clnt);
 	}
 }
