@@ -378,11 +378,16 @@ void cmd_user(ftp_client* clnt, string cmd, string args)
 		return;
 	}
 
-	client_cvar[clnt].authorized = false;
-	client_cvar[clnt].cmd = "USER";
-	client_cvar[clnt].fd_dir = -1;
-	client_cvar[clnt].fd_file = -1;
-	client_cvar[clnt].cwd = "/";
+	ftp_cvars ccv;
+
+	ccv.authorized = false;
+	ccv.cmd = "USER";
+	ccv.fd_dir = -1;
+	ccv.fd_file = -1;
+	ccv.cwd = "/";
+	ccv.rnfr = "";
+
+	client_cvar[clnt] = ccv;
 
 	clnt->control_sendCode(331, "Username " + args + " OK. Password required");
 }
