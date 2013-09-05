@@ -51,10 +51,12 @@ void ftpTerminate()
 	for(ftp_clnts::iterator cit = client.begin(); cit != client.end(); cit++)
 	{
 		ftp_client* clnt = &(cit->second);
-		
 		clnt->control_sendCode(421, "Server is shutting down");
-		closesocket(clnt->sock_control);
-		event_client_drop(clnt);
+	}
+
+	for(ftp_socks::iterator it = pfd.begin(); it != pfd.end(); it++)
+	{
+		closesocket(it->fd | SOCKET_FD_MASK);
 	}
 }
 
@@ -417,8 +419,6 @@ void ftpInitialize(void* arg)
 		}
 	}
 
-	closesocket(sock_listen);
 	ftpTerminate();
-	delete [] data;
 	sysThreadExit(ret_val);
 }
