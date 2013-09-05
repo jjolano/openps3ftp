@@ -1,6 +1,7 @@
-[Version 3.0 - September 2, 2013]
+[Version 3.0 - September 6, 2013]
 - Total rewrite of the whole server structure and interface
 - Server packets now processed round robin, rather than FIFO
+- Optimized network code to avoid retransmissions
 - Interface now uses PS3 internal fonts and should be more dynamic
 - dev_blind functionality integrated, can be activated by pressing SELECT
 - Server now single-threaded, as a result better IO stability

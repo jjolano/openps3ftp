@@ -44,16 +44,11 @@ nfds_t nfds;
 
 void event_client_drop(ftp_client* clnt);
 void register_cmds();
+void closedata(ftp_client* clnt);
 
 // Terminates FTP server and all connections
 void ftpTerminate()
 {
-	for(ftp_clnts::iterator cit = client.begin(); cit != client.end(); cit++)
-	{
-		ftp_client* clnt = &(cit->second);
-		clnt->control_sendCode(421, "Server is shutting down");
-	}
-
 	for(ftp_socks::iterator it = pfd.begin(); it != pfd.end(); it++)
 	{
 		closesocket(it->fd | SOCKET_FD_MASK);
@@ -416,9 +411,22 @@ void ftpInitialize(void* arg)
 
 				continue;
 			}
+
+			if(pfd[i].revents & POLLIN)
+			{
+				closedata(clnt);
+				datafunc.erase(sock_fd);
+				datarefs.erase(sock_fd);
+
+				pfd.erase(pfd.begin() + i);
+				nfds--;
+				i--;
+				continue;
+			}
 		}
 	}
 
+	delete [] data;
 	ftpTerminate();
 	sysThreadExit(ret_val);
 }

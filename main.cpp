@@ -194,6 +194,8 @@ int main(s32 argc, char* argv[])
 		x = !x;
 	}
 
+	BMap.ClearBitmap(&PCL);
+
 	// Wait for server thread
 	u64 ret_val = 0;
 	sysThreadJoin(id, &ret_val);
@@ -203,6 +205,5 @@ int main(s32 argc, char* argv[])
 		MSG.ErrorDialog((u32)ret_val);
 	}
 
-	BMap.ClearBitmap(&PCL);
 	return 0;
 }
