@@ -33,7 +33,6 @@ typedef map<int,ftp_client> ftp_clnts;
 
 vector<pollfd> pfd;
 ftp_drefs datarefs;
-ftp_clnts client;
 
 nfds_t nfds;
 
@@ -42,9 +41,9 @@ void register_cmds(ftp_chnds* command);
 void closedata(ftp_client* clnt);
 
 // Terminates FTP server and all connections
-void ftpTerminate()
+void ftpTerminate(ftp_clnts* client)
 {
-	for(ftp_clnts::iterator cit = client.begin(); cit != client.end(); cit++)
+	for(ftp_clnts::iterator cit = client->begin(); cit != client->end(); cit++)
 	{
 		ftp_client* clnt = &(cit->second);
 
@@ -191,6 +190,8 @@ void ftpInitialize(void* arg)
 
 	u64 ret_val = 0;
 	nfds = 1;
+
+	ftp_clnts client;
 
 	// Main thread loop
 	while(GFX->GetAppStatus())
@@ -380,7 +381,7 @@ void ftpInitialize(void* arg)
 
 	delete [] data;
 	closesocket(sock_listen);
-	ftpTerminate();
+	ftpTerminate(&client);
 
 	datarefs.clear();
 	client.clear();
