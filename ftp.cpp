@@ -29,21 +29,16 @@
 using namespace std;
 
 typedef map<int,int> ftp_drefs;
-typedef map<string,cmdhnd> ftp_chnds;
-typedef map<int,void (*)(ftp_client* clnt)> ftp_dhnds;
 typedef map<int,ftp_client> ftp_clnts;
-typedef vector<pollfd> ftp_socks;
 
-ftp_socks pfd;
-ftp_chnds command;
+vector<pollfd> pfd;
 ftp_drefs datarefs;
-ftp_dhnds datafunc;
 ftp_clnts client;
 
 nfds_t nfds;
 
 void event_client_drop(ftp_client* clnt);
-void register_cmds();
+void register_cmds(ftp_chnds* command);
 void closedata(ftp_client* clnt);
 
 // Terminates FTP server and all connections
@@ -59,10 +54,10 @@ void ftpTerminate()
 }
 
 // Registers an FTP command to a function
-void register_cmd(string cmd, cmdhnd handler)
-{
-	command.insert(make_pair(cmd, handler));
-}
+//void register_cmd(string cmd, cmdhnd handler)
+//{
+//	command.insert(make_pair(cmd, handler));
+//}
 
 void ftp_client::control_sendCustom(string message)
 {
@@ -90,7 +85,7 @@ void ftp_client::control_sendCode(unsigned int code, string message)
 	control_sendCode(code, message, false);
 }
 
-bool ftp_client::data_open(void (*handler)(ftp_client* clnt), short events)
+bool ftp_client::data_open(datahnd handler, short events)
 {
 	// try to get data connection
 	if(sock_data == -1)
@@ -139,7 +134,7 @@ bool ftp_client::data_open(void (*handler)(ftp_client* clnt), short events)
 
 	// reference
 	datarefs[sock_data] = sock_control;
-	datafunc[sock_data] = handler;
+	data_handler = handler;
 	return true;
 }
 
@@ -150,13 +145,6 @@ void ftp_client::data_close()
 		// close socket
 		closesocket(sock_data);
 		sock_data = -1;
-	}
-
-	if(sock_pasv != -1)
-	{
-		// close listener
-		closesocket(sock_pasv);
-		sock_pasv = -1;
 	}
 }
 
@@ -192,7 +180,8 @@ void ftpInitialize(void* arg)
 	listen(sock_listen, LISTEN_BACKLOG);
 
 	// Register FTP command handlers
-	register_cmds();
+	ftp_chnds command;
+	register_cmds(&command);
 
 	// Add server to poll
 	pollfd listen_pfd;
@@ -294,7 +283,6 @@ void ftpInitialize(void* arg)
 				{
 					// data connection
 					closedata(clnt);
-					datafunc.erase(sock_fd);
 					datarefs.erase(sock_fd);
 				}
 
@@ -308,7 +296,7 @@ void ftpInitialize(void* arg)
 			if(pfd[i].revents & DATA_EVENT_SEND)
 			{
 				// call data handler
-				(datafunc[sock_fd])(clnt);
+				(clnt->data_handler)(sock_fd);
 				continue;
 			}
 
@@ -382,7 +370,7 @@ void ftpInitialize(void* arg)
 				{
 					// Data socket
 					// call data handler
-					(datafunc[sock_fd])(clnt);
+					(clnt->data_handler)(sock_fd);
 				}
 
 				continue;
@@ -395,7 +383,6 @@ void ftpInitialize(void* arg)
 	ftpTerminate();
 
 	datarefs.clear();
-	datafunc.clear();
 	client.clear();
 	command.clear();
 	pfd.clear();

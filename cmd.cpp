@@ -36,13 +36,13 @@ struct ftp_cvars {
 	string cwd;			// Client current working directory
 	string rnfr;		// Used for RNFR command
 	u64 rest;			// Used in resuming file transfers
-	s32 fd_dir;			// Data file descriptor for directories
-	s32 fd_file;		// Data file descriptor for files
-	char* buffer_dir;	// Data buffer for directories
-	char* buffer_file;	// Data buffer for files
+	bool fdIsFile;
+	s32 fd;				// Data file descriptor
+	char* buffer;		// Data buffer
 };
 
 map<ftp_client*,ftp_cvars> client_cvar;
+map<int,ftp_client*> data_client;
 
 static bool isClientAuthorized(ftp_client* clnt)
 {
@@ -109,27 +109,33 @@ static vector<unsigned short> parsePORT(string args)
 
 void closedata(ftp_client* clnt)
 {	
-	if(client_cvar[clnt].fd_dir != -1)
+	if(client_cvar[clnt].fd != -1)
 	{
-		sysLv2FsCloseDir(client_cvar[clnt].fd_dir);
-		client_cvar[clnt].fd_dir = -1;
-	}
+		if(client_cvar[clnt].fdIsFile)
+		{
+			sysLv2FsClose(client_cvar[clnt].fd);
+		}
+		else
+		{
+			sysLv2FsCloseDir(client_cvar[clnt].fd);
+		}
 
-	if(client_cvar[clnt].fd_file != -1)
-	{
-		sysLv2FsClose(client_cvar[clnt].fd_file);
-		client_cvar[clnt].fd_file = -1;
+		client_cvar[clnt].fd = -1;
+		data_client.erase(clnt->sock_data);
 	}
 
 	clnt->data_close();
 }
 
-void data_list(ftp_client* clnt)
+void data_list(int sock_data)
 {
+	static ftp_client* clnt;
 	static sysFSDirent entry;
 	static u64 read;
 
-	if(sysLv2FsReadDir(client_cvar[clnt].fd_dir, &entry, &read) == -1)
+	clnt = data_client[sock_data];
+
+	if(sysLv2FsReadDir(client_cvar[clnt].fd, &entry, &read) == -1)
 	{
 		// failed to read directory
 		closedata(clnt);
@@ -201,23 +207,26 @@ void data_list(ftp_client* clnt)
 	strftime(tstr, 13, "%b %e %H:%M", localtime(&stat.st_mtime));
 
 	static size_t len;
-	len = snprintf(client_cvar[clnt].buffer_dir, CMD_BUFFER, "%s %3d %-8d %-8d %10lu %s %s\r\n",
+	len = snprintf(client_cvar[clnt].buffer, DATA_BUFFER, "%s %3d %-8d %-8d %10lu %s %s\r\n",
 		permissions, 1, 0, 0, stat.st_size, tstr, entry.d_name);
 
 	// send to data socket
-	if(send(clnt->sock_data, client_cvar[clnt].buffer_dir, len, 0) == -1)
+	if(send(clnt->sock_data, client_cvar[clnt].buffer, len, 0) == -1)
 	{
 		closedata(clnt);
 		clnt->control_sendCode(451, "Data transfer error");
 	}
 }
 
-void data_nlst(ftp_client* clnt)
+void data_nlst(int sock_data)
 {
+	static ftp_client* clnt;
 	static sysFSDirent entry;
 	static u64 read;
 
-	if(sysLv2FsReadDir(client_cvar[clnt].fd_dir, &entry, &read) == -1)
+	clnt = data_client[sock_data];
+
+	if(sysLv2FsReadDir(client_cvar[clnt].fd, &entry, &read) == -1)
 	{
 		// failed to read directory
 		closedata(clnt);
@@ -248,17 +257,20 @@ void data_nlst(ftp_client* clnt)
 	}
 }
 
-void data_stor(ftp_client* clnt)
+void data_stor(int sock_data)
 {
+	static ftp_client* clnt;
 	static u64 written;
 	static int read;
 
-	read = recv(clnt->sock_data, client_cvar[clnt].buffer_file, DATA_BUFFER, 0);
+	clnt = data_client[sock_data];
+
+	read = recv(clnt->sock_data, client_cvar[clnt].buffer, DATA_BUFFER, 0);
 
 	if(read > 0)
 	{
 		// data available, write to disk
-		if(sysLv2FsWrite(client_cvar[clnt].fd_file, client_cvar[clnt].buffer_file, (u64)read, &written) == -1 || written < (u64)read)
+		if(sysLv2FsWrite(client_cvar[clnt].fd, client_cvar[clnt].buffer, (u64)read, &written) == -1 || written < (u64)read)
 		{
 			// write error
 			closedata(clnt);
@@ -280,11 +292,14 @@ void data_stor(ftp_client* clnt)
 	}
 }
 
-void data_retr(ftp_client* clnt)
+void data_retr(int sock_data)
 {
+	static ftp_client* clnt;
 	static u64 read;
 
-	if(sysLv2FsRead(client_cvar[clnt].fd_file, client_cvar[clnt].buffer_file, DATA_BUFFER, &read) == -1)
+	clnt = data_client[sock_data];
+
+	if(sysLv2FsRead(client_cvar[clnt].fd, client_cvar[clnt].buffer, DATA_BUFFER, &read) == -1)
 	{
 		closedata(clnt);
 		clnt->control_sendCode(452, "Failed to read data from file");
@@ -293,7 +308,7 @@ void data_retr(ftp_client* clnt)
 
 	if(read > 0)
 	{
-		if(send(clnt->sock_data, client_cvar[clnt].buffer_file, (size_t)read, 0) == -1)
+		if(send(clnt->sock_data, client_cvar[clnt].buffer, (size_t)read, 0) == -1)
 		{
 			closedata(clnt);
 			clnt->control_sendCode(451, "Error in data transmission");
@@ -382,8 +397,7 @@ void cmd_user(ftp_client* clnt, string cmd, string args)
 
 	ccv.authorized = false;
 	ccv.cmd = "USER";
-	ccv.fd_dir = -1;
-	ccv.fd_file = -1;
+	ccv.fd = -1;
 	ccv.cwd = "/";
 	ccv.rnfr = "";
 
@@ -414,24 +428,16 @@ void cmd_pass(ftp_client* clnt, string cmd, string args)
 		return;
 	}
 
+	client_cvar[clnt].buffer = new char[DATA_BUFFER];
+
+	if(client_cvar[clnt].buffer == NULL)
+	{
+		clnt->control_sendCode(451, "Out of memory");
+		return;
+	}
+
 	client_cvar[clnt].cmd.clear();
 	client_cvar[clnt].authorized = true;
-
-	client_cvar[clnt].buffer_dir = new char[CMD_BUFFER];
-
-	if(client_cvar[clnt].buffer_dir == NULL)
-	{
-		clnt->control_sendCode(451, "Out of memory (dirlist)");
-		return;
-	}
-
-	client_cvar[clnt].buffer_file = new char[DATA_BUFFER];
-
-	if(client_cvar[clnt].buffer_file == NULL)
-	{
-		clnt->control_sendCode(451, "Out of memory (filedata)");
-		return;
-	}
 
 	clnt->control_sendCode(230, "Successfully logged in");
 }
@@ -553,8 +559,12 @@ void cmd_pasv(ftp_client* clnt, string cmd, string args)
 		clnt->control_sendCode(530, "Not logged in");
 		return;
 	}
-	
-	closedata(clnt);
+
+	if(clnt->sock_pasv != -1)
+	{
+		closesocket(clnt->sock_pasv);
+		clnt->sock_pasv = -1;
+	}
 
 	sockaddr_in sa;
 	socklen_t len = sizeof(sa);
@@ -666,7 +676,7 @@ void cmd_list(ftp_client* clnt, string cmd, string args)
 		return;
 	}
 
-	if(client_cvar[clnt].fd_dir != -1)
+	if(client_cvar[clnt].fd != -1)
 	{
 		clnt->control_sendCode(450, "Transfer already in progress");
 		return;
@@ -683,7 +693,9 @@ void cmd_list(ftp_client* clnt, string cmd, string args)
 	// open data connection
 	if(clnt->data_open(data_list, DATA_EVENT_SEND))
 	{
-		client_cvar[clnt].fd_dir = fd;
+		client_cvar[clnt].fd = fd;
+		client_cvar[clnt].fdIsFile = false;
+		data_client[clnt->sock_data] = clnt;
 		clnt->control_sendCode(150, "Accepted data connection");
 	}
 	else
@@ -701,7 +713,7 @@ void cmd_nlst(ftp_client* clnt, string cmd, string args)
 		return;
 	}
 
-	if(client_cvar[clnt].fd_dir != -1)
+	if(client_cvar[clnt].fd != -1)
 	{
 		clnt->control_sendCode(450, "Transfer already in progress");
 		return;
@@ -718,7 +730,9 @@ void cmd_nlst(ftp_client* clnt, string cmd, string args)
 	// open data connection
 	if(clnt->data_open(data_nlst, DATA_EVENT_SEND))
 	{
-		client_cvar[clnt].fd_dir = fd;
+		client_cvar[clnt].fd = fd;
+		client_cvar[clnt].fdIsFile = false;
+		data_client[clnt->sock_data] = clnt;
 		clnt->control_sendCode(150, "Accepted data connection");
 	}
 	else
@@ -736,7 +750,7 @@ void cmd_stor(ftp_client* clnt, string cmd, string args)
 		return;
 	}
 
-	if(client_cvar[clnt].fd_file != -1)
+	if(client_cvar[clnt].fd != -1)
 	{
 		clnt->control_sendCode(450, "Transfer already in progress");
 		return;
@@ -789,7 +803,9 @@ void cmd_stor(ftp_client* clnt, string cmd, string args)
 
 	if(clnt->data_open(data_stor, DATA_EVENT_RECV))
 	{
-		client_cvar[clnt].fd_file = fd;
+		client_cvar[clnt].fd = fd;
+		client_cvar[clnt].fdIsFile = true;
+		data_client[clnt->sock_data] = clnt;
 		clnt->control_sendCode(150, "Accepted data connection");
 	}
 	else
@@ -807,7 +823,7 @@ void cmd_retr(ftp_client* clnt, string cmd, string args)
 		return;
 	}
 
-	if(client_cvar[clnt].fd_file != -1)
+	if(client_cvar[clnt].fd != -1)
 	{
 		clnt->control_sendCode(450, "Transfer already in progress");
 		return;
@@ -833,7 +849,9 @@ void cmd_retr(ftp_client* clnt, string cmd, string args)
 
 	if(clnt->data_open(data_retr, DATA_EVENT_SEND))
 	{
-		client_cvar[clnt].fd_file = fd;
+		client_cvar[clnt].fd = fd;
+		client_cvar[clnt].fdIsFile = true;
+		data_client[clnt->sock_data] = clnt;
 		clnt->control_sendCode(150, "Accepted data connection");
 	}
 	else
@@ -1122,9 +1140,10 @@ void cmd_mdtm(ftp_client* clnt, string cmd, string args)
 	}
 }
 
-void register_cmd(string cmd, cmdhnd handler);
+//void register_cmd(string cmd, cmdhnd handler);
+#define register_cmd(a,b) command->insert(make_pair(a,b))
 
-void register_cmds()
+void register_cmds(ftp_chnds* command)
 {
 	// No authorization required commands
 	register_cmd("NOOP", cmd_success);
@@ -1168,8 +1187,13 @@ void event_client_drop(ftp_client* clnt)
 	{
 		closedata(clnt);
 
-		delete [] client_cvar[clnt].buffer_dir;
-		delete [] client_cvar[clnt].buffer_file;
+		if(clnt->sock_pasv != -1)
+		{
+			closesocket(clnt->sock_pasv);
+			clnt->sock_pasv = -1;
+		}
+
+		delete [] client_cvar[clnt].buffer;
 
 		client_cvar.erase(clnt);
 	}
