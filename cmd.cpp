@@ -664,8 +664,8 @@ void cmd_abor(ftp_client* clnt, string cmd, string args)
 		return;
 	}
 
-	clnt->control_sendCode(226, "ABOR command successful");
 	closedata(clnt);
+	clnt->control_sendCode(226, "ABOR command successful");
 }
 
 void cmd_list(ftp_client* clnt, string cmd, string args)
