@@ -47,6 +47,7 @@ void ftpTerminate(ftp_clnts* client)
 	{
 		ftp_client* clnt = &(cit->second);
 
+		clnt->control_sendCode(421, "Server is shutting down");
 		closesocket(clnt->sock_control);
 		event_client_drop(clnt);
 	}
@@ -217,33 +218,6 @@ void ftpInitialize(void* arg)
 		if(pfd[0].revents != 0)
 		{
 			p--;
-
-			// accept new connection
-			int nfd = accept(sock_listen, NULL, NULL);
-
-			if(nfd == -1)
-			{
-				continue;
-			}
-
-			// add to pollfds
-			pollfd new_pfd;
-			new_pfd.fd = FD(nfd);
-			new_pfd.events = DATA_EVENT_RECV;
-			pfd.push_back(new_pfd);
-			nfds++;
-
-			// add to clients
-			ftp_client nc;
-
-			nc.sock_control = nfd;
-			nc.sock_data = -1;
-			nc.sock_pasv = -1;
-
-			client[nfd] = nc;
-
-			// welcome
-			nc.control_sendCode(220, APP_NAME " v" APP_VERSION);
 		}
 
 		// handle client and data sockets
@@ -274,6 +248,8 @@ void ftpInitialize(void* arg)
 			|| pfd[i].revents & POLLHUP
 			|| pfd[i].revents & POLLERR)
 			{
+				closesocket(sock_fd);
+
 				if(!isData)
 				{
 					// client dropped
@@ -298,6 +274,15 @@ void ftpInitialize(void* arg)
 			{
 				// call data handler
 				(clnt->data_handler)(sock_fd);
+
+				if(clnt->sock_data == -1)
+				{
+					datarefs.erase(sock_fd);
+					
+					pfd.erase(pfd.begin() + i);
+					nfds--;
+					i--;
+				}
 				continue;
 			}
 
@@ -313,6 +298,12 @@ void ftpInitialize(void* arg)
 					{
 						// invalid, drop client
 						closesocket(sock_fd);
+						event_client_drop(clnt);
+						client.erase(sock_fd);
+						
+						pfd.erase(pfd.begin() + i);
+						nfds--;
+						i--;
 						continue;
 					}
 
@@ -343,7 +334,14 @@ void ftpInitialize(void* arg)
 					if(cmd == "QUIT")
 					{
 						clnt->control_sendCode(221, "Goodbye");
+
 						closesocket(sock_fd);
+						event_client_drop(clnt);
+						client.erase(sock_fd);
+
+						pfd.erase(pfd.begin() + i);
+						nfds--;
+						i--;
 						continue;
 					}
 					
@@ -372,10 +370,49 @@ void ftpInitialize(void* arg)
 					// Data socket
 					// call data handler
 					(clnt->data_handler)(sock_fd);
+
+					if(clnt->sock_data == -1)
+					{
+						datarefs.erase(sock_fd);
+						
+						pfd.erase(pfd.begin() + i);
+						nfds--;
+						i--;
+					}
 				}
 
 				continue;
 			}
+		}
+
+		if(pfd[0].revents != 0)
+		{
+			// accept new connection
+			int nfd = accept(sock_listen, NULL, NULL);
+
+			if(nfd == -1)
+			{
+				continue;
+			}
+
+			// add to pollfds
+			pollfd new_pfd;
+			new_pfd.fd = FD(nfd);
+			new_pfd.events = DATA_EVENT_RECV;
+			pfd.push_back(new_pfd);
+			nfds++;
+
+			// add to clients
+			ftp_client nc;
+
+			nc.sock_control = nfd;
+			nc.sock_data = -1;
+			nc.sock_pasv = -1;
+
+			client[nfd] = nc;
+
+			// welcome
+			nc.control_sendCode(220, APP_NAME " v" APP_VERSION);
 		}
 	}
 
