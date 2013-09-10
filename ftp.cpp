@@ -210,6 +210,32 @@ void ftpInitialize(void* arg)
 		if(pfd[0].revents != 0)
 		{
 			p--;
+
+			// accept new connection
+			int nfd = accept(sock_listen, NULL, NULL);
+
+			if(nfd == -1)
+			{
+				continue;
+			}
+
+			// add to pollfds
+			pollfd new_pfd;
+			new_pfd.fd = FD(nfd);
+			new_pfd.events = DATA_EVENT_RECV;
+			pfd.push_back(new_pfd);
+
+			// add to clients
+			ftp_client nc;
+
+			nc.sock_control = nfd;
+			nc.sock_data = -1;
+			nc.sock_pasv = -1;
+
+			client[nfd] = nc;
+
+			// welcome
+			nc.control_sendCode(220, APP_NAME " v" APP_VERSION);
 		}
 
 		// handle client and data sockets
@@ -379,32 +405,7 @@ void ftpInitialize(void* arg)
 
 		if(pfd[0].revents != 0)
 		{
-			// accept new connection
-			int nfd = accept(sock_listen, NULL, NULL);
-
-			if(nfd == -1)
-			{
-				continue;
-			}
-
-			// add to pollfds
-			pollfd new_pfd;
-			new_pfd.fd = FD(nfd);
-			new_pfd.events = DATA_EVENT_RECV;
-			pfd.push_back(new_pfd);
 			nfds++;
-
-			// add to clients
-			ftp_client nc;
-
-			nc.sock_control = nfd;
-			nc.sock_data = -1;
-			nc.sock_pasv = -1;
-
-			client[nfd] = nc;
-
-			// welcome
-			nc.control_sendCode(220, APP_NAME " v" APP_VERSION);
 		}
 	}
 
