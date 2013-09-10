@@ -144,6 +144,12 @@ void ftp_client::data_close()
 	{
 		// close socket
 		closesocket(sock_data);
+
+		if(datarefs.find(sock_data) != datarefs.end())
+		{
+			datarefs.erase(sock_data);
+		}
+
 		sock_data = -1;
 	}
 }
@@ -199,8 +205,7 @@ void ftpInitialize(void* arg)
 	{
 		// apparently libnet's poll is super inefficient, it slows down
 		// threefold. just gonna use the syscall directly.
-		static int p;
-		p = netPoll(&pfd[0], nfds, 250);
+		int p = netPoll(&pfd[0], nfds, 250);
 
 		if(p == -1)
 		{
@@ -221,7 +226,7 @@ void ftpInitialize(void* arg)
 		}
 
 		// handle client and data sockets
-		static u16 i;
+		u16 i;
 		for(i = 1; (p > 0 && i < nfds); i++)
 		{
 			if(pfd[i].revents == 0)
@@ -231,22 +236,15 @@ void ftpInitialize(void* arg)
 
 			p--;
 
-			static int sock_fd;
-			sock_fd = (pfd[i].fd | SOCKET_FD_MASK);
+			int sock_fd = (pfd[i].fd | SOCKET_FD_MASK);
 
 			// get client info
-			static ftp_drefs::iterator it;
-			static ftp_client* clnt;
-			static bool isData;
-
-			it = datarefs.find(sock_fd);
-			isData = (it != datarefs.end());
-			clnt = &(client[isData ? it->second : sock_fd]);
+			ftp_drefs::iterator it = datarefs.find(sock_fd);
+			bool isData = (it != datarefs.end());
+			ftp_client* clnt = &(client[isData ? it->second : sock_fd]);
 
 			// Disconnect event
-			if(pfd[i].revents & POLLNVAL
-			|| pfd[i].revents & POLLHUP
-			|| pfd[i].revents & POLLERR)
+			if(pfd[i].revents & (POLLNVAL|POLLHUP|POLLERR))
 			{
 				closesocket(sock_fd);
 
@@ -260,7 +258,6 @@ void ftpInitialize(void* arg)
 				{
 					// data connection
 					closedata(clnt);
-					datarefs.erase(sock_fd);
 				}
 
 				pfd.erase(pfd.begin() + i);
@@ -277,8 +274,6 @@ void ftpInitialize(void* arg)
 
 				if(clnt->sock_data == -1)
 				{
-					datarefs.erase(sock_fd);
-					
 					pfd.erase(pfd.begin() + i);
 					nfds--;
 					i--;
@@ -368,13 +363,24 @@ void ftpInitialize(void* arg)
 				else
 				{
 					// Data socket
+
+					// check drop
+					int bytes = recv(sock_fd, data, 1, MSG_PEEK);
+
+					if(bytes == 0)
+					{
+						closedata(clnt);
+						pfd.erase(pfd.begin() + i);
+						nfds--;
+						i--;
+						continue;
+					}
+
 					// call data handler
 					(clnt->data_handler)(sock_fd);
 
 					if(clnt->sock_data == -1)
 					{
-						datarefs.erase(sock_fd);
-						
 						pfd.erase(pfd.begin() + i);
 						nfds--;
 						i--;
@@ -416,9 +422,9 @@ void ftpInitialize(void* arg)
 		}
 	}
 
-	delete [] data;
 	closesocket(sock_listen);
 	ftpTerminate(&client);
+	delete [] data;
 
 	datarefs.clear();
 	client.clear();

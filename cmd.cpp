@@ -44,13 +44,13 @@ struct ftp_cvars {
 map<ftp_client*,ftp_cvars> client_cvar;
 map<int,ftp_client*> data_client;
 
-static bool isClientAuthorized(ftp_client* clnt)
+bool isClientAuthorized(ftp_client* clnt)
 {
 	map<ftp_client*,ftp_cvars>::iterator it = client_cvar.find(clnt);
 	return (it != client_cvar.end() ? (it->second).authorized : false);
 }
 
-static string getAbsPath(string cwd, string nd)
+string getAbsPath(string cwd, string nd)
 {
 	if(nd[0] == '/')
 	{
@@ -75,19 +75,19 @@ static string getAbsPath(string cwd, string nd)
 	return cwd + nd;
 }
 
-static bool fileExists(string path)
+bool fileExists(string path)
 {
 	sysFSStat stat;
 	return (sysLv2FsStat(path.c_str(), &stat) == 0);
 }
 
-static bool isDirectory(string path)
+bool isDirectory(string path)
 {
 	sysFSStat stat;
 	return (sysLv2FsStat(path.c_str(), &stat) == 0 && S_ISDIR(stat.st_mode));
 }
 
-static vector<unsigned short> parsePORT(string args)
+vector<unsigned short> parsePORT(string args)
 {
 	vector<unsigned short> vec;
 	stringstream ss(args);
@@ -129,11 +129,10 @@ void closedata(ftp_client* clnt)
 
 void data_list(int sock_data)
 {
-	static ftp_client* clnt;
-	static sysFSDirent entry;
-	static u64 read;
+	sysFSDirent entry;
+	u64 read;
 
-	clnt = data_client[sock_data];
+	ftp_client* clnt = data_client[sock_data];
 
 	if(sysLv2FsReadDir(client_cvar[clnt].fd, &entry, &read) == -1)
 	{
@@ -163,10 +162,9 @@ void data_list(int sock_data)
 	}
 
 	// obtain file information
-	static string path;
-	path = getAbsPath(client_cvar[clnt].cwd, entry.d_name);
+	string path = getAbsPath(client_cvar[clnt].cwd, entry.d_name);
 
-	static sysFSStat stat;
+	sysFSStat stat;
 	if(sysLv2FsStat(path.c_str(), &stat) == -1)
 	{
 		// skip file that failed to access for whatever reason
@@ -174,7 +172,7 @@ void data_list(int sock_data)
 	}
 
 	// prepare data message
-	static char permissions[11];
+	char permissions[11];
 
 	// file type
 	if(S_ISDIR(stat.st_mode))
@@ -203,11 +201,10 @@ void data_list(int sock_data)
 	permissions[10] = '\0';
 
 	// modified
-	static char tstr[14];
+	char tstr[14];
 	strftime(tstr, 13, "%b %e %H:%M", localtime(&stat.st_mtime));
 
-	static size_t len;
-	len = snprintf(client_cvar[clnt].buffer, DATA_BUFFER, "%s %3d %-8d %-8d %10lu %s %s\r\n",
+	size_t len = snprintf(client_cvar[clnt].buffer, DATA_BUFFER, "%s %3d %-8d %-8d %10lu %s %s\r\n",
 		permissions, 1, 0, 0, stat.st_size, tstr, entry.d_name);
 
 	// send to data socket
@@ -220,11 +217,10 @@ void data_list(int sock_data)
 
 void data_nlst(int sock_data)
 {
-	static ftp_client* clnt;
-	static sysFSDirent entry;
-	static u64 read;
+	sysFSDirent entry;
+	u64 read;
 
-	clnt = data_client[sock_data];
+	ftp_client* clnt = data_client[sock_data];
 
 	if(sysLv2FsReadDir(client_cvar[clnt].fd, &entry, &read) == -1)
 	{
@@ -243,7 +239,7 @@ void data_nlst(int sock_data)
 	}
 
 	// prepare data message
-	static string data_str;
+	string data_str;
 	
 	data_str = entry.d_name;
 	data_str += '\r';
@@ -259,16 +255,14 @@ void data_nlst(int sock_data)
 
 void data_stor(int sock_data)
 {
-	static ftp_client* clnt;
-	static u64 written;
-	static int read;
+	ftp_client* clnt = data_client[sock_data];
 
-	clnt = data_client[sock_data];
-
-	read = recv(clnt->sock_data, client_cvar[clnt].buffer, DATA_BUFFER, 0);
+	int read = recv(clnt->sock_data, client_cvar[clnt].buffer, DATA_BUFFER, 0);
 
 	if(read > 0)
 	{
+		u64 written;
+
 		// data available, write to disk
 		if(sysLv2FsWrite(client_cvar[clnt].fd, client_cvar[clnt].buffer, (u64)read, &written) == -1 || written < (u64)read)
 		{
@@ -294,10 +288,9 @@ void data_stor(int sock_data)
 
 void data_retr(int sock_data)
 {
-	static ftp_client* clnt;
-	static u64 read;
+	u64 read;
 
-	clnt = data_client[sock_data];
+	ftp_client* clnt = data_client[sock_data];
 
 	if(sysLv2FsRead(client_cvar[clnt].fd, client_cvar[clnt].buffer, DATA_BUFFER, &read) == -1)
 	{
