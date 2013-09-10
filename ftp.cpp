@@ -40,19 +40,6 @@ void event_client_drop(ftp_client* clnt);
 void register_cmds(ftp_chnds* command);
 void closedata(ftp_client* clnt);
 
-// Terminates FTP server and all connections
-void ftpTerminate(ftp_clnts* client)
-{
-	for(ftp_clnts::iterator cit = client->begin(); cit != client->end(); cit++)
-	{
-		ftp_client* clnt = &(cit->second);
-
-		clnt->control_sendCode(421, "Server is shutting down");
-		closesocket(clnt->sock_control);
-		event_client_drop(clnt);
-	}
-}
-
 // Registers an FTP command to a function
 //void register_cmd(string cmd, cmdhnd handler)
 //{
@@ -246,11 +233,10 @@ void ftpInitialize(void* arg)
 			// Disconnect event
 			if(pfd[i].revents & (POLLNVAL|POLLHUP|POLLERR))
 			{
-				closesocket(sock_fd);
-
 				if(!isData)
 				{
 					// client dropped
+					closesocket(sock_fd);
 					event_client_drop(clnt);
 					client.erase(sock_fd);
 				}
@@ -367,7 +353,7 @@ void ftpInitialize(void* arg)
 					// check drop
 					int bytes = recv(sock_fd, data, 1, MSG_PEEK);
 
-					if(bytes == 0)
+					if(bytes <= 0)
 					{
 						closedata(clnt);
 						pfd.erase(pfd.begin() + i);
@@ -423,7 +409,17 @@ void ftpInitialize(void* arg)
 	}
 
 	closesocket(sock_listen);
-	ftpTerminate(&client);
+
+	ftp_clnts::iterator cit;
+	for(cit = client.begin(); cit != client.end(); cit++)
+	{
+		ftp_client* clnt = &(cit->second);
+
+		clnt->control_sendCode(421, "Server is shutting down");
+		closesocket(clnt->sock_control);
+		event_client_drop(clnt);
+	}
+
 	delete [] data;
 
 	datarefs.clear();
