@@ -10,7 +10,6 @@
 
 #include <map>
 #include <vector>
-#include <utility>
 #include <string>
 #include <sstream>
 #include <algorithm>
@@ -39,12 +38,6 @@ nfds_t nfds;
 void event_client_drop(ftp_client* clnt);
 void register_cmds(ftp_chnds* command);
 void closedata(ftp_client* clnt);
-
-// Registers an FTP command to a function
-//void register_cmd(string cmd, cmdhnd handler)
-//{
-//	command.insert(make_pair(cmd, handler));
-//}
 
 void ftp_client::control_sendCustom(string message)
 {
@@ -117,7 +110,7 @@ bool ftp_client::data_open(datahnd handler, short events)
 	data_pfd.fd = FD(sock_data);
 	data_pfd.events = events | POLLIN;
 	pfd.push_back(data_pfd);
-	nfds++;
+	++nfds;
 
 	// reference
 	datarefs[sock_data] = sock_control;
@@ -130,10 +123,9 @@ void ftp_client::data_close()
 	if(sock_data != -1)
 	{
 		// close socket
-		closesocket(sock_data);
-
 		if(datarefs.find(sock_data) != datarefs.end())
 		{
+			closesocket(sock_data);
 			datarefs.erase(sock_data);
 		}
 
@@ -147,7 +139,7 @@ void ftpInitialize(void* arg)
 	NoRSX* GFX = static_cast<NoRSX*>(arg);
 
 	// Allocate memory for commands
-	char* data = new char[CMD_BUFFER];
+	char* data = new (nothrow) char[CMD_BUFFER];
 
 	if(data == NULL)
 	{
@@ -209,7 +201,7 @@ void ftpInitialize(void* arg)
 		// handle listener socket events
 		if(pfd[0].revents != 0)
 		{
-			p--;
+			--p;
 
 			// accept new connection
 			int nfd = accept(sock_listen, NULL, NULL);
@@ -231,8 +223,9 @@ void ftpInitialize(void* arg)
 			nc.sock_control = nfd;
 			nc.sock_data = -1;
 			nc.sock_pasv = -1;
+			nc.data_handler = NULL;
 
-			client[nfd] = nc;
+			client.insert(make_pair(nfd, nc));
 
 			// welcome
 			nc.control_sendCode(220, APP_NAME " v" APP_VERSION);
@@ -240,14 +233,14 @@ void ftpInitialize(void* arg)
 
 		// handle client and data sockets
 		u16 i;
-		for(i = 1; (p > 0 && i < nfds); i++)
+		for(i = 1; (p > 0 && i < nfds); ++i)
 		{
 			if(pfd[i].revents == 0)
 			{
 				continue;
 			}
 
-			p--;
+			--p;
 
 			int sock_fd = (pfd[i].fd | SOCKET_FD_MASK);
 
@@ -262,8 +255,8 @@ void ftpInitialize(void* arg)
 				if(!isData)
 				{
 					// client dropped
-					closesocket(sock_fd);
 					event_client_drop(clnt);
+					closesocket(sock_fd);
 					client.erase(sock_fd);
 				}
 				else
@@ -273,8 +266,8 @@ void ftpInitialize(void* arg)
 				}
 
 				pfd.erase(pfd.begin() + i);
-				nfds--;
-				i--;
+				--nfds;
+				--i;
 				continue;
 			}
 
@@ -287,8 +280,8 @@ void ftpInitialize(void* arg)
 				if(clnt->sock_data == -1)
 				{
 					pfd.erase(pfd.begin() + i);
-					nfds--;
-					i--;
+					--nfds;
+					--i;
 				}
 				continue;
 			}
@@ -304,13 +297,13 @@ void ftpInitialize(void* arg)
 					if(bytes <= 0)
 					{
 						// invalid, drop client
-						closesocket(sock_fd);
 						event_client_drop(clnt);
+						closesocket(sock_fd);
 						client.erase(sock_fd);
 						
 						pfd.erase(pfd.begin() + i);
-						nfds--;
-						i--;
+						--nfds;
+						--i;
 						continue;
 					}
 
@@ -340,15 +333,15 @@ void ftpInitialize(void* arg)
 					// handle quit internally
 					if(cmd == "QUIT")
 					{
+						event_client_drop(clnt);
 						clnt->control_sendCode(221, "Goodbye");
 
 						closesocket(sock_fd);
-						event_client_drop(clnt);
 						client.erase(sock_fd);
 
 						pfd.erase(pfd.begin() + i);
-						nfds--;
-						i--;
+						--nfds;
+						--i;
 						continue;
 					}
 					
@@ -375,27 +368,14 @@ void ftpInitialize(void* arg)
 				else
 				{
 					// Data socket
-
-					// check drop
-					int bytes = recv(sock_fd, data, 1, MSG_PEEK);
-
-					if(bytes <= 0)
-					{
-						closedata(clnt);
-						pfd.erase(pfd.begin() + i);
-						nfds--;
-						i--;
-						continue;
-					}
-
 					// call data handler
 					(clnt->data_handler)(sock_fd);
 
 					if(clnt->sock_data == -1)
 					{
 						pfd.erase(pfd.begin() + i);
-						nfds--;
-						i--;
+						--nfds;
+						--i;
 					}
 				}
 
@@ -405,21 +385,20 @@ void ftpInitialize(void* arg)
 
 		if(pfd[0].revents != 0)
 		{
-			nfds++;
+			++nfds;
 		}
 	}
 
-	closesocket(sock_listen);
-
-	ftp_clnts::iterator cit;
-	for(cit = client.begin(); cit != client.end(); cit++)
+	for(ftp_clnts::iterator cit = client.begin(); cit != client.end(); ++cit)
 	{
 		ftp_client* clnt = &(cit->second);
 
+		event_client_drop(clnt);
 		clnt->control_sendCode(421, "Server is shutting down");
 		closesocket(clnt->sock_control);
-		event_client_drop(clnt);
 	}
+
+	closesocket(sock_listen);
 
 	delete [] data;
 

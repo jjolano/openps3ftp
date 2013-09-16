@@ -13,7 +13,6 @@
 #include <cstring>
 #include <map>
 #include <vector>
-#include <utility>
 #include <string>
 #include <sstream>
 #include <algorithm>
@@ -125,6 +124,7 @@ void closedata(ftp_client* clnt)
 	}
 
 	clnt->data_close();
+	clnt->data_handler = NULL;
 }
 
 void data_list(int sock_data)
@@ -363,7 +363,7 @@ void cmd_feat(ftp_client* clnt, string cmd, string args)
 
 	clnt->control_sendCode(211, "Features:", true);
 
-	for(vector<string>::iterator it = feat.begin(); it != feat.end(); it++)
+	for(vector<string>::iterator it = feat.begin(); it != feat.end(); ++it)
 	{
 		clnt->control_sendCustom(' ' + *it);
 	}
@@ -394,7 +394,7 @@ void cmd_user(ftp_client* clnt, string cmd, string args)
 	ccv.cwd = "/";
 	ccv.rnfr = "";
 
-	client_cvar[clnt] = ccv;
+	client_cvar.insert(make_pair(clnt, ccv));
 
 	clnt->control_sendCode(331, "Username " + args + " OK. Password required");
 }
@@ -421,7 +421,7 @@ void cmd_pass(ftp_client* clnt, string cmd, string args)
 		return;
 	}
 
-	client_cvar[clnt].buffer = new char[DATA_BUFFER];
+	client_cvar[clnt].buffer = new (nothrow) char[DATA_BUFFER];
 
 	if(client_cvar[clnt].buffer == NULL)
 	{
