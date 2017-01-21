@@ -113,13 +113,22 @@ void server_start(void* arg)
                     pollfds.push_back(client_pollfd);
 
                     // create new internal client
-                    Client client(client_new, &pollfds, &clients_data);
+                    Client* client = new Client(client_new, &pollfds, &clients_data);
 
                     // assign socket to internal client
-                    clients.insert(make_pair(client_new, &client));
+                    clients.insert(make_pair(client_new, client));
 
                     // hello!
-                    client.send_code(220, "Welcome to OpenPS3FTP!");
+                    client->send_multicode(220, "Welcome to OpenPS3FTP!");
+
+                    client->send_string(" Supported commands:");
+
+                    for(map<string, cmdfunc>::iterator cmds_it = commands.begin(); cmds_it != commands.end(); cmds_it++)
+                    {
+                        client->send_string("  " + cmds_it->first);
+                    }
+
+                    client->send_code(220, "Ready.");
                     continue;
                 }
                 else
@@ -131,15 +140,14 @@ void server_start(void* arg)
                     if(client_it != clients.end())
                     {
                         // get client
-                        Client client = *(client_it->second);
+                        Client* client = client_it->second;
 
                         // check disconnect event
                         if(pfd.revents&(POLLNVAL|POLLHUP|POLLERR))
                         {
-                            client.data_end();
-                            closesocket(client.socket_ctrl);
+                            client->data_end();
+                            closesocket(client->socket_ctrl);
                             pollfds.erase(pfd_it);
-                            delete[] client.buffer;
                             clients.erase(client_it);
                             continue;
                         }
@@ -147,22 +155,28 @@ void server_start(void* arg)
                         // check receiving event
                         if(pfd.revents&(POLLIN|POLLRDNORM))
                         {
-                            int bytes = recv(client.socket_ctrl, client.buffer, CMD_BUFFER - 1, 0);
+                            client->buffer = new char[CMD_BUFFER];
+
+                            int bytes = recv(client->socket_ctrl, client->buffer, CMD_BUFFER - 1, 0);
 
                             // check if recv was valid
                             if(bytes <= 0)
                             {
                                 // socket was dropped
-                                client.data_end();
-                                closesocket(client.socket_ctrl);
+                                client->data_end();
+                                closesocket(client->socket_ctrl);
                                 pollfds.erase(pfd_it);
-                                delete[] client.buffer;
+                                delete[] client->buffer;
+                                client->buffer = NULL;
                                 clients.erase(client_it);
                                 continue;
                             }
 
                             // handle commands at a basic level
-                            stringstream in(client.buffer);
+                            string data(client->buffer);
+                            data.resize(bytes - 2);
+
+                            stringstream in(data);
 
                             string cmd, params, param;
                             in >> cmd;
@@ -181,7 +195,10 @@ void server_start(void* arg)
                             transform(cmd.begin(), cmd.end(), cmd.begin(), ::toupper);
 
                             // handle client command
-                            client.handle_command(&commands, cmd, params);
+                            client->handle_command(&commands, cmd, params);
+
+                            delete[] client->buffer;
+                            client->buffer = NULL;
                             continue;
                         }
 
@@ -200,12 +217,12 @@ void server_start(void* arg)
 
                         if(client_it != clients.end())
                         {
-                            Client client = *(client_it->second);
+                            Client* client = client_it->second;
 
                             // check disconnect event
                             if(pfd.revents&(POLLNVAL|POLLHUP|POLLERR))
                             {
-                                client.data_end();
+                                client->data_end();
                                 clients_data.erase(cdata_it);
                                 continue;
                             }
@@ -213,7 +230,7 @@ void server_start(void* arg)
                             // handle data operation
                             if(pfd.revents&(POLLOUT|POLLWRNORM) || pfd.revents&(POLLIN|POLLRDNORM))
                             {
-                                client.handle_data();
+                                client->handle_data();
                                 continue;
                             }
                         }
@@ -233,9 +250,8 @@ void server_start(void* arg)
 
         if(client_it != clients.end())
         {
-            Client client = *(client_it->second);
-            client.data_end();
-            delete[] client.buffer;
+            Client* client = client_it->second;
+            client->data_end();
         }
 
         closesocket(pfd_it->fd);

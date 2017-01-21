@@ -26,6 +26,7 @@ public:
     int socket_pasv;
     char* buffer;
     char* buffer_data;
+    string lastcmd;
 
     bool cvar_auth;
     string cvar_user;
@@ -35,6 +36,7 @@ public:
     s32 cvar_fd;
 
     Client(int, vector<pollfd>*, map<int, int>*);
+    void send_string(string);
     void send_code(int, string);
     void send_multicode(int, string);
     void handle_command(map<string, cmdfunc>*, string, string);
