@@ -660,6 +660,12 @@ int data_stor(Client* client)
         return -1;
     }
 
+    if(written == 0)
+    {
+        client->send_code(226, "Transfer complete");
+        return 1;
+    }
+
     return 0;
 }
 
@@ -787,10 +793,18 @@ int data_retr(Client* client)
         return 1;
     }
 
-    if(send(client->socket_data, client->buffer_data, (size_t)read, 0) == -1)
+    int written = send(client->socket_data, client->buffer_data, (size_t)read, 0);
+
+    if(written == -1)
     {
         client->send_code(451, "Error in data transmission");
         return -1;
+    }
+
+    if(written == 0)
+    {
+        client->send_code(226, "Transfer complete");
+        return 1;
     }
 
     return 0;
