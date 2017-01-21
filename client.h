@@ -12,13 +12,11 @@ class Client;
 
 using namespace std;
 
-typedef int (*func)(int);
-typedef void (*callback)(int);
+typedef int (*func)(Client*);
 
 class Client {
 private:
     func data_handler;
-    callback data_callback;
     vector<pollfd>* pollfds;
     map<int, int>* clients_data;
 
@@ -40,7 +38,7 @@ public:
     void send_code(int, string);
     void send_multicode(int, string);
     void handle_command(map<string, cmdfunc>*, string, string);
-    void handle_data(int);
-    int data_start(func, callback, short events);
-    void data_end();
+    void handle_data(void);
+    int data_start(func, short events);
+    void data_end(void);
 };

@@ -59,7 +59,7 @@ void Client::handle_command(map<string, cmdfunc>* cmds, string cmd, string param
     if(cmds_it != (*cmds).end())
     {
         // command handler found
-        
+        (cmds_it->second)(this, params);
     }
     else
     {
@@ -68,19 +68,18 @@ void Client::handle_command(map<string, cmdfunc>* cmds, string cmd, string param
     }
 }
 
-void Client::handle_data(int socket)
+void Client::handle_data()
 {
     int ret;
-    ret = data_handler(socket);
+    ret = data_handler(this);
 
     if(ret != 0)
     {
-        data_callback(ret);
         data_end();
     }
 }
 
-int Client::data_start(func f, callback c, short events)
+int Client::data_start(func f, short events)
 {
     if(socket_data == -1)
     {
@@ -125,7 +124,6 @@ int Client::data_start(func f, callback c, short events)
     (*clients_data).insert(make_pair(socket_data, socket_ctrl));
 
     data_handler = f;
-    data_callback = c;
 
     if(buffer_data != NULL)
     {
@@ -144,7 +142,6 @@ void Client::data_end()
     socket_pasv = -1;
 
     data_handler = NULL;
-    data_callback = NULL;
 
     delete[] buffer_data;
     buffer_data = NULL;

@@ -85,7 +85,7 @@ void server_start(void* arg)
         for(vector<pollfd>::iterator pfd_it = pollfds.begin(); pfd_it != pollfds.end(); pfd_it++)
         {
             if(!p) break;
-            
+
             pollfd pfd;
             pfd = *pfd_it;
 
@@ -213,7 +213,7 @@ void server_start(void* arg)
                             // handle data operation
                             if(pfd.revents&(POLLOUT|POLLWRNORM) || pfd.revents&(POLLIN|POLLRDNORM))
                             {
-                                client.handle_data(pfd.fd);
+                                client.handle_data();
                                 continue;
                             }
                         }
