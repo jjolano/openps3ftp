@@ -4,8 +4,8 @@
 #include <map>
 
 #include <net/net.h>
+#include <net/netdb.h>
 #include <netinet/in.h>
-#include <netdb.h>
 #include <sys/file.h>
 
 #include "const.h"
@@ -37,7 +37,6 @@ Client::Client(int client, vector<pollfd>* pfds, map<int, int>* cdata)
 
     // cvars
     cvar_auth = false;
-    cvar_cwd = "/";
     cvar_rest = 0;
     cvar_fd = -1;
 }
@@ -127,18 +126,22 @@ int Client::data_start(func f, short events)
         }
     }
 
-    // add to pollfds
-    pollfd data_pollfd;
-    data_pollfd.fd = socket_data;
-    data_pollfd.events = events | POLLIN;
+    if(socket_data != -1)
+    {
+        // add to pollfds
+        pollfd data_pollfd;
+        data_pollfd.fd = socket_data;
+        data_pollfd.events = events | POLLIN;
 
-    (*pollfds).push_back(data_pollfd);
+        pollfds->push_back(data_pollfd);
 
-    // register socket
-    (*clients_data).insert(make_pair(socket_data, socket_ctrl));
+        // register socket
+        clients_data->insert(make_pair(socket_data, socket_ctrl));
 
-    data_handler = f;
-    buffer_data = new char[DATA_BUFFER];
+        data_handler = f;
+        buffer_data = new char[DATA_BUFFER];
+    }
+
     return socket_data;
 }
 
@@ -146,6 +149,11 @@ void Client::data_end(void)
 {
     closesocket(socket_data);
     closesocket(socket_pasv);
+
+    if(socket_data != -1)
+    {
+        clients_data->erase(clients_data->find(socket_data));
+    }
 
     socket_data = -1;
     socket_pasv = -1;
@@ -156,6 +164,7 @@ void Client::data_end(void)
     buffer_data = NULL;
 
     // cvars
-    sysFsClose(cvar_fd);
+    sysLv2FsClose(cvar_fd);
+    sysLv2FsCloseDir(cvar_fd);
     cvar_fd = -1;
 }

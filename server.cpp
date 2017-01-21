@@ -43,7 +43,7 @@ void server_start(void* arg)
     myaddr.sin_addr.s_addr = INADDR_ANY;
 
     // Bind port 21 to server socket.
-    if(bind(server, (struct sockaddr*)&myaddr, sizeof myaddr) != 0)
+    if(bind(server, (sockaddr*)&myaddr, sizeof myaddr) != 0)
     {
         // Could not bind port to socket.
         gfx->AppExit();
@@ -176,6 +176,12 @@ void server_start(void* arg)
                             string data(client->buffer);
                             data.resize(bytes - 2);
 
+                            // pretend we didn't see a blank line
+                            if(data.empty())
+                            {
+                                continue;
+                            }
+
                             stringstream in(data);
 
                             string cmd, params, param;
@@ -223,12 +229,11 @@ void server_start(void* arg)
                             if(pfd.revents&(POLLNVAL|POLLHUP|POLLERR))
                             {
                                 client->data_end();
-                                clients_data.erase(cdata_it);
                                 continue;
                             }
 
                             // handle data operation
-                            if(pfd.revents&(POLLOUT|POLLWRNORM) || pfd.revents&(POLLIN|POLLRDNORM))
+                            if(pfd.revents&(POLLOUT|POLLWRNORM|POLLIN|POLLRDNORM))
                             {
                                 client->handle_data();
                                 continue;

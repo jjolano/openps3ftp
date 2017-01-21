@@ -30,7 +30,7 @@ public:
 
     bool cvar_auth;
     string cvar_user;
-    string cvar_cwd;
+    vector<string> cvar_cwd;
     string cvar_rnfr;
     u64 cvar_rest;
     s32 cvar_fd;

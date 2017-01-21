@@ -56,7 +56,7 @@ int main(void)
     // Mount dev_blind.
     {
         lv2syscall8(837,
-            (u64)"CELL_FS_IOS:BUILTIN_FLSH1",
+            (u64)"CELL_FS_IOS:BUILTIN_FLASH",
             (u64)"CELL_FS_FAT",
             (u64)MOUNT_POINT,
             0, 0 /* rw */, 0, 0, 0);
