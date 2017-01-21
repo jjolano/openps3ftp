@@ -564,7 +564,9 @@ int data_nlst(Client* client)
     if(get_working_directory(client) == "/")
     {
         if(strcmp(dirent.d_name, "app_home") == 0
-        || strcmp(dirent.d_name, "host_root") == 0)
+        || strcmp(dirent.d_name, "host_root") == 0
+        || strcmp(dirent.d_name, "dev_flash2") == 0
+        || strcmp(dirent.d_name, "dev_flash3") == 0)
         {
             // skip unreadable entries
             return 0;
