@@ -1,6 +1,6 @@
-[Version 4.0 - 2017]
-- Full rewrite.
-- Automatically mounts dev_blind on launch, and unmounts it upon exiting the app.
+[Version 4.0 - January 22, 2017]
+- Full and proper rewrite with C++.
+- Attempts to mount dev_blind on launch, and unmount it upon exiting the app.
 
 [Version 3.0 - September 6, 2013]
 - Total rewrite of the whole server structure and interface
