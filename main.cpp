@@ -33,8 +33,6 @@ int main(void)
     gfx = new NoRSX();
 
     MsgDialog md(gfx);
-    Font font(LATIN2, gfx);
-    Background bg(gfx);
 
     // netctl variables
     s32 netctl_state;
@@ -69,16 +67,8 @@ int main(void)
 
     // Start application loop.
     gfx->AppStart();
-    while(gfx->GetAppStatus())
-    {
-        // Draw frame.
-        bg.Mono(COLOR_BLACK);
-
-        font.Printf(50, 75, COLOR_WHITE, "OpenPS3FTP version " APP_VERSION);
-        font.Printf(50, 175, COLOR_WHITE, "IP: %s", netctl_info.ip_address);
-
-        gfx->Flip();
-    }
+    md.Dialog(MSG_OK, netctl_info.ip_address);
+    gfx->AppExit();
 
     // Join server thread and wait for exit...
     sysThreadJoin(server_tid, NULL);

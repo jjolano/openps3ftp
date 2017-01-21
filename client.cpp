@@ -29,6 +29,7 @@ Client::Client(int client, vector<pollfd>* pfds, map<int, int>* cdata)
     socket_pasv = -1;
 
     buffer = new char[CMD_BUFFER];
+    buffer_data = NULL;
 
     pollfds = pfds;
     clients_data = cdata;
@@ -63,7 +64,7 @@ void Client::handle_command(map<string, cmdfunc>* cmds, string cmd, string param
     else
     {
         // no handler found
-        send_code(502, "Command not supported");
+        send_code(502, cmd + " not supported");
     }
 }
 
@@ -112,6 +113,16 @@ int Client::data_start(func f, callback c, short events)
             socket_pasv = -1;
         }
     }
+
+    // add to pollfds
+    pollfd data_pollfd;
+    data_pollfd.fd = socket_data;
+    data_pollfd.events = events | POLLIN;
+
+    (*pollfds).push_back(data_pollfd);
+
+    // register socket
+    (*clients_data).insert(make_pair(socket_data, socket_ctrl));
 
     data_handler = f;
     data_callback = c;

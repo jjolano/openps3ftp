@@ -26,7 +26,7 @@ void server_start(void* arg)
 
     // Create server variables.
     vector<pollfd> pollfds;
-    map<int, Client> clients;
+    map<int, Client*> clients;
     map<int, int> clients_data;
     map<string, cmdfunc> commands;
 
@@ -84,11 +84,15 @@ void server_start(void* arg)
         // iterate through connected sockets
         for(vector<pollfd>::iterator pfd_it = pollfds.begin(); pfd_it != pollfds.end(); pfd_it++)
         {
+            if(!p) break;
+            
             pollfd pfd;
             pfd = *pfd_it;
 
             if(pfd.revents != 0)
             {
+                p--;
+
                 // handle socket events, depending on socket type
                 // server
                 if(pfd.fd == server)
@@ -112,7 +116,7 @@ void server_start(void* arg)
                     Client client(client_new, &pollfds, &clients_data);
 
                     // assign socket to internal client
-                    clients.insert(make_pair(client_new, client));
+                    clients.insert(make_pair(client_new, &client));
 
                     // hello!
                     client.send_code(220, "Welcome to OpenPS3FTP!");
@@ -121,13 +125,13 @@ void server_start(void* arg)
                 else
                 {
                     // check if socket is a client
-                    map<int, Client>::iterator client_it;
+                    map<int, Client*>::iterator client_it;
                     client_it = clients.find(pfd.fd);
 
                     if(client_it != clients.end())
                     {
                         // get client
-                        Client client = client_it->second;
+                        Client client = *(client_it->second);
 
                         // check disconnect event
                         if(pfd.revents&(POLLNVAL|POLLHUP|POLLERR))
@@ -191,12 +195,12 @@ void server_start(void* arg)
                     if(cdata_it != clients_data.end())
                     {
                         // get client
-                        map<int, Client>::iterator client_it;
+                        map<int, Client*>::iterator client_it;
                         client_it = clients.find(cdata_it->second);
 
                         if(client_it != clients.end())
                         {
-                            Client client = client_it->second;
+                            Client client = *(client_it->second);
 
                             // check disconnect event
                             if(pfd.revents&(POLLNVAL|POLLHUP|POLLERR))
@@ -224,12 +228,12 @@ void server_start(void* arg)
     // Close sockets.
     for(vector<pollfd>::iterator pfd_it = pollfds.begin(); pfd_it != pollfds.end(); pfd_it++)
     {
-        map<int, Client>::iterator client_it;
+        map<int, Client*>::iterator client_it;
         client_it = clients.find(pfd_it->fd);
 
         if(client_it != clients.end())
         {
-            Client client = client_it->second;
+            Client client = *(client_it->second);
             client.data_end();
             delete[] client.buffer;
         }
