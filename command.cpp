@@ -126,7 +126,7 @@ void cmd_feat(Client* client, string params)
 
     feat.push_back("REST STREAM");
     feat.push_back("PASV");
-    feat.push_back("MDTM");
+    //feat.push_back("MDTM");
     feat.push_back("SIZE");
 
     client->send_multicode(211, "Features:");
@@ -1167,5 +1167,5 @@ void register_cmds(map<string, cmdfunc>* cmd_handlers)
 	register_cmd(cmd_handlers, "RNTO", cmd_rnto);
 	register_cmd(cmd_handlers, "SITE", cmd_site);
 	register_cmd(cmd_handlers, "SIZE", cmd_size);
-	register_cmd(cmd_handlers, "MDTM", cmd_mdtm);
+	//register_cmd(cmd_handlers, "MDTM", cmd_mdtm);
 }

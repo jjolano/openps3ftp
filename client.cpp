@@ -152,6 +152,14 @@ void Client::data_end(void)
 
     if(socket_data != -1)
     {
+        for(vector<pollfd>::iterator it = pollfds->begin(); it != pollfds->end(); it++)
+        {
+            if(it->fd == socket_data)
+            {
+                pollfds->erase(it);
+            }
+        }
+
         clients_data->erase(clients_data->find(socket_data));
     }
 
