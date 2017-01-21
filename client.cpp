@@ -157,6 +157,7 @@ void Client::data_end(void)
             if(it->fd == socket_data)
             {
                 pollfds->erase(it);
+                break;
             }
         }
 
