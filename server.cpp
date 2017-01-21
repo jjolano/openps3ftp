@@ -242,6 +242,9 @@ void server_start(void* arg)
 
                         continue;
                     }
+
+                    // cleanup orphaned connection
+                    pollfds.erase(pfd_it);
                 }
             }
         }
