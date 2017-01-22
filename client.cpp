@@ -41,7 +41,7 @@ Client::Client(int client, vector<pollfd>* pfds, map<int, Client*>* clnts, map<i
     cvar_auth = false;
     cvar_rest = 0;
     cvar_fd = -1;
-    cvar_use_aio = false;
+    cvar_use_aio = AIO_ENABLED;
 }
 
 Client::~Client(void)

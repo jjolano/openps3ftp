@@ -29,6 +29,7 @@
 #define sysLv2FsUnlink					sysFsUnlink
 #define sysLv2FsChmod					sysFsChmod
 
+#define AIO_ENABLED                     false
 #define CELL_FS_SUCCEEDED               0
 #define CELL_FS_EBUSY                   (-31)
 #endif
