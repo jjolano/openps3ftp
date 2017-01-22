@@ -1,3 +1,7 @@
+#include <iostream>
+#include <sstream>
+#include <string>
+
 #include <ppu-lv2.h>
 #include <net/net.h>
 #include <net/netctl.h>
@@ -9,6 +13,8 @@
 
 #include "const.h"
 #include "server.h"
+
+using namespace std;
 
 void load_sysmodules(void)
 {

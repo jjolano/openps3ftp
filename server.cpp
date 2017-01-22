@@ -220,6 +220,17 @@ void server_start(void* arg)
                             // capitalize command string internally
                             transform(cmd.begin(), cmd.end(), cmd.begin(), ::toupper);
 
+                            // handle quit
+                            if(cmd == "QUIT")
+                            {
+                                client->send_code(221, "Bye");
+                                
+                                delete client;
+                                pollfds.erase(pfd_it);
+                                clients.erase(client_it);
+                                continue;
+                            }
+
                             // handle client command
                             client->handle_command(&commands, cmd, params);
                             continue;

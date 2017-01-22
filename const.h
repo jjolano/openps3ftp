@@ -1,3 +1,4 @@
+#include <errno.h>
 #include <sysutil/msg.h>
 
 #define APP_VERSION     "4.0"
@@ -12,7 +13,7 @@
 
 #define _USE_SYSFS_
 
-#ifdef _USE_SYSFS_
+#if defined _USE_SYSFS_
 #define sysLv2FsStat					sysFsStat
 #define sysLv2FsCloseDir				sysFsClosedir
 #define sysLv2FsClose					sysFsClose
@@ -27,4 +28,7 @@
 #define sysLv2FsFStat					sysFsFstat
 #define sysLv2FsUnlink					sysFsUnlink
 #define sysLv2FsChmod					sysFsChmod
+
+#define CELL_FS_SUCCEEDED               0
+#define CELL_FS_EBUSY                   (-31)
 #endif

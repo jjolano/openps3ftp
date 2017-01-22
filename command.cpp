@@ -448,8 +448,8 @@ int data_list(Client* client)
     {
         if(strcmp(dirent.d_name, "app_home") == 0
         || strcmp(dirent.d_name, "host_root") == 0
-        || strcmp(dirent.d_name, "dev_flash2") == 0
-        || strcmp(dirent.d_name, "dev_flash3") == 0)
+        /*|| strcmp(dirent.d_name, "dev_flash2") == 0
+        || strcmp(dirent.d_name, "dev_flash3") == 0*/)
         {
             // skip unreadable entries
             return 0;
@@ -635,12 +635,51 @@ void cmd_nlst(Client* client, string params)
     }
 }
 
+void aio_stor(sysFSAio* aio, s32 error, s32 xid, u64 size)
+{
+    if(error == CELL_FS_SUCCEEDED)
+    {
+        aio->offset += size;
+        aio->usrdata = 0;
+    }
+    else
+    {
+        if(error == CELL_FS_EBUSY)
+        {
+            aio->usrdata = 4;
+        }
+        else
+        {
+            aio->usrdata = error;
+        }
+    }
+}
+
 int data_stor(Client* client)
 {
     if(client->cvar_fd == -1)
     {
         client->send_code(451, "Failed to open file");
         return -1;
+    }
+
+    if(client->cvar_use_aio)
+    {
+        if(client->cvar_aio.usrdata == 2)
+        {
+            s32 status = sysFsAioWrite(&client->cvar_aio, &client->cvar_aio_id, aio_stor);
+
+            if(status == CELL_FS_EBUSY)
+            {
+                return 0;
+            }
+        }
+
+        if(client->cvar_aio.usrdata == 1)
+        {
+            // still writing
+            return 0;
+        }
     }
 
     int read = recv(client->socket_data, client->buffer_data, DATA_BUFFER - 1, 0);
@@ -659,21 +698,54 @@ int data_stor(Client* client)
         return 1;
     }
 
-    u64 written;
-
-    if(sysLv2FsWrite(client->cvar_fd, client->buffer_data, (u64)read, &written) == -1
-    || written < (u64)read)
+    if(client->cvar_use_aio)
     {
-        client->send_code(452, "Failed to write data to file");
-        sysLv2FsClose(client->cvar_fd);
-        return -1;
+        if(client->cvar_aio.usrdata == 0)
+        {
+            client->cvar_aio.usrdata = 1;
+            client->cvar_aio.size = read;
+
+            s32 status = sysFsAioWrite(&client->cvar_aio, &client->cvar_aio_id, aio_stor);
+
+            if(status == CELL_FS_EBUSY)
+            {
+                client->cvar_aio.usrdata = 2;
+                return 0;
+            }
+            
+            if(status != CELL_FS_SUCCEEDED)
+            {
+                client->send_code(452, "Failed to write data to file");
+                sysLv2FsClose(client->cvar_fd);
+                return -1;
+            }
+        }
     }
-
-    if(written == 0)
+    else
     {
-        client->send_code(226, "Transfer complete");
-        sysLv2FsClose(client->cvar_fd);
-        return 1;
+        if(read == 0)
+        {
+            client->send_code(226, "Transfer complete");
+            sysLv2FsClose(client->cvar_fd);
+            return 1;
+        }
+
+        u64 written;
+
+        if(sysLv2FsWrite(client->cvar_fd, client->buffer_data, (u64)read, &written) == -1
+        || written < (u64)read)
+        {
+            client->send_code(452, "Failed to write data to file");
+            sysLv2FsClose(client->cvar_fd);
+            return -1;
+        }
+
+        if(written == 0)
+        {
+            client->send_code(226, "Transfer complete");
+            sysLv2FsClose(client->cvar_fd);
+            return 1;
+        }
     }
 
     return 0;
@@ -732,6 +804,14 @@ void cmd_stor(Client* client, string params)
     {
         client->cvar_fd = fd;
         client->send_code(150, "Accepted data connection");
+
+        if(client->cvar_use_aio)
+        {
+            client->cvar_aio.fd = fd;
+            client->cvar_aio.offset = 0;
+            client->cvar_aio.buffer_addr = (intptr_t)client->buffer_data;
+            client->cvar_aio.usrdata = 0;
+        }
     }
     else
     {
@@ -1200,6 +1280,27 @@ void cmd_test(Client* client, string params)
     }
 }
 
+void cmd_aio(Client* client, string params)
+{
+    if(!client->cvar_auth)
+    {
+        client->send_code(530, "Not logged in");
+        return;
+    }
+
+    if(client->cvar_fd != -1)
+    {
+        client->send_code(500, "Data transfer in progress - cannot toggle AIO");
+        return;
+    }
+
+    client->cvar_use_aio = !client->cvar_use_aio;
+
+    string status(client->cvar_use_aio ? "enabled" : "disabled");
+
+    client->send_code(200, "AIO is now " + status);
+}
+
 void register_cmds(map<string, cmdfunc>* cmd_handlers)
 {
     // No authorization required commands
@@ -1237,5 +1338,7 @@ void register_cmds(map<string, cmdfunc>* cmd_handlers)
 	register_cmd(cmd_handlers, "SIZE", cmd_size);
 	register_cmd(cmd_handlers, "MDTM", cmd_mdtm);
 
+    // Custom commands
     register_cmd(cmd_handlers, "TEST", cmd_test);
+    register_cmd(cmd_handlers, "AIO", cmd_aio);
 }

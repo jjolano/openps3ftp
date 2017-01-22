@@ -5,6 +5,7 @@
 #include <map>
 
 #include <net/net.h>
+#include <lv2/sysfs.h>
 
 class Client;
 
@@ -35,6 +36,9 @@ public:
     string cvar_rnfr;
     u64 cvar_rest;
     s32 cvar_fd;
+    bool cvar_use_aio;
+    sysFSAio cvar_aio;
+    s32 cvar_aio_id;
 
     Client(int, vector<pollfd>*, map<int, Client*>*, map<int, Client*>*);
     ~Client(void);
