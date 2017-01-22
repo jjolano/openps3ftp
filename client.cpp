@@ -7,6 +7,7 @@
 #include <net/netdb.h>
 #include <netinet/in.h>
 #include <sys/file.h>
+#include <sys/stat.h>
 
 #include "const.h"
 #include "server.h"
@@ -155,9 +156,6 @@ int Client::data_start(func f, short events)
 
 void Client::data_end(void)
 {
-    closesocket(socket_data);
-    closesocket(socket_pasv);
-
     if(socket_data != -1)
     {
         for(vector<pollfd>::iterator it = pollfds->begin(); it != pollfds->end(); it++)
@@ -172,13 +170,26 @@ void Client::data_end(void)
         clients_data->erase(clients_data->find(socket_data));
     }
 
+    closesocket(socket_data);
+    closesocket(socket_pasv);
+
     socket_data = -1;
     socket_pasv = -1;
 
     data_handler = NULL;
 
     // cvars
-    sysLv2FsClose(cvar_fd);
-    sysLv2FsCloseDir(cvar_fd);
+    sysFSStat stat;
+    sysLv2FsFStat(cvar_fd, &stat);
+
+    if(S_ISDIR(stat.st_mode))
+    {
+        sysLv2FsCloseDir(cvar_fd);
+    }
+    else
+    {
+        sysLv2FsClose(cvar_fd);
+    }
+
     cvar_fd = -1;
 }

@@ -65,7 +65,7 @@ void server_start(void* arg)
     while(gfx->GetAppStatus())
     {
         int p;
-        p = poll(&pollfds[0], (nfds_t)pollfds.size(), 500);
+        p = poll(&pollfds[0], (nfds_t)pollfds.size(), 250);
 
         if(p == -1)
         {
