@@ -18,6 +18,7 @@ class Client {
 private:
     func data_handler;
     vector<pollfd>* pollfds;
+    map<int, Client*>* clients;
     map<int, Client*>* clients_data;
 
 public:
@@ -35,7 +36,7 @@ public:
     u64 cvar_rest;
     s32 cvar_fd;
 
-    Client(int, vector<pollfd>*, map<int, Client*>*);
+    Client(int, vector<pollfd>*, map<int, Client*>*, map<int, Client*>*);
     ~Client(void);
     void send_string(string);
     void send_code(int, string);

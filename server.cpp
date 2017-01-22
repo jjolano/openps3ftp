@@ -113,7 +113,7 @@ void server_start(void* arg)
                     pollfds.push_back(client_pollfd);
 
                     // create new internal client
-                    Client* client = new Client(client_new, &pollfds, &clients_data);
+                    Client* client = new Client(client_new, &pollfds, &clients, &clients_data);
 
                     // assign socket to internal client
                     clients.insert(make_pair(client_new, client));

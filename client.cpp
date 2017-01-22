@@ -24,7 +24,7 @@ void socket_send_message(int socket, string message)
     send(socket, message.c_str(), message.size(), 0);
 }
 
-Client::Client(int client, vector<pollfd>* pfds, map<int, Client*>* cdata)
+Client::Client(int client, vector<pollfd>* pfds, map<int, Client*>* clnts, map<int, Client*>* cdata)
 {
     socket_ctrl = client;
     socket_data = -1;
@@ -34,6 +34,7 @@ Client::Client(int client, vector<pollfd>* pfds, map<int, Client*>* cdata)
     buffer_data = new char[DATA_BUFFER];
 
     pollfds = pfds;
+    clients = clnts;
     clients_data = cdata;
 
     // cvars
@@ -85,7 +86,16 @@ void Client::handle_command(map<string, cmdfunc>* cmds, string cmd, string param
     else
     {
         // no handler found
-        send_code(502, cmd + " not supported");
+        stringstream dbg;
+        dbg << "pfds=";
+        dbg << pollfds->size();
+        dbg << ":clnts=";
+        dbg << clients->size();
+        dbg << ":cdata=";
+        dbg << clients_data->size();
+
+        send_multicode(502, cmd + " not supported");
+        send_code(502, dbg.str());
     }
 
     lastcmd = cmd;
