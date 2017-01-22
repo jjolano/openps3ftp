@@ -433,12 +433,14 @@ int data_list(Client* client)
     if(sysLv2FsReadDir(client->cvar_fd, &dirent, &read) == -1)
     {
         client->send_code(451, "Failed to read directory");
+        sysLv2FsCloseDir(client->cvar_fd);
         return -1;
     }
 
     if(read == 0)
     {
         client->send_code(226, "Transfer complete");
+        sysLv2FsCloseDir(client->cvar_fd);
         return 1;
     }
 
@@ -499,6 +501,7 @@ int data_list(Client* client)
     if(send(client->socket_data, client->buffer_data, len, 0) == -1)
     {
         client->send_code(451, "Data transfer error");
+        sysLv2FsCloseDir(client->cvar_fd);
         return -1;
     }
 
@@ -552,12 +555,14 @@ int data_nlst(Client* client)
     if(sysLv2FsReadDir(client->cvar_fd, &dirent, &read) == -1)
     {
         client->send_code(451, "Failed to read directory");
+        sysLv2FsCloseDir(client->cvar_fd);
         return -1;
     }
 
     if(read == 0)
     {
         client->send_code(226, "Transfer complete");
+        sysLv2FsCloseDir(client->cvar_fd);
         return 1;
     }
 
@@ -590,6 +595,7 @@ int data_nlst(Client* client)
     if(send(client->socket_data, data.c_str(), (size_t)data.size(), 0) == -1)
     {
         client->send_code(451, "Data transfer error");
+        sysLv2FsCloseDir(client->cvar_fd);
         return -1;
     }
 
@@ -642,12 +648,16 @@ int data_stor(Client* client)
     if(read == -1)
     {
         client->send_code(451, "Error in data transmission");
+        sysLv2FsFsync(client->cvar_fd);
+        sysLv2FsClose(client->cvar_fd);
         return -1;
     }
 
     if(read == 0)
     {
         client->send_code(226, "Transfer complete");
+        sysLv2FsFsync(client->cvar_fd);
+        sysLv2FsClose(client->cvar_fd);
         return 1;
     }
 
@@ -657,7 +667,17 @@ int data_stor(Client* client)
     || written < (u64)read)
     {
         client->send_code(452, "Failed to write data to file");
+        sysLv2FsFsync(client->cvar_fd);
+        sysLv2FsClose(client->cvar_fd);
         return -1;
+    }
+
+    if(written == 0)
+    {
+        client->send_code(226, "Transfer complete");
+        sysLv2FsFsync(client->cvar_fd);
+        sysLv2FsClose(client->cvar_fd);
+        return 1;
     }
 
     return 0;
@@ -778,19 +798,35 @@ int data_retr(Client* client)
     if(sysLv2FsRead(client->cvar_fd, client->buffer_data, DATA_BUFFER - 1, &read) == -1)
     {
         client->send_code(452, "Failed to read file");
+        sysLv2FsFsync(client->cvar_fd);
+        sysLv2FsClose(client->cvar_fd);
         return -1;
     }
 
     if(read == 0)
     {
         client->send_code(226, "Transfer complete");
+        sysLv2FsFsync(client->cvar_fd);
+        sysLv2FsClose(client->cvar_fd);
         return 1;
     }
 
-    if(send(client->socket_data, client->buffer_data, (size_t)read, 0) == -1)
+    int written = send(client->socket_data, client->buffer_data, (size_t)read, 0);
+
+    if(written == -1)
     {
         client->send_code(451, "Error in data transmission");
+        sysLv2FsFsync(client->cvar_fd);
+        sysLv2FsClose(client->cvar_fd);
         return -1;
+    }
+
+    if(written == 0)
+    {
+        client->send_code(226, "Transfer complete");
+        sysLv2FsFsync(client->cvar_fd);
+        sysLv2FsClose(client->cvar_fd);
+        return 1;
     }
 
     return 0;

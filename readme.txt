@@ -7,3 +7,10 @@ mounting /dev_blind.
 
 Currently, this server is optimized for stability over performance.
 A performance benefit is possible, but it seems libsysfs isn't cooperating.
+
+Known issues:
+- Occasionally, file transfers do not register as complete. Seems to be more
+  of an I/O problem with the PS3, but maybe fixable with libsysfs.
+- There is a limit to how many times a file or folder object can be created
+  over the runtime of the app. Might be a kernel limit and thus not fixable.
+  The workaround is to relaunch the app.

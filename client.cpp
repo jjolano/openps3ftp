@@ -7,6 +7,7 @@
 #include <net/netdb.h>
 #include <netinet/in.h>
 #include <sys/file.h>
+#include <sys/stat.h>
 
 #include "const.h"
 #include "server.h"
@@ -23,22 +24,32 @@ void socket_send_message(int socket, string message)
     send(socket, message.c_str(), message.size(), 0);
 }
 
-Client::Client(int client, vector<pollfd>* pfds, map<int, int>* cdata)
+Client::Client(int client, vector<pollfd>* pfds, map<int, Client*>* clnts, map<int, Client*>* cdata)
 {
     socket_ctrl = client;
     socket_data = -1;
     socket_pasv = -1;
 
-    buffer = NULL;
-    buffer_data = NULL;
+    buffer = new char[CMD_BUFFER];
+    buffer_data = new char[DATA_BUFFER];
 
     pollfds = pfds;
+    clients = clnts;
     clients_data = cdata;
 
     // cvars
     cvar_auth = false;
     cvar_rest = 0;
     cvar_fd = -1;
+}
+
+Client::~Client(void)
+{
+    data_end();
+    closesocket(socket_ctrl);
+
+    delete[] buffer;
+    delete[] buffer_data;
 }
 
 void Client::send_string(string message)
@@ -75,7 +86,16 @@ void Client::handle_command(map<string, cmdfunc>* cmds, string cmd, string param
     else
     {
         // no handler found
-        send_code(502, cmd + " not supported");
+        stringstream dbg;
+        dbg << "pfds=";
+        dbg << pollfds->size();
+        dbg << ":clnts=";
+        dbg << clients->size();
+        dbg << ":cdata=";
+        dbg << clients_data->size();
+
+        send_multicode(502, cmd + " not supported");
+        send_code(502, dbg.str());
     }
 
     lastcmd = cmd;
@@ -136,10 +156,9 @@ int Client::data_start(func f, short events)
         pollfds->push_back(data_pollfd);
 
         // register socket
-        clients_data->insert(make_pair(socket_data, socket_ctrl));
+        clients_data->insert(make_pair(socket_data, this));
 
         data_handler = f;
-        buffer_data = new char[DATA_BUFFER];
     }
 
     return socket_data;
@@ -147,9 +166,6 @@ int Client::data_start(func f, short events)
 
 void Client::data_end(void)
 {
-    closesocket(socket_data);
-    closesocket(socket_pasv);
-
     if(socket_data != -1)
     {
         for(vector<pollfd>::iterator it = pollfds->begin(); it != pollfds->end(); it++)
@@ -164,16 +180,14 @@ void Client::data_end(void)
         clients_data->erase(clients_data->find(socket_data));
     }
 
+    closesocket(socket_data);
+    closesocket(socket_pasv);
+
     socket_data = -1;
     socket_pasv = -1;
 
     data_handler = NULL;
 
-    delete[] buffer_data;
-    buffer_data = NULL;
-
     // cvars
-    sysLv2FsClose(cvar_fd);
-    sysLv2FsCloseDir(cvar_fd);
     cvar_fd = -1;
 }
