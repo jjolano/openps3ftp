@@ -1172,6 +1172,37 @@ void cmd_mdtm(Client* client, string params)
     }
 }
 
+void cmd_test(Client* client, string params)
+{
+    if(!client->cvar_auth)
+    {
+        client->send_code(530, "Not logged in");
+        return;
+    }
+    
+    if(params.empty())
+    {
+        client->send_code(501, "No filename specified");
+        return;
+    }
+
+    string path = get_absolute_path(get_working_directory(client), params);
+
+    sysFSStat stat;
+    if(sysFsStat(path.c_str(), &stat) == 0)
+    {
+        stringstream out;
+        out << stat.st_size;
+
+        client->send_multicode(200, "ayy lmao");
+        client->send_code(200, out.str());
+    }
+    else
+    {
+        client->send_code(500, "RIP");
+    }
+}
+
 void register_cmds(map<string, cmdfunc>* cmd_handlers)
 {
     // No authorization required commands
@@ -1208,4 +1239,6 @@ void register_cmds(map<string, cmdfunc>* cmd_handlers)
 	register_cmd(cmd_handlers, "SITE", cmd_site);
 	register_cmd(cmd_handlers, "SIZE", cmd_size);
 	register_cmd(cmd_handlers, "MDTM", cmd_mdtm);
+
+    register_cmd(cmd_handlers, "TEST", cmd_test);
 }

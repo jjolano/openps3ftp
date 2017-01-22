@@ -2,6 +2,7 @@
 #include <net/net.h>
 #include <net/netctl.h>
 #include <sys/thread.h>
+#include <sys/file.h>
 #include <sysmodule/sysmodule.h>
 
 #include <NoRSX.h>
@@ -22,6 +23,30 @@ void unload_sysmodules(void)
     netCtlTerm();
     netDeinitialize();
 }
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+LV2_SYSCALL sysLv2FsMount(const char* name, const char* fs, const char* path, int readonly)
+{
+    lv2syscall8(837,
+        (u64)name,
+        (u64)fs,
+        (u64)path,
+        0, readonly, 0, 0, 0);
+    return_to_user_prog(s32);
+}
+
+LV2_SYSCALL sysLv2FsUnmount(const char* path)
+{
+    lv2syscall1(838, (u64)path);
+    return_to_user_prog(s32);
+}
+
+#ifdef __cplusplus
+}
+#endif
 
 int main(void)
 {
@@ -54,13 +79,7 @@ int main(void)
     netCtlGetInfo(NET_CTL_INFO_IP_ADDRESS, &netctl_info);
 
     // Mount dev_blind.
-    {
-        lv2syscall8(837,
-            (u64)"CELL_FS_IOS:BUILTIN_FLSH1",
-            (u64)"CELL_FS_FAT",
-            (u64)MOUNT_POINT,
-            0, 0 /* rw */, 0, 0, 0);
-    }
+    sysLv2FsMount("CELL_FS_IOS:BUILTIN_FLSH1", "CELL_FS_FAT", MOUNT_POINT, 0);
 
     // Create the server thread.
     sysThreadCreate(&server_tid, server_start, (void*)gfx, 1000, 0x100000, THREAD_JOINABLE, (char*)"ftpd");
@@ -74,9 +93,7 @@ int main(void)
     sysThreadJoin(server_tid, NULL);
     
     // Unmount dev_blind.
-    {
-        lv2syscall1(838, (u64)MOUNT_POINT);
-    }
+    sysLv2FsUnmount(MOUNT_POINT);
 
 unload:
     // Unload sysmodules.
