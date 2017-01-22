@@ -189,17 +189,5 @@ void Client::data_end(void)
     data_handler = NULL;
 
     // cvars
-    sysFSStat stat;
-    sysLv2FsFStat(cvar_fd, &stat);
-
-    if(S_ISDIR(stat.st_mode))
-    {
-        sysLv2FsCloseDir(cvar_fd);
-    }
-    else
-    {
-        sysLv2FsClose(cvar_fd);
-    }
-
     cvar_fd = -1;
 }

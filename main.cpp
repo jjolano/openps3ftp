@@ -63,7 +63,7 @@ int main(void)
     }
 
     // Create the server thread.
-    sysThreadCreate(&server_tid, server_start, (void*)gfx, 1000, 0x10000, THREAD_JOINABLE, (char*)"ftpd");
+    sysThreadCreate(&server_tid, server_start, (void*)gfx, 1000, 0x100000, THREAD_JOINABLE, (char*)"ftpd");
 
     // Start application loop.
     gfx->AppStart();
