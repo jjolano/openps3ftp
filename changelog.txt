@@ -1,3 +1,7 @@
+[Version 4.0b - January 22, 2017]
+- Implemented libsysfs and experimental async IO writing support
+- Fixed QUIT not implemented
+
 [Version 4.0a - January 22, 2017]
 - Improved memory handling
 - Fixed a potential memory leak when connecting/disconnecting
