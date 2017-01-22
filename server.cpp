@@ -27,7 +27,7 @@ void server_start(void* arg)
     // Create server variables.
     vector<pollfd> pollfds;
     map<int, Client*> clients;
-    map<int, int> clients_data;
+    map<int, Client*> clients_data;
     map<string, cmdfunc> commands;
 
     // Register server commands.
@@ -65,7 +65,7 @@ void server_start(void* arg)
     while(gfx->GetAppStatus())
     {
         int p;
-        p = poll(&pollfds[0], (nfds_t)pollfds.size(), 250);
+        p = poll(&pollfds[0], (nfds_t)pollfds.size(), 500);
 
         if(p == -1)
         {
@@ -121,18 +121,44 @@ void server_start(void* arg)
                     // hello!
                     client->send_multicode(220, "Welcome to OpenPS3FTP!");
 
-                    client->send_string(" Supported commands:");
+                    /*client->send_string(" Supported commands:");
 
                     for(map<string, cmdfunc>::iterator cmds_it = commands.begin(); cmds_it != commands.end(); cmds_it++)
                     {
                         client->send_string("  " + cmds_it->first);
-                    }
+                    }*/
 
                     client->send_code(220, "Ready.");
                     continue;
                 }
                 else
                 {
+                    // check if socket is data
+                    map<int, Client*>::iterator cdata_it;
+                    cdata_it = clients_data.find(pfd.fd);
+
+                    if(cdata_it != clients_data.end())
+                    {
+                        // get client
+                        Client* client = cdata_it->second;
+
+                        // check disconnect event
+                        if(pfd.revents&(POLLNVAL|POLLHUP|POLLERR))
+                        {
+                            client->data_end();
+                            continue;
+                        }
+
+                        // handle data operation
+                        if(pfd.revents&(POLLOUT|POLLWRNORM|POLLIN|POLLRDNORM))
+                        {
+                            client->handle_data();
+                            continue;
+                        }
+
+                        continue;
+                    }
+
                     // check if socket is a client
                     map<int, Client*>::iterator client_it;
                     client_it = clients.find(pfd.fd);
@@ -145,8 +171,7 @@ void server_start(void* arg)
                         // check disconnect event
                         if(pfd.revents&(POLLNVAL|POLLHUP|POLLERR))
                         {
-                            client->data_end();
-                            closesocket(client->socket_ctrl);
+                            delete client;
                             pollfds.erase(pfd_it);
                             clients.erase(client_it);
                             continue;
@@ -155,19 +180,14 @@ void server_start(void* arg)
                         // check receiving event
                         if(pfd.revents&(POLLIN|POLLRDNORM))
                         {
-                            client->buffer = new char[CMD_BUFFER];
-
                             int bytes = recv(client->socket_ctrl, client->buffer, CMD_BUFFER - 1, 0);
 
                             // check if recv was valid
                             if(bytes <= 0)
                             {
                                 // socket was dropped
-                                client->data_end();
-                                closesocket(client->socket_ctrl);
+                                delete client;
                                 pollfds.erase(pfd_it);
-                                delete[] client->buffer;
-                                client->buffer = NULL;
                                 clients.erase(client_it);
                                 continue;
                             }
@@ -202,42 +222,7 @@ void server_start(void* arg)
 
                             // handle client command
                             client->handle_command(&commands, cmd, params);
-
-                            delete[] client->buffer;
-                            client->buffer = NULL;
                             continue;
-                        }
-
-                        continue;
-                    }
-
-                    // check if socket is data
-                    map<int, int>::iterator cdata_it;
-                    cdata_it = clients_data.find(pfd.fd);
-
-                    if(cdata_it != clients_data.end())
-                    {
-                        // get client
-                        map<int, Client*>::iterator client_it;
-                        client_it = clients.find(cdata_it->second);
-
-                        if(client_it != clients.end())
-                        {
-                            Client* client = client_it->second;
-
-                            // check disconnect event
-                            if(pfd.revents&(POLLNVAL|POLLHUP|POLLERR))
-                            {
-                                client->data_end();
-                                continue;
-                            }
-
-                            // handle data operation
-                            if(pfd.revents&(POLLOUT|POLLWRNORM|POLLIN|POLLRDNORM))
-                            {
-                                client->handle_data();
-                                continue;
-                            }
                         }
 
                         continue;
@@ -248,19 +233,12 @@ void server_start(void* arg)
     }
 
     // Close sockets.
-    for(vector<pollfd>::iterator pfd_it = pollfds.begin(); pfd_it != pollfds.end(); pfd_it++)
+    for(map<int, Client*>::iterator client_it = clients.begin(); client_it != clients.end(); client_it++)
     {
-        map<int, Client*>::iterator client_it;
-        client_it = clients.find(pfd_it->fd);
-
-        if(client_it != clients.end())
-        {
-            Client* client = client_it->second;
-            client->data_end();
-        }
-
-        closesocket(pfd_it->fd);
+        Client* client = client_it->second;
+        delete client;
     }
 
+    closesocket(server);
     sysThreadExit(0);
 }

@@ -23,14 +23,14 @@ void socket_send_message(int socket, string message)
     send(socket, message.c_str(), message.size(), 0);
 }
 
-Client::Client(int client, vector<pollfd>* pfds, map<int, int>* cdata)
+Client::Client(int client, vector<pollfd>* pfds, map<int, Client*>* cdata)
 {
     socket_ctrl = client;
     socket_data = -1;
     socket_pasv = -1;
 
-    buffer = NULL;
-    buffer_data = NULL;
+    buffer = new char[CMD_BUFFER];
+    buffer_data = new char[DATA_BUFFER];
 
     pollfds = pfds;
     clients_data = cdata;
@@ -39,6 +39,15 @@ Client::Client(int client, vector<pollfd>* pfds, map<int, int>* cdata)
     cvar_auth = false;
     cvar_rest = 0;
     cvar_fd = -1;
+}
+
+Client::~Client(void)
+{
+    data_end();
+    closesocket(socket_ctrl);
+
+    delete[] buffer;
+    delete[] buffer_data;
 }
 
 void Client::send_string(string message)
@@ -136,10 +145,9 @@ int Client::data_start(func f, short events)
         pollfds->push_back(data_pollfd);
 
         // register socket
-        clients_data->insert(make_pair(socket_data, socket_ctrl));
+        clients_data->insert(make_pair(socket_data, this));
 
         data_handler = f;
-        buffer_data = new char[DATA_BUFFER];
     }
 
     return socket_data;
@@ -168,9 +176,6 @@ void Client::data_end(void)
     socket_pasv = -1;
 
     data_handler = NULL;
-
-    delete[] buffer_data;
-    buffer_data = NULL;
 
     // cvars
     sysLv2FsClose(cvar_fd);
