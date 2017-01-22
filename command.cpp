@@ -648,7 +648,6 @@ int data_stor(Client* client)
     if(read == -1)
     {
         client->send_code(451, "Error in data transmission");
-        sysLv2FsFsync(client->cvar_fd);
         sysLv2FsClose(client->cvar_fd);
         return -1;
     }
@@ -656,7 +655,6 @@ int data_stor(Client* client)
     if(read == 0)
     {
         client->send_code(226, "Transfer complete");
-        sysLv2FsFsync(client->cvar_fd);
         sysLv2FsClose(client->cvar_fd);
         return 1;
     }
@@ -667,7 +665,6 @@ int data_stor(Client* client)
     || written < (u64)read)
     {
         client->send_code(452, "Failed to write data to file");
-        sysLv2FsFsync(client->cvar_fd);
         sysLv2FsClose(client->cvar_fd);
         return -1;
     }
@@ -675,7 +672,6 @@ int data_stor(Client* client)
     if(written == 0)
     {
         client->send_code(226, "Transfer complete");
-        sysLv2FsFsync(client->cvar_fd);
         sysLv2FsClose(client->cvar_fd);
         return 1;
     }
@@ -722,6 +718,11 @@ void cmd_stor(Client* client, string params)
     {
         client->send_code(550, "Cannot access file");
         return;
+    }
+
+    if(oflags&SYS_O_CREAT)
+    {
+        sysLv2FsChmod(path.c_str(), 0777);
     }
 
     u64 pos;
@@ -798,7 +799,6 @@ int data_retr(Client* client)
     if(sysLv2FsRead(client->cvar_fd, client->buffer_data, DATA_BUFFER - 1, &read) == -1)
     {
         client->send_code(452, "Failed to read file");
-        sysLv2FsFsync(client->cvar_fd);
         sysLv2FsClose(client->cvar_fd);
         return -1;
     }
@@ -806,7 +806,6 @@ int data_retr(Client* client)
     if(read == 0)
     {
         client->send_code(226, "Transfer complete");
-        sysLv2FsFsync(client->cvar_fd);
         sysLv2FsClose(client->cvar_fd);
         return 1;
     }
@@ -816,7 +815,6 @@ int data_retr(Client* client)
     if(written == -1)
     {
         client->send_code(451, "Error in data transmission");
-        sysLv2FsFsync(client->cvar_fd);
         sysLv2FsClose(client->cvar_fd);
         return -1;
     }
@@ -824,7 +822,6 @@ int data_retr(Client* client)
     if(written == 0)
     {
         client->send_code(226, "Transfer complete");
-        sysLv2FsFsync(client->cvar_fd);
         sysLv2FsClose(client->cvar_fd);
         return 1;
     }

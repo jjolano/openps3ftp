@@ -81,6 +81,10 @@ int main(void)
     // Mount dev_blind.
     sysLv2FsMount("CELL_FS_IOS:BUILTIN_FLSH1", "CELL_FS_FAT", MOUNT_POINT, 0);
 
+    // Prepare Async IO.
+    sysFsAioInit("/dev_hdd0");
+    sysFsAioInit(MOUNT_POINT);
+
     // Create the server thread.
     sysThreadCreate(&server_tid, server_start, (void*)gfx, 1000, 0x100000, THREAD_JOINABLE, (char*)"ftpd");
 
@@ -94,6 +98,10 @@ int main(void)
     
     // Unmount dev_blind.
     sysLv2FsUnmount(MOUNT_POINT);
+
+    // Finish Async IO.
+    sysFsAioFinish("/dev_hdd0");
+    sysFsAioFinish(MOUNT_POINT);
 
 unload:
     // Unload sysmodules.
