@@ -11,11 +11,11 @@
 #include <net/poll.h>
 #include <sys/thread.h>
 
-#include "const.h"
-#include "server.h"
-#include "client.h"
-#include "command.h"
-#include "common.h"
+#include "ftp/const.h"
+#include "ftp/server.h"
+#include "ftp/client.h"
+#include "ftp/command.h"
+#include "ftp/common.h"
 
 using namespace std;
 

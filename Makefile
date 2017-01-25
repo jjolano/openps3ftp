@@ -7,18 +7,16 @@ endif
 include $(PSL1GHT)/ppu_rules
 
 TARGET		:= openps3ftp
-SIGN_SELF	:= 1
 
 # Define pkg file and application information
 TITLE		:= OpenPS3FTP
 APPID		:= NPXS91337
+SFOXML		:= $(CURDIR)/pkg-meta/sfo.xml
+ICON0		:= $(CURDIR)/pkg-meta/ICON0.PNG
 
 # Setup commands
 # scetool: github.com/naehrwert/scetool
-
-SELF_TOOL = scetool
-
-MAKE_SELF_NPDRM = $(SELF_TOOL) -0 SELF -1 TRUE -s FALSE -3 1010000001000003 -4 01000002 -5 NPDRM -A 0001000000000000 -6 0003004000000000 -b FREE -c EXEC -g EBOOT.BIN -f $(3) -2 $(4) -e $(1) $(2)
+MAKE_SELF_NPDRM = scetool -0 SELF -1 TRUE -s TRUE -3 1010000001000003 -4 01000002 -5 NPDRM -A 0001000000000000 -6 0003004100000000 -b FREE -c EXEC -g EBOOT.BIN -f $(3) -2 $(4) -e $(1) $(2)
 MAKE_PKG = $(PKG) --contentid $(3) $(1) $(2)
 MAKE_FSELF = $(FSELF) $(1) $(2)
 MAKE_SFO = $(SFO) --fromxml --title "$(3)" --appid "$(4)" $(1) $(2)
@@ -28,49 +26,58 @@ LIBPATHS	:= -L$(PORTLIBS)/lib $(LIBPSL1GHT_LIB)
 LIBS		:= -lnetctl -lnet -lNoRSX -lgcm_sys -lrsx -lfreetype -lsysutil -lrt -llv2 -lsysmodule -lm -lz -lsysfs
 
 # Includes
-INCLUDE		:= -I$(PORTLIBS)/include/freetype2 -I$(PORTLIBS)/include $(LIBPSL1GHT_INC)
+INCLUDE		:= -I$(PORTLIBS)/include/freetype2 -I$(PORTLIBS)/include $(LIBPSL1GHT_INC) -I$(CURDIR)/ftp
 
 # Source Files
 SRC			:= $(wildcard *.cpp)
-OFILES		:= $(SRC:.cpp=.o)
+OBJ			:= $(SRC:.cpp=.o)
 
 # Define compilation options
-CFLAGS		= -O2 -Wall -mcpu=cell $(MACHDEP) $(INCLUDE)
+CFLAGS		= -Os -s -Wall -mcpu=cell $(MACHDEP) $(INCLUDE)
 LDFLAGS		= $(MACHDEP) -s
 
 # Make rules
-.PHONY: all clean dist
+.PHONY: all clean dist pkg lib
 
 all: $(TARGET).elf
 
 clean: 
-	rm -f $(OFILES)
-	rm -f $(TARGET).elf
-	rm -f $(CONTENTID).pkg
-	rm -f EBOOT.BIN
-	rm -f PARAM.SFO
-	rm -rf $(CONTENTID)
+	rm -f $(OBJ) $(TARGET).a $(TARGET).zip $(TARGET).self $(TARGET).elf $(CONTENTID).pkg EBOOT.BIN PARAM.SFO
+	rm -rf $(CONTENTID) $(BUILDDIR)
 
-dist: clean $(CONTENTID).pkg
+dist: clean $(TARGET).zip
+
+pkg: $(CONTENTID).pkg
+
+lib: $(TARGET).a
+
+$(TARGET).a: $(OBJ:main.o=)
+	$(AR) rcs $@ $^
+
+$(TARGET).zip: $(CONTENTID).pkg
+	mkdir -p $(BUILDDIR)/npdrm $(BUILDDIR)/rex
+	cp $< $(BUILDDIR)/npdrm/
+	cp $< $(BUILDDIR)/rex/
+	-$(PACKAGE_FINALIZE) $(BUILDDIR)/npdrm/$<
+	zip -r9ql $(CURDIR)/$(TARGET).zip build readme.txt changelog.txt
 
 EBOOT.BIN: $(TARGET).elf
-ifeq ($(SIGN_SELF), 1)
 	$(call MAKE_SELF_NPDRM,$<,$@,$(CONTENTID),04)
-else
-	$(call MAKE_FSELF,$<,$@)
-endif
 
-PARAM.SFO: sfo.xml
-	$(call MAKE_SFO,$<,$@,$(TITLE),$(APPID))
-
-$(CONTENTID).pkg: EBOOT.BIN PARAM.SFO ICON0.PNG
+$(CONTENTID).pkg: EBOOT.BIN PARAM.SFO $(ICON0)
 	mkdir -p $(CONTENTID)/USRDIR
-	cp ICON0.PNG $(CONTENTID)/
+	cp $(ICON0) $(CONTENTID)/
 	cp PARAM.SFO $(CONTENTID)/
 	cp EBOOT.BIN $(CONTENTID)/USRDIR/
 	$(call MAKE_PKG,$(CONTENTID)/,$@,$(CONTENTID))
 
-$(TARGET).elf: $(OFILES)
+PARAM.SFO: $(SFOXML)
+	$(call MAKE_SFO,$<,$@,$(TITLE),$(APPID))
+
+$(TARGET).self: $(TARGET).elf
+	$(call MAKE_FSELF,$<,$@)
+
+$(TARGET).elf: $(OBJ)
 	$(CXX) $^ $(LDFLAGS) $(LIBPATHS) $(LIBS) -o $@
 	$(SPRX) $@
 

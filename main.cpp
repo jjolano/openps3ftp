@@ -7,8 +7,8 @@
 #include <sysmodule/sysmodule.h>
 #include <NoRSX.h>
 
-#include "const.h"
-#include "server.h"
+#include "ftp/const.h"
+#include "ftp/server.h"
 
 #define MSG_OK (msgType)(MSG_DIALOG_NORMAL|MSG_DIALOG_BTN_TYPE_OK|MSG_DIALOG_DISABLE_CANCEL_ON)
 
