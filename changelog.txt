@@ -1,3 +1,7 @@
+[Version 4.0c]
+- Source can now be compiled as a PSL1GHT static library.
+- Cleaned up and optimized code.
+
 [Version 4.0b - January 22, 2017]
 - Implemented libsysfs and experimental async IO writing support
 - Fixed QUIT not implemented
