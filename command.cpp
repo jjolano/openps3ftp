@@ -453,7 +453,7 @@ int data_list(Client* client)
 	}
 
 	sysFSDirent dirent;
-	size_t read;
+	unsigned long long read;
 
 	if(sysLv2FsReadDir(client->cvar_fd, &dirent, &read) == -1)
 	{
@@ -575,7 +575,7 @@ int data_nlst(Client* client)
 	}
 
 	sysFSDirent dirent;
-	size_t read;
+	unsigned long long read;
 
 	if(sysLv2FsReadDir(client->cvar_fd, &dirent, &read) == -1)
 	{
@@ -755,10 +755,10 @@ int data_stor(Client* client)
 			return 1;
 		}
 
-		size_t written;
+		unsigned long long written;
 
-		if(sysLv2FsWrite(client->cvar_fd, client->buffer_data, (size_t)read, &written) == -1
-		|| written < (size_t)read)
+		if(sysLv2FsWrite(client->cvar_fd, client->buffer_data, (unsigned long long)read, &written) == -1
+		|| written < (unsigned long long)read)
 		{
 			client->send_code(452, "Failed to write data to file");
 			sysLv2FsClose(client->cvar_fd);
@@ -822,7 +822,7 @@ void cmd_stor(Client* client, string params)
 		sysLv2FsChmod(path.c_str(), 0777);
 	}
 
-	size_t pos;
+	unsigned long long pos;
 	sysLv2FsLSeek64(fd, client->cvar_rest, SEEK_SET, &pos);
 
 	if(client->data_start(data_stor, POLLIN|POLLRDNORM) != -1)
@@ -900,7 +900,7 @@ int data_retr(Client* client)
 		return -1;
 	}
 
-	size_t read;
+	unsigned long long read;
 	if(sysLv2FsRead(client->cvar_fd, client->buffer_data, DATA_BUFFER - 1, &read) == -1)
 	{
 		client->send_code(452, "Failed to read file");
@@ -969,7 +969,7 @@ void cmd_retr(Client* client, string params)
 		return;
 	}
 
-	size_t pos;
+	unsigned long long pos;
 	sysLv2FsLSeek64(fd, client->cvar_rest, SEEK_SET, &pos);
 
 	if(client->data_start(data_retr, POLLOUT|POLLWRNORM) != -1)
@@ -1049,7 +1049,7 @@ void cmd_rest(Client* client, string params)
 		return;
 	}
 
-	ssize_t rest = atoll(params.c_str());
+	long long rest = atoll(params.c_str());
 
 	if(rest >= 0)
 	{

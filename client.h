@@ -34,7 +34,7 @@ public:
 	string cvar_user;
 	vector<string> cvar_cwd;
 	string cvar_rnfr;
-	size_t cvar_rest;
+	long long cvar_rest;
 	long cvar_fd;
 	bool cvar_use_aio;
 	sysFSAio cvar_aio;
