@@ -10,7 +10,6 @@
 
 #include <net/poll.h>
 #include <sys/thread.h>
-#include <NoRSX.h>
 
 #include "const.h"
 #include "server.h"
@@ -22,9 +21,7 @@ using namespace std;
 
 void server_start(void* arg)
 {
-	// Get NoRSX handle to be able to listen to system events.
-	NoRSX* gfx;
-	gfx = (NoRSX*)arg;
+	app_status* app_status = (app_status*)arg;
 
 	// Create server variables.
 	vector<pollfd> pollfds;
@@ -47,7 +44,7 @@ void server_start(void* arg)
 	if(bind(server, (sockaddr*)&myaddr, sizeof myaddr) != 0)
 	{
 		// Could not bind port to socket.
-		gfx->AppExit();
+		app_status->running = 0;
 		close(server);
 		sysThreadExit(1);
 	}
@@ -63,14 +60,14 @@ void server_start(void* arg)
 	pollfds.push_back(server_pollfd);
 
 	// Server loop.
-	while(gfx->GetAppStatus())
+	while(app_status->running)
 	{
 		int p = poll(&pollfds[0], (nfds_t)pollfds.size(), 250);
 
 		if(p == -1)
 		{
 			// poll error
-			gfx->AppExit();
+			app_status->running = 0;
 			break;
 		}
 

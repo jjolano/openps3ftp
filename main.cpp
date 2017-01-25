@@ -94,12 +94,15 @@ int main(void)
 	sysFsAioInit(MOUNT_POINT);
 
 	// Create the server thread.
-	sysThreadCreate(&server_tid, server_start, (void*)gfx, 1000, 0x10000, THREAD_JOINABLE, (char*)"ftpd");
+	app_status* app_status = new app_status;
+	app_status->running = 1;
+	sysThreadCreate(&server_tid, server_start, (void*)app_status, 1000, 0x10000, THREAD_JOINABLE, (char*)"ftpd");
 
 	// Start application loop.
 	gfx->AppStart();
 	md.Dialog(MSG_OK, netctl_info.ip_address);
 	gfx->AppExit();
+	app_status->running = 0;
 
 	// Join server thread and wait for exit...
 	sysThreadJoin(server_tid, NULL);
