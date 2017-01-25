@@ -468,9 +468,9 @@ int data_list(Client* client)
 		sysLv2FsCloseDir(client->cvar_fd);
 		return 1;
 	}
-
+	
 	string path = get_absolute_path(get_working_directory(client), dirent.d_name);
-
+	
 	if(path == "/app_home"
 	|| path == "/host_root")
 	{
