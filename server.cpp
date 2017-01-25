@@ -71,18 +71,10 @@ void server_start(void* arg)
 			break;
 		}
 
-		if(p == 0)
-		{
-			// no new events
-			continue;
-		}
-
 		// new event detected!
 		// iterate through connected sockets
-		for(vector<pollfd>::iterator pfd_it = pollfds.begin(); pfd_it != pollfds.end(); pfd_it++)
+		for(vector<pollfd>::iterator pfd_it = pollfds.begin(); (p > 0 && pfd_it != pollfds.end()); pfd_it++)
 		{
-			if(!p) break;
-
 			pollfd pfd = *pfd_it;
 
 			if(pfd.revents != 0)
@@ -137,17 +129,13 @@ void server_start(void* arg)
 						// get client
 						Client* client = cdata_it->second;
 
-						// check disconnect event
-						if(pfd.revents&(POLLNVAL|POLLHUP|POLLERR))
+						// execute data handler
+						client->handle_data();
+
+						// check for disconnection
+						if(client->socket_data != -1 && pfd.revents & (POLLNVAL|POLLHUP|POLLERR))
 						{
 							client->data_end();
-							continue;
-						}
-
-						// handle data operation
-						if(pfd.revents&(POLLOUT|POLLWRNORM|POLLIN|POLLRDNORM))
-						{
-							client->handle_data();
 							continue;
 						}
 
@@ -162,17 +150,8 @@ void server_start(void* arg)
 						// get client
 						Client* client = client_it->second;
 
-						// check disconnect event
-						if(pfd.revents&(POLLNVAL|POLLHUP|POLLERR))
-						{
-							delete client;
-							pollfds.erase(pfd_it);
-							clients.erase(client_it);
-							continue;
-						}
-
 						// check receiving event
-						if(pfd.revents&(POLLIN|POLLRDNORM))
+						if(pfd.revents & (POLLIN|POLLRDNORM))
 						{
 							ssize_t bytes = recv(client->socket_ctrl, client->buffer, CMD_BUFFER - 1, 0);
 
@@ -227,6 +206,15 @@ void server_start(void* arg)
 
 							// handle client command
 							client->handle_command(&commands, cmd, params);
+							continue;
+						}
+
+						// check disconnect event
+						if(pfd.revents & (POLLNVAL|POLLHUP|POLLERR))
+						{
+							delete client;
+							pollfds.erase(pfd_it);
+							clients.erase(client_it);
 							continue;
 						}
 

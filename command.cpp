@@ -274,7 +274,7 @@ void cmd_mkd(Client* client, string params)
 
 	string path = get_absolute_path(get_working_directory(client), params);
 
-	if(sysLv2FsMkdir(path.c_str(), S_IFMT|0777) == 0)
+	if(sysLv2FsMkdir(path.c_str(), 777) == 0)
 	{
 		client->send_code(257, "\"" + params + "\" was successfully created");
 	}
@@ -327,12 +327,6 @@ void cmd_pasv(Client* client, string params)
 	if(!client->cvar_auth)
 	{
 		client->send_code(530, "Not logged in");
-		return;
-	}
-
-	if(client->socket_data != -1)
-	{
-		client->send_code(450, "Data connection already active");
 		return;
 	}
 	
@@ -452,6 +446,13 @@ int data_list(Client* client)
 		return -1;
 	}
 
+	if(client->socket_data == -1)
+	{
+		client->send_code(426, "Data connection terminated");
+		sysLv2FsCloseDir(client->cvar_fd);
+		return -1;
+	}
+
 	sysFSDirent dirent;
 	u64 read;
 
@@ -517,7 +518,7 @@ int data_list(Client* client)
 		"%s %3d %-8d %-8d %10lu %s %s\r\n",
 		permissions, 1, 0, 0, stat.st_size, tstr, dirent.d_name);
 
-	if(send(client->socket_data, client->buffer_data, (size_t)len, 0) == -1)
+	if(send(client->socket_data, client->buffer_data, (size_t)len, 0) < len)
 	{
 		client->send_code(451, "Data transfer error");
 		sysLv2FsCloseDir(client->cvar_fd);
@@ -568,6 +569,13 @@ int data_nlst(Client* client)
 		return -1;
 	}
 
+	if(client->socket_data == -1)
+	{
+		client->send_code(426, "Data connection terminated");
+		sysLv2FsCloseDir(client->cvar_fd);
+		return -1;
+	}
+
 	sysFSDirent dirent;
 	u64 read;
 
@@ -585,19 +593,13 @@ int data_nlst(Client* client)
 		return 1;
 	}
 
-	if(get_working_directory(client) == "/")
-	{
-		if(strcmp(dirent.d_name, "app_home") == 0
-		|| strcmp(dirent.d_name, "host_root") == 0
-		|| strcmp(dirent.d_name, "dev_flash2") == 0
-		|| strcmp(dirent.d_name, "dev_flash3") == 0)
-		{
-			// skip unreadable entries
-			return 0;
-		}
-	}
-
 	string path = get_absolute_path(get_working_directory(client), dirent.d_name);
+
+	if(path == "/app_home"
+	|| path == "/host_root")
+	{
+		return 0;
+	}
 
 	sysFSStat stat;
 	if(sysLv2FsStat(path.c_str(), &stat) == -1)
@@ -611,7 +613,7 @@ int data_nlst(Client* client)
 	data += '\r';
 	data += '\n';
 
-	if(send(client->socket_data, data.c_str(), (size_t)data.size(), 0) == -1)
+	if(send(client->socket_data, data.c_str(), (size_t)data.size(), 0) < (ssize_t)data.size())
 	{
 		client->send_code(451, "Data transfer error");
 		sysLv2FsCloseDir(client->cvar_fd);
@@ -665,7 +667,7 @@ void aio_stor(sysFSAio* aio, s32 error, s32 xid, u64 size)
 	{
 		if(error == CELL_FS_EBUSY)
 		{
-			aio->usrdata = 4;
+			aio->usrdata = 3;
 		}
 		else
 		{
@@ -682,6 +684,13 @@ int data_stor(Client* client)
 		return -1;
 	}
 
+	if(client->socket_data == -1)
+	{
+		client->send_code(426, "Data connection terminated");
+		sysLv2FsClose(client->cvar_fd);
+		return -1;
+	}
+
 	if(client->cvar_use_aio)
 	{
 		if(client->cvar_aio.usrdata == 2)
@@ -690,6 +699,7 @@ int data_stor(Client* client)
 
 			if(status == CELL_FS_EBUSY)
 			{
+				// IO busy, try again on next tick
 				return 0;
 			}
 		}
@@ -742,13 +752,6 @@ int data_stor(Client* client)
 	}
 	else
 	{
-		if(read == 0)
-		{
-			client->send_code(226, "Transfer complete");
-			sysLv2FsClose(client->cvar_fd);
-			return 1;
-		}
-
 		u64 written;
 
 		if(sysLv2FsWrite(client->cvar_fd, client->buffer_data, (u64)read, &written) == -1
@@ -757,13 +760,6 @@ int data_stor(Client* client)
 			client->send_code(452, "Failed to write data to file");
 			sysLv2FsClose(client->cvar_fd);
 			return -1;
-		}
-
-		if(written == 0)
-		{
-			client->send_code(226, "Transfer complete");
-			sysLv2FsClose(client->cvar_fd);
-			return 1;
 		}
 	}
 
@@ -798,22 +794,21 @@ void cmd_stor(Client* client, string params)
 	{
 		oflags |= SYS_O_CREAT;
 	}
-
-	if(client->cvar_rest == 0)
+	else if(client->cvar_rest == 0)
 	{
 		oflags |= SYS_O_TRUNC;
 	}
 
 	s32 fd;
-	if(sysLv2FsOpen(path.c_str(), oflags, &fd, (S_IFMT|0777), NULL, 0) == -1)
+	if(sysLv2FsOpen(path.c_str(), oflags, &fd, 777, NULL, 0) == -1)
 	{
 		client->send_code(550, "Cannot access file");
 		return;
 	}
 
-	if(oflags&SYS_O_CREAT)
+	if(oflags & SYS_O_CREAT)
 	{
-		sysLv2FsChmod(path.c_str(), 0777);
+		sysLv2FsChmod(path.c_str(), 777);
 	}
 
 	u64 pos;
@@ -868,7 +863,7 @@ void cmd_appe(Client* client, string params)
 	}
 
 	s32 fd;
-	if(sysLv2FsOpen(path.c_str(), SYS_O_WRONLY|SYS_O_APPEND, &fd, (S_IFMT|0777), NULL, 0) == -1)
+	if(sysLv2FsOpen(path.c_str(), SYS_O_WRONLY|SYS_O_APPEND, &fd, 777, NULL, 0) == -1)
 	{
 		client->send_code(550, "Cannot access file");
 		return;
@@ -878,6 +873,14 @@ void cmd_appe(Client* client, string params)
 	{
 		client->cvar_fd = fd;
 		client->send_code(150, "Accepted data connection");
+
+		if(client->cvar_use_aio)
+		{
+			client->cvar_aio.fd = fd;
+			client->cvar_aio.offset = 0;
+			client->cvar_aio.buffer_addr = (intptr_t)client->buffer_data;
+			client->cvar_aio.usrdata = 0;
+		}
 	}
 	else
 	{
@@ -891,6 +894,13 @@ int data_retr(Client* client)
 	if(client->cvar_fd == -1)
 	{
 		client->send_code(451, "Failed to open file");
+		return -1;
+	}
+
+	if(client->socket_data == -1)
+	{
+		client->send_code(426, "Data connection terminated");
+		sysLv2FsClose(client->cvar_fd);
 		return -1;
 	}
 
@@ -911,18 +921,11 @@ int data_retr(Client* client)
 
 	ssize_t written = send(client->socket_data, client->buffer_data, (size_t)read, 0);
 
-	if(written == -1)
+	if(written == -1 || (u64)written < read)
 	{
 		client->send_code(451, "Error in data transmission");
 		sysLv2FsClose(client->cvar_fd);
 		return -1;
-	}
-
-	if(written == 0)
-	{
-		client->send_code(226, "Transfer complete");
-		sysLv2FsClose(client->cvar_fd);
-		return 1;
 	}
 
 	return 0;
@@ -1199,7 +1202,7 @@ void cmd_site(Client* client, string params)
 
 		if(sysLv2FsChmod(path.c_str(), S_IFMT|atoi(chmod.c_str())) == 0)
 		{
-			client->send_code(200, "CHMOD successful.");
+			client->send_code(200, "Permissions changed.");
 		}
 		else
 		{
@@ -1268,37 +1271,6 @@ void cmd_mdtm(Client* client, string params)
 	}
 }
 
-void cmd_test(Client* client, string params)
-{
-	if(!client->cvar_auth)
-	{
-		client->send_code(530, "Not logged in");
-		return;
-	}
-	
-	if(params.empty())
-	{
-		client->send_code(501, "No filename specified");
-		return;
-	}
-
-	string path = get_absolute_path(get_working_directory(client), params);
-
-	sysFSStat stat;
-	if(sysFsStat(path.c_str(), &stat) == 0)
-	{
-		stringstream out;
-		out << stat.st_size;
-
-		client->send_multicode(200, "ayy lmao");
-		client->send_code(200, out.str());
-	}
-	else
-	{
-		client->send_code(500, "RIP");
-	}
-}
-
 void cmd_aio(Client* client, string params)
 {
 	if(!client->cvar_auth)
@@ -1358,6 +1330,7 @@ void register_cmds(map<string, cmdfunc>* cmd_handlers)
 	register_cmd(cmd_handlers, "MDTM", cmd_mdtm);
 
 	// Custom commands
-	register_cmd(cmd_handlers, "TEST", cmd_test);
+#ifdef _USE_SYSFS_
 	register_cmd(cmd_handlers, "AIO", cmd_aio);
+#endif
 }
