@@ -7,6 +7,7 @@ endif
 include $(PSL1GHT)/ppu_rules
 
 TARGET		:= openps3ftp
+LIBNAME		:= lib$(TARGET)
 
 # Define pkg file and application information
 TITLE		:= OpenPS3FTP
@@ -23,7 +24,7 @@ MAKE_SFO = $(SFO) --fromxml --title "$(3)" --appid "$(4)" $(1) $(2)
 
 # Libraries
 LIBPATHS	:= -L. -L$(PORTLIBS)/lib $(LIBPSL1GHT_LIB)
-LIBS		:= -lopenps3ftp -lnetctl -lnet -lNoRSX -lgcm_sys -lrsx -lfreetype -lsysutil -lrt -llv2 -lsysmodule -lm -lz -lsysfs
+LIBS		:= -l$(TARGET) -lnetctl -lnet -lNoRSX -lgcm_sys -lrsx -lfreetype -lsysutil -lrt -llv2 -lsysmodule -lm -lz -lsysfs
 
 # Includes
 INCLUDE		:= -I$(CURDIR)/ftp -I$(PORTLIBS)/include/freetype2 -I$(PORTLIBS)/include $(LIBPSL1GHT_INC)
@@ -42,20 +43,20 @@ LDFLAGS		= $(CFLAGS)
 all: $(TARGET).elf
 
 clean: 
-	rm -f $(OBJ) lib$(TARGET).a $(TARGET).zip $(TARGET).self $(TARGET).elf $(CONTENTID).pkg EBOOT.BIN PARAM.SFO
+	rm -f $(OBJ) $(LIBNAME).a $(TARGET).zip $(TARGET).self $(TARGET).elf $(CONTENTID).pkg EBOOT.BIN PARAM.SFO
 	rm -rf $(CONTENTID) $(BUILDDIR)
 
 dist: clean $(TARGET).zip
 
 pkg: $(CONTENTID).pkg
 
-lib: lib$(TARGET).a
+lib: $(LIBNAME).a
 
 install: lib
 	cp -fr $(CURDIR)/ftp $(PORTLIBS)/include/
-	cp -f lib$(TARGET).a $(PORTLIBS)/lib/
+	cp -f $(LIBNAME).a $(PORTLIBS)/lib/
 
-lib$(TARGET).a: $(OBJ:main.o=)
+$(LIBNAME).a: $(OBJ:main.o=)
 	$(AR) rcs $@ $^
 
 $(TARGET).zip: $(CONTENTID).pkg
@@ -81,7 +82,7 @@ PARAM.SFO: $(SFOXML)
 $(TARGET).self: $(TARGET).elf
 	$(call MAKE_FSELF,$<,$@)
 
-$(TARGET).elf: main.o lib
+$(TARGET).elf: main.o $(LIBNAME).a
 	$(CXX) $< $(LDFLAGS) $(LIBPATHS) $(LIBS) -o $@
 	$(STRIP) $@
 	$(SPRX) $@
