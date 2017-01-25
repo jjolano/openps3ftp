@@ -11,6 +11,7 @@
 #include <netdb.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 
 #include <sys/file.h>
 #include <net/poll.h>
@@ -452,7 +453,7 @@ int data_list(Client* client)
 	}
 
 	sysFSDirent dirent;
-	unsigned long long read;
+	u64 read;
 
 	if(sysLv2FsReadDir(client->cvar_fd, &dirent, &read) == -1)
 	{
@@ -540,7 +541,7 @@ void cmd_list(Client* client, string params)
 		return;
 	}
 
-	long fd;
+	s32 fd;
 	if(sysLv2FsOpenDir(get_working_directory(client).c_str(), &fd) == -1)
 	{
 		client->send_code(550, "Cannot access directory");
@@ -568,7 +569,7 @@ int data_nlst(Client* client)
 	}
 
 	sysFSDirent dirent;
-	unsigned long long read;
+	u64 read;
 
 	if(sysLv2FsReadDir(client->cvar_fd, &dirent, &read) == -1)
 	{
@@ -634,7 +635,7 @@ void cmd_nlst(Client* client, string params)
 		return;
 	}
 
-	long fd;
+	s32 fd;
 	if(sysLv2FsOpenDir(get_working_directory(client).c_str(), &fd) == -1)
 	{
 		client->send_code(550, "Cannot access directory");
@@ -653,7 +654,7 @@ void cmd_nlst(Client* client, string params)
 	}
 }
 
-void aio_stor(sysFSAio* aio, long error, long xid, unsigned long long size)
+void aio_stor(sysFSAio* aio, s32 error, s32 xid, u64 size)
 {
 	if(error == CELL_FS_SUCCEEDED)
 	{
@@ -685,7 +686,7 @@ int data_stor(Client* client)
 	{
 		if(client->cvar_aio.usrdata == 2)
 		{
-			long status = sysFsAioWrite(&client->cvar_aio, &client->cvar_aio_id, aio_stor);
+			s32 status = sysFsAioWrite(&client->cvar_aio, &client->cvar_aio_id, aio_stor);
 
 			if(status == CELL_FS_EBUSY)
 			{
@@ -723,7 +724,7 @@ int data_stor(Client* client)
 			client->cvar_aio.usrdata = 1;
 			client->cvar_aio.size = read;
 
-			long status = sysFsAioWrite(&client->cvar_aio, &client->cvar_aio_id, aio_stor);
+			s32 status = sysFsAioWrite(&client->cvar_aio, &client->cvar_aio_id, aio_stor);
 
 			if(status == CELL_FS_EBUSY)
 			{
@@ -748,10 +749,10 @@ int data_stor(Client* client)
 			return 1;
 		}
 
-		unsigned long long written;
+		u64 written;
 
-		if(sysLv2FsWrite(client->cvar_fd, client->buffer_data, (unsigned long long)read, &written) == -1
-		|| written < (unsigned long long)read)
+		if(sysLv2FsWrite(client->cvar_fd, client->buffer_data, (u64)read, &written) == -1
+		|| written < (u64)read)
 		{
 			client->send_code(452, "Failed to write data to file");
 			sysLv2FsClose(client->cvar_fd);
@@ -791,7 +792,7 @@ void cmd_stor(Client* client, string params)
 
 	string path = get_absolute_path(get_working_directory(client), params);
 
-	unsigned long oflags = SYS_O_WRONLY;
+	u32 oflags = SYS_O_WRONLY;
 
 	if(!file_exists(path))
 	{
@@ -803,7 +804,7 @@ void cmd_stor(Client* client, string params)
 		oflags |= SYS_O_TRUNC;
 	}
 
-	long fd;
+	s32 fd;
 	if(sysLv2FsOpen(path.c_str(), oflags, &fd, (S_IFMT|0777), NULL, 0) == -1)
 	{
 		client->send_code(550, "Cannot access file");
@@ -815,7 +816,7 @@ void cmd_stor(Client* client, string params)
 		sysLv2FsChmod(path.c_str(), 0777);
 	}
 
-	unsigned long long pos;
+	u64 pos;
 	sysLv2FsLSeek64(fd, client->cvar_rest, SEEK_SET, &pos);
 
 	if(client->data_start(data_stor, POLLIN|POLLRDNORM) != -1)
@@ -866,7 +867,7 @@ void cmd_appe(Client* client, string params)
 		return;
 	}
 
-	long fd;
+	s32 fd;
 	if(sysLv2FsOpen(path.c_str(), SYS_O_WRONLY|SYS_O_APPEND, &fd, (S_IFMT|0777), NULL, 0) == -1)
 	{
 		client->send_code(550, "Cannot access file");
@@ -893,7 +894,7 @@ int data_retr(Client* client)
 		return -1;
 	}
 
-	unsigned long long read;
+	u64 read;
 	if(sysLv2FsRead(client->cvar_fd, client->buffer_data, DATA_BUFFER - 1, &read) == -1)
 	{
 		client->send_code(452, "Failed to read file");
@@ -955,14 +956,14 @@ void cmd_retr(Client* client, string params)
 		return;
 	}
 
-	long fd;
+	s32 fd;
 	if(sysLv2FsOpen(path.c_str(), SYS_O_RDONLY, &fd, 0, NULL, 0) == -1)
 	{
 		client->send_code(550, "Cannot open file");
 		return;
 	}
 
-	unsigned long long pos;
+	u64 pos;
 	sysLv2FsLSeek64(fd, client->cvar_rest, SEEK_SET, &pos);
 
 	if(client->data_start(data_retr, POLLOUT|POLLWRNORM) != -1)
@@ -1042,7 +1043,7 @@ void cmd_rest(Client* client, string params)
 		return;
 	}
 
-	long long rest = atoll(params.c_str());
+	s64 rest = atoll(params.c_str());
 
 	if(rest >= 0)
 	{

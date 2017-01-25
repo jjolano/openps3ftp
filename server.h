@@ -1,13 +1,5 @@
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 struct app_status {
-	int running;
+	int is_running;
 };
-
-#ifdef __cplusplus
-}
-#endif
 
 void server_start(void* arg);

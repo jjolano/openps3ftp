@@ -34,11 +34,11 @@ public:
 	string cvar_user;
 	vector<string> cvar_cwd;
 	string cvar_rnfr;
-	long long cvar_rest;
-	long cvar_fd;
+	u64 cvar_rest;
+	s32 cvar_fd;
 	bool cvar_use_aio;
 	sysFSAio cvar_aio;
-	long cvar_aio_id;
+	s32 cvar_aio_id;
 
 	Client(int, vector<pollfd>*, map<int, Client*>*, map<int, Client*>*);
 	~Client(void);

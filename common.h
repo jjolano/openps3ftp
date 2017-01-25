@@ -15,7 +15,7 @@
 #define sysLv2FsMkdir					sysFsMkdir
 #define sysLv2FsOpenDir					sysFsOpendir
 #define sysLv2FsOpen(a,b,c,d,e,f)		sysFsOpen(a,b,c,e,f)
-#define sysLv2FsLSeek64(a,b,c,d)		sysFsLseek(a,(ssize_t)b,c,d)
+#define sysLv2FsLSeek64(a,b,c,d)		sysFsLseek(a,(s32)b,c,d)
 #define sysLv2FsFStat					sysFsFstat
 #define sysLv2FsUnlink					sysFsUnlink
 #define sysLv2FsChmod					sysFsChmod

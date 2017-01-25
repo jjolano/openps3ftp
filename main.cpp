@@ -1,7 +1,3 @@
-#include <iostream>
-#include <sstream>
-#include <string>
-
 #include <ppu-lv2.h>
 #include <net/net.h>
 #include <net/netctl.h>
@@ -62,17 +58,12 @@ int main(void)
 	load_sysmodules();
 
 	// Initialize framebuffer.
-	NoRSX* gfx;
-	gfx = new NoRSX();
-
+	NoRSX* gfx = new NoRSX();
 	MsgDialog md(gfx);
 
 	// netctl variables
-	long netctl_state;
+	s32 netctl_state;
 	net_ctl_info netctl_info;
-
-	// server ppu thread id
-	sys_ppu_thread_t server_tid;
 
 	// Check network connection status.
 	netCtlGetState(&netctl_state);
@@ -94,18 +85,22 @@ int main(void)
 	sysFsAioInit(MOUNT_POINT);
 
 	// Create the server thread.
-	app_status* app_status = new app_status;
-	app_status->running = 1;
-	sysThreadCreate(&server_tid, server_start, (void*)app_status, 1000, 0x10000, THREAD_JOINABLE, (char*)"ftpd");
+	app_status status;
+	status.is_running = 1;
+
+	sys_ppu_thread_t server_tid;
+	sysThreadCreate(&server_tid, server_start, (void*)&status, 1000, 0x10000, THREAD_JOINABLE, (char*)"ftpd");
 
 	// Start application loop.
 	gfx->AppStart();
 	md.Dialog(MSG_OK, netctl_info.ip_address);
 	gfx->AppExit();
-	app_status->running = 0;
 
 	// Join server thread and wait for exit...
-	sysThreadJoin(server_tid, NULL);
+	status.is_running = 0;
+
+	u64 thread_exit;
+	sysThreadJoin(server_tid, &thread_exit);
 	
 	// Unmount dev_blind.
 	sysLv2FsUnmount(MOUNT_POINT);
