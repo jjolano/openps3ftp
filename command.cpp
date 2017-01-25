@@ -671,13 +671,13 @@ void aio_stor(sysFSAio* aio, s32 error, s32 xid, u64 size)
 	if(error == CELL_FS_SUCCEEDED)
 	{
 		aio->offset += size;
-		aio->usrdata = 0;
+		aio->usrdata = AIO_READY;
 	}
 	else
 	{
 		if(error == CELL_FS_EBUSY)
 		{
-			aio->usrdata = 3;
+			aio->usrdata = AIO_WAITING;
 		}
 		else
 		{
@@ -696,16 +696,22 @@ int data_stor(Client* client)
 
 	if(client->cvar_use_aio)
 	{
-		if(client->cvar_aio.usrdata == 2)
+		if(client->cvar_aio.usrdata == AIO_ACTIVE)
 		{
-			client->cvar_aio.usrdata = 1;
+			// still writing
+			return 0;
+		}
+
+		if(client->cvar_aio.usrdata == AIO_WAITING)
+		{
+			client->cvar_aio.usrdata = AIO_ACTIVE;
 
 			s32 status = sysFsAioWrite(&client->cvar_aio, &client->cvar_aio_id, aio_stor);
 
 			if(status == CELL_FS_EBUSY)
 			{
 				// IO busy, try again on next tick
-				client->cvar_aio.usrdata = 2;
+				client->cvar_aio.usrdata = AIO_WAITING;
 				return 0;
 			}
 
@@ -715,12 +721,6 @@ int data_stor(Client* client)
 				sysLv2FsClose(client->cvar_fd);
 				return -1;
 			}
-		}
-
-		if(client->cvar_aio.usrdata == 1)
-		{
-			// still writing
-			return 0;
 		}
 	}
 
@@ -742,16 +742,16 @@ int data_stor(Client* client)
 
 	if(client->cvar_use_aio)
 	{
-		if(client->cvar_aio.usrdata == 0)
+		if(client->cvar_aio.usrdata == AIO_READY)
 		{
-			client->cvar_aio.usrdata = 1;
+			client->cvar_aio.usrdata = AIO_ACTIVE;
 			client->cvar_aio.size = read;
 
 			s32 status = sysFsAioWrite(&client->cvar_aio, &client->cvar_aio_id, aio_stor);
 
 			if(status == CELL_FS_EBUSY)
 			{
-				client->cvar_aio.usrdata = 2;
+				client->cvar_aio.usrdata = AIO_WAITING;
 				return 0;
 			}
 			
@@ -844,7 +844,7 @@ void cmd_stor(Client* client, string params)
 			client->cvar_aio.fd = fd;
 			client->cvar_aio.offset = 0;
 			client->cvar_aio.buffer_addr = (intptr_t)client->buffer_data;
-			client->cvar_aio.usrdata = 0;
+			client->cvar_aio.usrdata = AIO_READY;
 		}
 	}
 	else
@@ -899,7 +899,7 @@ void cmd_appe(Client* client, string params)
 			client->cvar_aio.fd = fd;
 			client->cvar_aio.offset = 0;
 			client->cvar_aio.buffer_addr = (intptr_t)client->buffer_data;
-			client->cvar_aio.usrdata = 0;
+			client->cvar_aio.usrdata = AIO_READY;
 		}
 	}
 	else

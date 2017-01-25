@@ -8,6 +8,7 @@
 #include <NoRSX.h>
 #include <NoRSX/NoRSXutil.h>
 
+#include "ftp/common.h"
 #include "ftp/server.h"
 
 #define MOUNT_POINT	"/dev_blind"
@@ -94,9 +95,11 @@ int main(void)
 	// Mount dev_blind.
 	sysLv2FsMount("CELL_FS_IOS:BUILTIN_FLSH1", "CELL_FS_FAT", MOUNT_POINT, 0);
 
+#ifdef _USE_SYSFS_
 	// Prepare Async IO.
 	sysFsAioInit("/dev_hdd0");
 	sysFsAioInit(MOUNT_POINT);
+#endif
 
 	// Create the server thread.
 	app_status status;
@@ -130,9 +133,11 @@ int main(void)
 	u64 thread_exit;
 	sysThreadJoin(server_tid, &thread_exit);
 
+#ifdef _USE_SYSFS_
 	// Finish Async IO.
 	sysFsAioFinish("/dev_hdd0");
 	sysFsAioFinish(MOUNT_POINT);
+#endif
 
 	// Unmount dev_blind.
 	sysLv2FsUnmount(MOUNT_POINT);
