@@ -7,8 +7,6 @@
 #include <net/poll.h>
 #include <lv2/sysfs.h>
 
-class Client;
-
 #include "command.h"
 
 using namespace std;

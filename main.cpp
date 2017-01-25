@@ -8,10 +8,10 @@
 #include <NoRSX.h>
 #include <NoRSX/NoRSXutil.h>
 
-#include "ftp/const.h"
 #include "ftp/server.h"
 
-#define MSG_OK (msgType)(MSG_DIALOG_NORMAL|MSG_DIALOG_BTN_TYPE_OK|MSG_DIALOG_DISABLE_CANCEL_ON)
+#define MOUNT_POINT	"/dev_blind"
+#define MSG_OK		(msgType)(MSG_DIALOG_NORMAL|MSG_DIALOG_BTN_TYPE_OK|MSG_DIALOG_DISABLE_CANCEL_ON)
 
 using namespace std;
 
@@ -79,7 +79,13 @@ int main(void)
 
 	if(netctl_state != NET_CTL_STATE_IPObtained)
 	{
-		goto unload;
+		// Unload sysmodules.
+		unload_sysmodules();
+
+		// Free up graphics.
+		gfx->NoRSX_Exit();
+
+		return -1;
 	}
 
 	// Obtain network connection IP address.
@@ -97,7 +103,7 @@ int main(void)
 	status.is_running = 1;
 
 	sys_ppu_thread_t server_tid;
-	sysThreadCreate(&server_tid, server_start, (void*)&status, 1000, 0x10000, THREAD_JOINABLE, (char*)"ftpd");
+	sysThreadCreate(&server_tid, server_start, (void*)&status, 1000, 0x100000, THREAD_JOINABLE, (char*)"ftpd");
 
 	// Start application loop.
 	gfx->AppStart();
@@ -108,10 +114,12 @@ int main(void)
 
 	while(gfx->GetAppStatus() && status.is_running)
 	{
-		sysUtilCheckCallback();
 		flip(gfx->context, buffer);
-		waitFlip();
+
+		sysUtilCheckCallback();
 		buffer = !buffer;
+		
+		waitFlip();
 	}
 
 	// Join server thread and wait for exit...
@@ -129,7 +137,6 @@ int main(void)
 	sysFsAioFinish("/dev_hdd0");
 	sysFsAioFinish(MOUNT_POINT);
 
-unload:
 	// Unload sysmodules.
 	unload_sysmodules();
 

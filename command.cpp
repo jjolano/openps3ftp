@@ -16,11 +16,11 @@
 #include <sys/file.h>
 #include <net/poll.h>
 
-#include "ftp/const.h"
-#include "ftp/server.h"
-#include "ftp/client.h"
-#include "ftp/command.h"
-#include "ftp/common.h"
+#include "const.h"
+#include "server.h"
+#include "client.h"
+#include "command.h"
+#include "common.h"
 
 using namespace std;
 
@@ -70,18 +70,18 @@ string get_absolute_path(string cwd, string nd)
 		return cwd;
 	}
 
-	if(nd.at(0) == '/')
+	if(nd[0] == '/')
 	{
 		return nd;
 	}
 
-	if(nd.at(nd.size() - 1) == '/')
+	if(nd[nd.size() - 1] == '/')
 	{
 		// remove trailing slash
 		nd.resize(nd.size() - 1);
 	}
 
-	if(cwd.at(cwd.size() - 1) != '/')
+	if(cwd[cwd.size() - 1] != '/')
 	{
 		// cwd must have trailing slash
 		cwd += "/";
@@ -446,13 +446,6 @@ int data_list(Client* client)
 		return -1;
 	}
 
-	if(client->socket_data == -1)
-	{
-		client->send_code(426, "Data connection terminated");
-		sysLv2FsCloseDir(client->cvar_fd);
-		return -1;
-	}
-
 	sysFSDirent dirent;
 	u64 read;
 
@@ -469,14 +462,17 @@ int data_list(Client* client)
 		sysLv2FsCloseDir(client->cvar_fd);
 		return 1;
 	}
+
+	if(get_working_directory(client) == "/")
+	{
+		if(strcmp(dirent.d_name, "app_home") == 0
+		|| strcmp(dirent.d_name, "host_root") == 0)
+		{
+			return 0;
+		}
+	}
 	
 	string path = get_absolute_path(get_working_directory(client), dirent.d_name);
-	
-	if(path == "/app_home"
-	|| path == "/host_root")
-	{
-		return 0;
-	}
 
 	sysFSStat stat;
 	if(sysLv2FsStat(path.c_str(), &stat) == -1)
@@ -514,11 +510,11 @@ int data_list(Client* client)
 	char tstr[14];
 	strftime(tstr, 13, "%b %e %H:%M", localtime(&stat.st_mtime));
 
-	int len = sprintf(client->buffer_data,
+	ssize_t len = sprintf(client->buffer_data,
 		"%s %3d %-8d %-8d %10lu %s %s\r\n",
 		permissions, 1, 0, 0, stat.st_size, tstr, dirent.d_name);
 
-	if(send(client->socket_data, client->buffer_data, (size_t)len, 0) < len)
+	if(send(client->socket_data, client->buffer_data, (size_t)len, 0) == -1)
 	{
 		client->send_code(451, "Data transfer error");
 		sysLv2FsCloseDir(client->cvar_fd);
@@ -569,13 +565,6 @@ int data_nlst(Client* client)
 		return -1;
 	}
 
-	if(client->socket_data == -1)
-	{
-		client->send_code(426, "Data connection terminated");
-		sysLv2FsCloseDir(client->cvar_fd);
-		return -1;
-	}
-
 	sysFSDirent dirent;
 	u64 read;
 
@@ -593,13 +582,16 @@ int data_nlst(Client* client)
 		return 1;
 	}
 
-	string path = get_absolute_path(get_working_directory(client), dirent.d_name);
-
-	if(path == "/app_home"
-	|| path == "/host_root")
+	if(get_working_directory(client) == "/")
 	{
-		return 0;
+		if(strcmp(dirent.d_name, "app_home") == 0
+		|| strcmp(dirent.d_name, "host_root") == 0)
+		{
+			return 0;
+		}
 	}
+
+	string path = get_absolute_path(get_working_directory(client), dirent.d_name);
 
 	sysFSStat stat;
 	if(sysLv2FsStat(path.c_str(), &stat) == -1)
@@ -613,7 +605,7 @@ int data_nlst(Client* client)
 	data += '\r';
 	data += '\n';
 
-	if(send(client->socket_data, data.c_str(), (size_t)data.size(), 0) < (ssize_t)data.size())
+	if(send(client->socket_data, data.c_str(), (size_t)data.size(), 0) == -1)
 	{
 		client->send_code(451, "Data transfer error");
 		sysLv2FsCloseDir(client->cvar_fd);
@@ -684,23 +676,26 @@ int data_stor(Client* client)
 		return -1;
 	}
 
-	if(client->socket_data == -1)
-	{
-		client->send_code(426, "Data connection terminated");
-		sysLv2FsClose(client->cvar_fd);
-		return -1;
-	}
-
 	if(client->cvar_use_aio)
 	{
 		if(client->cvar_aio.usrdata == 2)
 		{
+			client->cvar_aio.usrdata = 1;
+
 			s32 status = sysFsAioWrite(&client->cvar_aio, &client->cvar_aio_id, aio_stor);
 
 			if(status == CELL_FS_EBUSY)
 			{
 				// IO busy, try again on next tick
+				client->cvar_aio.usrdata = 2;
 				return 0;
+			}
+
+			if(status != CELL_FS_SUCCEEDED)
+			{
+				client->send_code(452, "Failed to write data to file");
+				sysLv2FsClose(client->cvar_fd);
+				return -1;
 			}
 		}
 
@@ -711,7 +706,7 @@ int data_stor(Client* client)
 		}
 	}
 
-	ssize_t read = recv(client->socket_data, client->buffer_data, DATA_BUFFER - 1, 0);
+	ssize_t read = recv(client->socket_data, client->buffer_data, DATA_BUFFER - 1, MSG_DONTWAIT);
 
 	if(read == -1)
 	{
@@ -894,13 +889,6 @@ int data_retr(Client* client)
 	if(client->cvar_fd == -1)
 	{
 		client->send_code(451, "Failed to open file");
-		return -1;
-	}
-
-	if(client->socket_data == -1)
-	{
-		client->send_code(426, "Data connection terminated");
-		sysLv2FsClose(client->cvar_fd);
 		return -1;
 	}
 

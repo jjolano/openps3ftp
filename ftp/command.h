@@ -1,6 +1,8 @@
 #include <string>
 #include <map>
 
+class Client;
+
 #include "client.h"
 
 using namespace std;

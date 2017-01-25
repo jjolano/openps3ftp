@@ -35,7 +35,7 @@ OBJ			:= $(SRC:.cpp=.o)
 
 # Define compilation options
 CFLAGS		= -Os -g -Wall -mcpu=cell $(MACHDEP) $(INCLUDE)
-LDFLAGS		= $(CFLAGS)
+LDFLAGS		= $(MACHDEP) -s
 
 # Make rules
 .PHONY: all clean dist pkg lib install
@@ -84,7 +84,6 @@ $(TARGET).self: $(TARGET).elf
 
 $(TARGET).elf: main.o $(LIBNAME).a
 	$(CXX) $< $(LDFLAGS) $(LIBPATHS) $(LIBS) -o $@
-	$(STRIP) $@
 	$(SPRX) $@
 
 %.o: %.cpp

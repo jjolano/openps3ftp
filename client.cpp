@@ -11,11 +11,11 @@
 #include <net/poll.h>
 #include <sys/file.h>
 
-#include "ftp/const.h"
-#include "ftp/server.h"
-#include "ftp/client.h"
-#include "ftp/command.h"
-#include "ftp/common.h"
+#include "const.h"
+#include "server.h"
+#include "client.h"
+#include "command.h"
+#include "common.h"
 
 using namespace std;
 
@@ -97,11 +97,6 @@ void Client::handle_command(map<string, cmdfunc>* cmds, string cmd, string param
 
 void Client::handle_data(void)
 {
-	if(data_handler == NULL)
-	{
-		data_end();
-	}
-
 	int ret = data_handler(this);
 
 	if(ret != 0)

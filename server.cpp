@@ -11,11 +11,11 @@
 #include <net/poll.h>
 #include <sys/thread.h>
 
-#include "ftp/const.h"
-#include "ftp/server.h"
-#include "ftp/client.h"
-#include "ftp/command.h"
-#include "ftp/common.h"
+#include "const.h"
+#include "server.h"
+#include "client.h"
+#include "command.h"
+#include "common.h"
 
 using namespace std;
 
@@ -73,8 +73,13 @@ void server_start(void* arg)
 
 		// new event detected!
 		// iterate through connected sockets
-		for(vector<pollfd>::iterator pfd_it = pollfds.begin(); (p > 0 && pfd_it != pollfds.end()); pfd_it++)
+		for(vector<pollfd>::iterator pfd_it = pollfds.begin(); pfd_it != pollfds.end(); pfd_it++)
 		{
+			if(p <= 0)
+			{
+				break;
+			}
+
 			pollfd pfd = *pfd_it;
 
 			if(pfd.revents != 0)
@@ -137,7 +142,7 @@ void server_start(void* arg)
 						}
 
 						// execute data handler
-						if(pfd.revents & pfd.events)
+						if(pfd.revents & (POLLOUT|POLLWRNORM|POLLIN|POLLRDNORM))
 						{
 							client->handle_data();
 							continue;
@@ -164,9 +169,9 @@ void server_start(void* arg)
 						}
 
 						// check receiving event
-						if(pfd.revents & pfd.events)
+						if(pfd.revents & (POLLIN|POLLRDNORM))
 						{
-							ssize_t bytes = recv(client->socket_ctrl, client->buffer, CMD_BUFFER - 1, 0);
+							ssize_t bytes = recv(client->socket_ctrl, client->buffer, CMD_BUFFER - 1, MSG_DONTWAIT);
 
 							// check if recv was valid
 							if(bytes <= 0)

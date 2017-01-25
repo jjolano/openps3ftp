@@ -1,8 +1,18 @@
 // Comment below to disable use of libsysfs functions when compiling.
-#define _USE_SYSFS_
+//#define _USE_SYSFS_
 
 #define CELL_FS_SUCCEEDED	0
 #define CELL_FS_EBUSY		(-31)
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+int closesocket(int socket);
+#ifdef __cplusplus
+}
+#endif
+
+#define close(a)                        closesocket(a)
 
 #ifdef _USE_SYSFS_
 #define sysLv2FsStat					sysFsStat
