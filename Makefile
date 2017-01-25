@@ -22,36 +22,40 @@ MAKE_FSELF = $(FSELF) $(1) $(2)
 MAKE_SFO = $(SFO) --fromxml --title "$(3)" --appid "$(4)" $(1) $(2)
 
 # Libraries
-LIBPATHS	:= -L$(PORTLIBS)/lib $(LIBPSL1GHT_LIB)
-LIBS		:= -lnetctl -lnet -lNoRSX -lgcm_sys -lrsx -lfreetype -lsysutil -lrt -llv2 -lsysmodule -lm -lz -lsysfs
+LIBPATHS	:= -L. -L$(PORTLIBS)/lib $(LIBPSL1GHT_LIB)
+LIBS		:= -lopenps3ftp -lnetctl -lnet -lNoRSX -lgcm_sys -lrsx -lfreetype -lsysutil -lrt -llv2 -lsysmodule -lm -lz -lsysfs
 
 # Includes
-INCLUDE		:= -I$(PORTLIBS)/include/freetype2 -I$(PORTLIBS)/include $(LIBPSL1GHT_INC) -I$(CURDIR)/ftp
+INCLUDE		:= -I$(CURDIR)/ftp -I$(PORTLIBS)/include/freetype2 -I$(PORTLIBS)/include $(LIBPSL1GHT_INC)
 
 # Source Files
 SRC			:= $(wildcard *.cpp)
 OBJ			:= $(SRC:.cpp=.o)
 
 # Define compilation options
-CFLAGS		= -Os -s -Wall -mcpu=cell $(MACHDEP) $(INCLUDE)
-LDFLAGS		= $(MACHDEP) -s
+CFLAGS		= -Os -g -Wall -mcpu=cell $(MACHDEP) $(INCLUDE)
+LDFLAGS		= $(CFLAGS)
 
 # Make rules
-.PHONY: all clean dist pkg lib
+.PHONY: all clean dist pkg lib install
 
 all: $(TARGET).elf
 
 clean: 
-	rm -f $(OBJ) $(TARGET).a $(TARGET).zip $(TARGET).self $(TARGET).elf $(CONTENTID).pkg EBOOT.BIN PARAM.SFO
+	rm -f $(OBJ) lib$(TARGET).a $(TARGET).zip $(TARGET).self $(TARGET).elf $(CONTENTID).pkg EBOOT.BIN PARAM.SFO
 	rm -rf $(CONTENTID) $(BUILDDIR)
 
 dist: clean $(TARGET).zip
 
 pkg: $(CONTENTID).pkg
 
-lib: $(TARGET).a
+lib: lib$(TARGET).a
 
-$(TARGET).a: $(OBJ:main.o=)
+install: lib
+	cp -fr $(CURDIR)/ftp $(PORTLIBS)/include/
+	cp -f lib$(TARGET).a $(PORTLIBS)/lib/
+
+lib$(TARGET).a: $(OBJ:main.o=)
 	$(AR) rcs $@ $^
 
 $(TARGET).zip: $(CONTENTID).pkg
@@ -77,8 +81,9 @@ PARAM.SFO: $(SFOXML)
 $(TARGET).self: $(TARGET).elf
 	$(call MAKE_FSELF,$<,$@)
 
-$(TARGET).elf: $(OBJ)
-	$(CXX) $^ $(LDFLAGS) $(LIBPATHS) $(LIBS) -o $@
+$(TARGET).elf: main.o lib
+	$(CXX) $< $(LDFLAGS) $(LIBPATHS) $(LIBS) -o $@
+	$(STRIP) $@
 	$(SPRX) $@
 
 %.o: %.cpp

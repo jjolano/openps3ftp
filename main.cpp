@@ -6,6 +6,7 @@
 #include <sysutil/msg.h>
 #include <sysmodule/sysmodule.h>
 #include <NoRSX.h>
+#include <NoRSX/NoRSXutil.h>
 
 #include "ftp/const.h"
 #include "ftp/server.h"
@@ -52,6 +53,15 @@ LV2_SYSCALL sysLv2FsUnmount(const char* path)
 }
 #endif
 
+void dialog_callback(msgButton button, void* usrData)
+{
+	if(button == MSG_DIALOG_BTN_OK)
+	{
+		app_status* status = (app_status*)usrData;
+		status->is_running = 0;
+	}
+}
+
 int main(void)
 {
 	// Initialize required sysmodules.
@@ -59,7 +69,6 @@ int main(void)
 
 	// Initialize framebuffer.
 	NoRSX* gfx = new NoRSX();
-	MsgDialog md(gfx);
 
 	// netctl variables
 	s32 netctl_state;
@@ -70,7 +79,6 @@ int main(void)
 
 	if(netctl_state != NET_CTL_STATE_IPObtained)
 	{
-		md.Dialog(MSG_OK, "No network connection detected. Please connect to a network before starting OpenPS3FTP.");
 		goto unload;
 	}
 
@@ -93,10 +101,22 @@ int main(void)
 
 	// Start application loop.
 	gfx->AppStart();
-	md.Dialog(MSG_OK, netctl_info.ip_address);
-	gfx->AppExit();
+	msgDialogOpen2(MSG_OK, netctl_info.ip_address, dialog_callback, (void*)&status, NULL);
+
+	int buffer;
+	buffer = 0;
+
+	while(gfx->GetAppStatus() && status.is_running)
+	{
+		sysUtilCheckCallback();
+		flip(gfx->context, buffer);
+		waitFlip();
+		buffer = !buffer;
+	}
 
 	// Join server thread and wait for exit...
+	gfx->AppExit();
+	msgDialogAbort();
 	status.is_running = 0;
 
 	u64 thread_exit;
@@ -115,5 +135,6 @@ unload:
 
 	// Free up graphics.
 	gfx->NoRSX_Exit();
+	
 	return 0;
 }

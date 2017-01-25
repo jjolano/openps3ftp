@@ -1,8 +1,8 @@
 <?xml version="1.0" ?>
 <sfo>
 	<value name="APP_VER" type="string">04.00</value>
-	<value name="ATTRIBUTE" type="integer">1048576</value>
-	<value name="BOOTABLE" type="integer">2</value>
+	<value name="ATTRIBUTE" type="integer">0</value>
+	<value name="BOOTABLE" type="integer">1</value>
 	<value name="CATEGORY" type="string">CB</value>
 	<value name="LICENSE" type="string"></value>
 	<value name="PARENTAL_LEVEL" type="integer">0</value>

@@ -4,3 +4,5 @@
 *.BIN
 *.pkg
 *.elf
+*.zip
+*.a
