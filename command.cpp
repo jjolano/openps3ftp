@@ -421,7 +421,7 @@ void cmd_port(Client* client, string params)
 	if(connect(client->socket_data, (sockaddr*)&sa, sizeof(sa)) == 0)
 	{
 		client->cvar_rest = 0;
-		client->send_code(200, "PORT successful");
+		client->send_code(200, "Active data connection successful");
 	}
 	else
 	{
