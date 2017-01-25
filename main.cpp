@@ -129,13 +129,13 @@ int main(void)
 
 	u64 thread_exit;
 	sysThreadJoin(server_tid, &thread_exit);
-	
-	// Unmount dev_blind.
-	sysLv2FsUnmount(MOUNT_POINT);
 
 	// Finish Async IO.
 	sysFsAioFinish("/dev_hdd0");
 	sysFsAioFinish(MOUNT_POINT);
+
+	// Unmount dev_blind.
+	sysLv2FsUnmount(MOUNT_POINT);
 
 	// Unload sysmodules.
 	unload_sysmodules();

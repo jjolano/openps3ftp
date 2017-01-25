@@ -114,12 +114,12 @@ void server_start(void* arg)
 					// hello!
 					client->send_multicode(220, WELCOME_MSG);
 
-					/*client->send_string(" Supported commands:");
+					client->send_string(" Supported commands:");
 
 					for(map<string, cmdfunc>::iterator cmds_it = commands.begin(); cmds_it != commands.end(); cmds_it++)
 					{
 						client->send_string("  " + cmds_it->first);
-					}*/
+					}
 
 					client->send_code(220, "Ready.");
 					continue;
@@ -171,7 +171,7 @@ void server_start(void* arg)
 						// check receiving event
 						if(pfd.revents & (POLLIN|POLLRDNORM))
 						{
-							ssize_t bytes = recv(client->socket_ctrl, client->buffer, CMD_BUFFER - 1, MSG_DONTWAIT);
+							ssize_t bytes = recv(client->socket_ctrl, client->buffer, CMD_BUFFER - 1, 0);
 
 							// check if recv was valid
 							if(bytes <= 0)

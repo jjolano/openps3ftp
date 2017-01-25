@@ -274,7 +274,7 @@ void cmd_mkd(Client* client, string params)
 
 	string path = get_absolute_path(get_working_directory(client), params);
 
-	if(sysLv2FsMkdir(path.c_str(), 777) == 0)
+	if(sysLv2FsMkdir(path.c_str(), (S_IFMT|0777)) == 0)
 	{
 		client->send_code(257, "\"" + params + "\" was successfully created");
 	}
@@ -513,12 +513,21 @@ int data_list(Client* client)
 	ssize_t len = sprintf(client->buffer_data,
 		"%s %3d %-8d %-8d %10lu %s %s\r\n",
 		permissions, 1, 0, 0, stat.st_size, tstr, dirent.d_name);
+	
+	ssize_t written = send(client->socket_data, client->buffer_data, (size_t)len, 0);
 
-	if(send(client->socket_data, client->buffer_data, (size_t)len, 0) == -1)
+	if(written == -1 || written < len)
 	{
 		client->send_code(451, "Data transfer error");
 		sysLv2FsCloseDir(client->cvar_fd);
 		return -1;
+	}
+
+	if(written == 0)
+	{
+		client->send_code(226, "Transfer complete");
+		sysLv2FsCloseDir(client->cvar_fd);
+		return 1;
 	}
 
 	return 0;
@@ -605,11 +614,20 @@ int data_nlst(Client* client)
 	data += '\r';
 	data += '\n';
 
-	if(send(client->socket_data, data.c_str(), (size_t)data.size(), 0) == -1)
+	ssize_t written = send(client->socket_data, data.c_str(), (size_t)data.size(), 0);
+
+	if(written == -1 || (size_t)written < (size_t)data.size())
 	{
 		client->send_code(451, "Data transfer error");
 		sysLv2FsCloseDir(client->cvar_fd);
 		return -1;
+	}
+
+	if(written == 0)
+	{
+		client->send_code(226, "Transfer complete");
+		sysLv2FsCloseDir(client->cvar_fd);
+		return 1;
 	}
 
 	return 0;
@@ -706,7 +724,7 @@ int data_stor(Client* client)
 		}
 	}
 
-	ssize_t read = recv(client->socket_data, client->buffer_data, DATA_BUFFER - 1, MSG_DONTWAIT);
+	ssize_t read = recv(client->socket_data, client->buffer_data, DATA_BUFFER - 1, 0);
 
 	if(read == -1)
 	{
@@ -756,6 +774,13 @@ int data_stor(Client* client)
 			sysLv2FsClose(client->cvar_fd);
 			return -1;
 		}
+
+		if(written == 0)
+		{
+			client->send_code(226, "Transfer complete");
+			sysLv2FsClose(client->cvar_fd);
+			return 1;
+		}
 	}
 
 	return 0;
@@ -795,7 +820,7 @@ void cmd_stor(Client* client, string params)
 	}
 
 	s32 fd;
-	if(sysLv2FsOpen(path.c_str(), oflags, &fd, 777, NULL, 0) == -1)
+	if(sysLv2FsOpen(path.c_str(), oflags, &fd, (S_IFMT|0777), NULL, 0) == -1)
 	{
 		client->send_code(550, "Cannot access file");
 		return;
@@ -803,7 +828,7 @@ void cmd_stor(Client* client, string params)
 
 	if(oflags & SYS_O_CREAT)
 	{
-		sysLv2FsChmod(path.c_str(), 777);
+		sysLv2FsChmod(path.c_str(), (S_IFMT|0777));
 	}
 
 	u64 pos;
@@ -858,7 +883,7 @@ void cmd_appe(Client* client, string params)
 	}
 
 	s32 fd;
-	if(sysLv2FsOpen(path.c_str(), SYS_O_WRONLY|SYS_O_APPEND, &fd, 777, NULL, 0) == -1)
+	if(sysLv2FsOpen(path.c_str(), SYS_O_WRONLY|SYS_O_APPEND, &fd, (S_IFMT|0777), NULL, 0) == -1)
 	{
 		client->send_code(550, "Cannot access file");
 		return;
@@ -914,6 +939,13 @@ int data_retr(Client* client)
 		client->send_code(451, "Error in data transmission");
 		sysLv2FsClose(client->cvar_fd);
 		return -1;
+	}
+
+	if(written == 0)
+	{
+		client->send_code(226, "Transfer complete");
+		sysLv2FsClose(client->cvar_fd);
+		return 1;
 	}
 
 	return 0;
@@ -1188,7 +1220,7 @@ void cmd_site(Client* client, string params)
 
 		string path = get_absolute_path(get_working_directory(client), filename);
 
-		if(sysLv2FsChmod(path.c_str(), S_IFMT|atoi(chmod.c_str())) == 0)
+		if(sysLv2FsChmod(path.c_str(), (S_IFMT|atoi(chmod.c_str()))) == 0)
 		{
 			client->send_code(200, "Permissions changed.");
 		}

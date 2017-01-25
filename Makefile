@@ -34,7 +34,7 @@ SRC			:= $(wildcard *.cpp)
 OBJ			:= $(SRC:.cpp=.o)
 
 # Define compilation options
-CFLAGS		= -Os -g -Wall -mcpu=cell $(MACHDEP) $(INCLUDE)
+CXXFLAGS	= -Os -mregnames -Wall -mcpu=cell $(MACHDEP) $(INCLUDE)
 LDFLAGS		= $(MACHDEP) -s
 
 # Make rules
@@ -57,7 +57,7 @@ install: lib
 	cp -f $(LIBNAME).a $(PORTLIBS)/lib/
 
 $(LIBNAME).a: $(OBJ:main.o=)
-	$(AR) rcs $@ $^
+	$(AR) -rc $@ $^
 
 $(TARGET).zip: $(CONTENTID).pkg
 	mkdir -p $(BUILDDIR)/npdrm $(BUILDDIR)/rex
@@ -87,4 +87,4 @@ $(TARGET).elf: main.o $(LIBNAME).a
 	$(SPRX) $@
 
 %.o: %.cpp
-	$(CXX) $(CFLAGS) -c $< -o $@
+	$(CXX) $(CXXFLAGS) -c $< -o $@
