@@ -11,7 +11,6 @@
 #include <netdb.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
-#include <sys/stat.h>
 
 #include <sys/file.h>
 #include <net/poll.h>
@@ -27,7 +26,7 @@ using namespace std;
 string get_working_directory(Client* client)
 {
 	string d;
-
+	
 	for(vector<string>::iterator it = client->cvar_cwd.begin(); it != client->cvar_cwd.end(); it++)
 	{
 		if(!(*it).empty())
