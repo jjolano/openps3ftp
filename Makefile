@@ -24,7 +24,7 @@ MAKE_SFO = $(SFO) --fromxml --title "$(3)" --appid "$(4)" $(1) $(2)
 
 # Libraries
 LIBPATHS	:= -L. -L$(PORTLIBS)/lib $(LIBPSL1GHT_LIB)
-LIBS		:= -l$(TARGET) -lnetctl -lnet -lNoRSX -lgcm_sys -lrsx -lfreetype -lsysutil -lsysmodule -lrt -llv2 -lm -lz -lsysfs
+LIBS		:= -l$(TARGET) -lNoRSX -lfreetype -lgcm_sys -lrsx -lnetctl -lnet -lsysutil -lsysmodule -lrt -llv2 -lm -lz -lsysfs
 
 # Includes
 INCLUDE		:= -I$(CURDIR)/ftp -I$(PORTLIBS)/include/freetype2 -I$(PORTLIBS)/include $(LIBPSL1GHT_INC)
