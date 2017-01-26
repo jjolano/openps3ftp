@@ -17,7 +17,7 @@ ICON0		:= $(CURDIR)/pkg-meta/ICON0.PNG
 
 # Setup commands
 # scetool: github.com/naehrwert/scetool
-MAKE_SELF_NPDRM = scetool -0 SELF -1 TRUE -s TRUE -3 1010000001000003 -4 01000002 -5 NPDRM -A 0001000000000000 -6 0003004100000000 -b FREE -c EXEC -g EBOOT.BIN -f $(3) -2 $(4) -e $(1) $(2)
+MAKE_SELF_NPDRM = scetool -0 SELF -1 TRUE -s FALSE -3 1010000001000003 -4 01000002 -5 NPDRM -A 0001000000000000 -6 0003004000000000 -b FREE -c EXEC -g EBOOT.BIN -f $(3) -2 $(4) -e $(1) $(2) -j TRUE
 MAKE_PKG = $(PKG) --contentid $(3) $(1) $(2)
 MAKE_FSELF = $(FSELF) $(1) $(2)
 MAKE_SFO = $(SFO) --fromxml --title "$(3)" --appid "$(4)" $(1) $(2)
