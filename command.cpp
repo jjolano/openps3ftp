@@ -712,7 +712,6 @@ int data_stor(Client* client)
 			{
 				// IO busy, try again on next tick
 				client->cvar_aio.usrdata = AIO_WAITING;
-				return 0;
 			}
 
 			if(status != CELL_FS_SUCCEEDED)
@@ -721,6 +720,8 @@ int data_stor(Client* client)
 				sysLv2FsClose(client->cvar_fd);
 				return -1;
 			}
+
+			return 0;
 		}
 	}
 
@@ -752,7 +753,6 @@ int data_stor(Client* client)
 			if(status == CELL_FS_EBUSY)
 			{
 				client->cvar_aio.usrdata = AIO_WAITING;
-				return 0;
 			}
 			
 			if(status != CELL_FS_SUCCEEDED)

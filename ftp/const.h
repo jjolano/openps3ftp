@@ -5,9 +5,9 @@
 #define CMD_BUFFER      4096
 #define DATA_BUFFER     64 * 1024 // 64K seems to be the sweet spot
 
-// disable AIO by default
-// experimental, but might offer stability at the cost of performance
-#define AIO_ENABLED		false
+// experimental async writing support
+// if compiling without sysfs, should be set to false
+#define AIO_ENABLED		true
 
 #define AIO_ACTIVE      1
 #define AIO_WAITING		2

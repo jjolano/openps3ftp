@@ -1,5 +1,6 @@
 [Version 4.0c]
 - Source can now be compiled as a PSL1GHT static library.
+- Async IO writing is now enabled by default.
 - Cleaned up and optimized code.
 
 [Version 4.0b - January 22, 2017]
