@@ -741,6 +741,8 @@ int data_stor(Client* client)
 		return 1;
 	}
 
+	client->buffer_data[read] = '\0';
+
 	if(client->cvar_use_aio)
 	{
 		if(client->cvar_aio.usrdata == AIO_READY)
@@ -931,6 +933,8 @@ int data_retr(Client* client)
 		sysLv2FsClose(client->cvar_fd);
 		return 1;
 	}
+
+	client->buffer_data[read] = '\0';
 
 	ssize_t written = send(client->socket_data, client->buffer_data, (size_t)read, 0);
 

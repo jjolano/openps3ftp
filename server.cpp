@@ -183,6 +183,8 @@ void server_start(void* arg)
 								continue;
 							}
 
+							client->buffer[bytes] = '\0';
+
 							// handle commands at a basic level
 							string data(client->buffer);
 							data.resize(bytes - 2);

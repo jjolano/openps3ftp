@@ -1,5 +1,5 @@
 // Comment below to disable use of libsysfs functions when compiling.
-#define _USE_SYSFS_
+//#define _USE_SYSFS_
 
 #define CELL_FS_SUCCEEDED	0
 #define CELL_FS_EBUSY		(-31)

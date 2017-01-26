@@ -7,7 +7,7 @@
 
 // experimental async writing support
 // if compiling without sysfs, should be set to false
-#define AIO_ENABLED		true
+#define AIO_ENABLED		false
 
 #define AIO_ACTIVE      1
 #define AIO_WAITING		2
