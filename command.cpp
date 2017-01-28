@@ -839,7 +839,7 @@ void cmd_stor(Client* client, string params)
 
 	if(client->data_start(data_stor, POLLIN|POLLRDNORM) != -1)
 	{
-		#ifdef _USE_SYSFS_
+		#ifdef _USE_IOBUFFERS_
 		sysFsSetIoBufferFromDefaultContainer(fd, IO_BUFFER, SYS_FS_IO_BUFFER_PAGE_SIZE_64KB);
 		#endif
 
@@ -898,7 +898,7 @@ void cmd_appe(Client* client, string params)
 
 	if(client->data_start(data_stor, POLLIN|POLLRDNORM) != -1)
 	{
-		#ifdef _USE_SYSFS_
+		#ifdef _USE_IOBUFFERS_
 		sysFsSetIoBufferFromDefaultContainer(fd, IO_BUFFER, SYS_FS_IO_BUFFER_PAGE_SIZE_64KB);
 		#endif
 
@@ -1004,7 +1004,7 @@ void cmd_retr(Client* client, string params)
 
 	if(client->data_start(data_retr, POLLOUT|POLLWRNORM) != -1)
 	{
-		#ifdef _USE_SYSFS_
+		#ifdef _USE_IOBUFFERS_
 		sysFsSetIoBufferFromDefaultContainer(fd, IO_BUFFER, SYS_FS_IO_BUFFER_PAGE_SIZE_64KB);
 		#endif
 

@@ -4,6 +4,9 @@
 // Enables a workaround on PSL1GHT's somewhat poor performing poll function.
 #define _USE_FASTPOLL_
 
+// Requires sysfs - might improve performance?
+#define _USE_IOBUFFERS_
+
 #define CELL_FS_SUCCEEDED	0
 #define CELL_FS_EBUSY		(-31)
 

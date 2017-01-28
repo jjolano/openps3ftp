@@ -39,7 +39,7 @@ void server_start(void* arg)
 
 	app_status* status = (app_status*)arg;
 
-#ifdef _USE_SYSFS_
+#ifdef _USE_IOBUFFERS_
 	// Allocate IO memory container.
 	sys_mem_container_t io_container;
 	sysMemContainerCreate(&io_container, IO_BUFFER);
@@ -307,7 +307,7 @@ void server_start(void* arg)
 		delete client;
 	}
 
-#ifdef _USE_SYSFS_
+#ifdef _USE_IOBUFFERS_
 	// Cleanup memory.
 	sysMemContainerDestroy(io_container);
 #endif
