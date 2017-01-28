@@ -2,8 +2,9 @@
 #define WELCOME_MSG		"Welcome to OpenPS3FTP v" APP_VERSION "!"
 
 #define LISTEN_BACKLOG  128
-#define CMD_BUFFER      1024
-#define DATA_BUFFER     128 * 1024
+#define CMD_BUFFER      2 * 1024
+#define DATA_BUFFER     64 * 1024
+#define IO_BUFFER       64 * 1024 * 1024
 
 #define AIO_ACTIVE      1
 #define AIO_WAITING		2

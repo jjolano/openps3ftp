@@ -14,6 +14,7 @@
 #include <net/poll.h>
 #include <sys/thread.h>
 #include <sys/lv2errno.h>
+#include <sys/memory.h>
 
 #include "const.h"
 #include "server.h"
@@ -37,6 +38,13 @@ void server_start(void* arg)
 	signal(SIGSYS, SIG_IGN);
 
 	app_status* status = (app_status*)arg;
+
+#ifdef _USE_SYSFS_
+	// Allocate IO memory container.
+	sys_mem_container_t io_container;
+	sysMemContainerCreate(&io_container, IO_BUFFER);
+	sysFsSetDefaultContainer(io_container, IO_BUFFER);
+#endif
 
 	// Create server variables.
 	vector<pollfd> pollfds;
@@ -108,6 +116,13 @@ void server_start(void* arg)
 			{
 				p--;
 
+				// check if valid socket
+				if(pfd.revents & POLLNVAL)
+				{
+					pollfds.erase(pfd_it);
+					continue;
+				}
+
 				// handle socket events, depending on socket type
 				// server
 				if(OFD(pfd.fd) == server)
@@ -130,12 +145,6 @@ void server_start(void* arg)
 						continue;
 					}
 
-					if(!client->buffer || !client->buffer_data)
-					{
-						delete client;
-						continue;
-					}
-
 					// set default variables
 					client->cvar_use_aio = aio_toggle;
 
@@ -151,14 +160,6 @@ void server_start(void* arg)
 
 					// hello!
 					client->send_multicode(220, WELCOME_MSG);
-
-					client->send_string(" Supported commands:");
-
-					for(map<string, cmdfunc>::iterator cmds_it = commands.begin(); cmds_it != commands.end(); cmds_it++)
-					{
-						client->send_string("  " + cmds_it->first);
-					}
-
 					client->send_code(220, "Ready.");
 					continue;
 				}
@@ -172,18 +173,16 @@ void server_start(void* arg)
 						// get client
 						Client* client = cdata_it->second;
 
-						// check for disconnection
-						if(pfd.revents & (POLLNVAL|POLLHUP|POLLERR))
-						{
-							client->data_end();
-							continue;
-						}
-
 						// execute data handler
 						if(pfd.revents & (POLLOUT|POLLWRNORM|POLLIN|POLLRDNORM))
 						{
 							client->handle_data();
-							continue;
+						}
+
+						// check for disconnection
+						if(pfd.revents & (POLLHUP|POLLERR))
+						{
+							client->data_end();
 						}
 
 						continue;
@@ -198,7 +197,7 @@ void server_start(void* arg)
 						Client* client = client_it->second;
 
 						// check disconnect event
-						if(pfd.revents & (POLLNVAL|POLLHUP|POLLERR))
+						if(pfd.revents & (POLLHUP|POLLERR))
 						{
 							delete client;
 							pollfds.erase(pfd_it);
@@ -209,23 +208,35 @@ void server_start(void* arg)
 						// check receiving event
 						if(pfd.revents & (POLLIN|POLLRDNORM))
 						{
+							// make sure we have a buffer allocated
+							if(!client->buffer)
+							{
+								client->buffer = new (nothrow) char[CMD_BUFFER];
+
+								if(!client->buffer)
+								{
+									// rip
+									client->send_code(500, "Failed to allocate memory! Try restarting the app.");
+									continue;
+								}
+							}
+
 							ssize_t bytes = recv(client->socket_ctrl, client->buffer, CMD_BUFFER - 1, 0);
 
 							// check if recv was valid
-							if(bytes <= 0)
+							if(bytes < 2)
 							{
-								// socket was dropped
+								// socket invalid, dropped, or malformed data
 								delete client;
 								pollfds.erase(pfd_it);
 								clients.erase(client_it);
 								continue;
 							}
 
-							client->buffer[bytes] = '\0';
+							client->buffer[bytes - 2] = '\0';
 
 							// handle commands at a basic level
 							string data(client->buffer);
-							data.resize(bytes - 2);
 
 							// pretend we didn't see a blank line
 							if(data.empty())
@@ -295,6 +306,11 @@ void server_start(void* arg)
 		Client* client = client_it->second;
 		delete client;
 	}
+
+#ifdef _USE_SYSFS_
+	// Cleanup memory.
+	sysMemContainerDestroy(io_container);
+#endif
 
 	status->is_running = 0;
 	close(server);

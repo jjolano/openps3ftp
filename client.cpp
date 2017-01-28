@@ -139,6 +139,20 @@ int Client::data_start(func f, short events)
 
 	if(socket_data != -1)
 	{
+		// make sure we have a buffer allocated
+		if(!buffer_data)
+		{
+			buffer_data = new (nothrow) char[DATA_BUFFER];
+
+			if(!buffer_data)
+			{
+				// rip
+				send_code(500, "Failed to allocate memory! Try restarting the app.");
+				close(socket_data);
+				return -1;
+			}
+		}
+
 		// add to pollfds
 		pollfd data_pollfd;
 		data_pollfd.fd = FD(socket_data);
