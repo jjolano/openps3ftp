@@ -1295,27 +1295,6 @@ void cmd_mdtm(Client* client, string params)
 	}
 }
 
-void cmd_aio(Client* client, string params)
-{
-	if(!client->cvar_auth)
-	{
-		client->send_code(530, "Not logged in");
-		return;
-	}
-
-	if(client->cvar_fd != -1)
-	{
-		client->send_code(500, "Data transfer in progress - cannot toggle AIO");
-		return;
-	}
-
-	client->cvar_use_aio = !client->cvar_use_aio;
-
-	string status(client->cvar_use_aio ? "enabled" : "disabled");
-
-	client->send_code(200, "AIO is now " + status);
-}
-
 void register_cmds(map<string, cmdfunc>* cmd_handlers)
 {
 	// No authorization required commands
@@ -1354,7 +1333,5 @@ void register_cmds(map<string, cmdfunc>* cmd_handlers)
 	register_cmd(cmd_handlers, "MDTM", cmd_mdtm);
 
 	// Custom commands
-#ifdef _USE_SYSFS_
-	register_cmd(cmd_handlers, "AIO", cmd_aio);
-#endif
+
 }

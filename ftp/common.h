@@ -1,5 +1,5 @@
 // Comment below to disable use of libsysfs functions when compiling.
-//#define _USE_SYSFS_
+#define _USE_SYSFS_
 
 // Enables a workaround on PSL1GHT's somewhat poor performing poll function.
 #define _USE_FASTPOLL_
