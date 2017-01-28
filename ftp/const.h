@@ -1,9 +1,9 @@
 #define APP_VERSION     "4.0"
 #define WELCOME_MSG		"Welcome to OpenPS3FTP v" APP_VERSION "!"
 
-#define LISTEN_BACKLOG  10
-#define CMD_BUFFER      4096
-#define DATA_BUFFER     64 * 1024 // 64K seems to be the sweet spot
+#define LISTEN_BACKLOG  128
+#define CMD_BUFFER      1024
+#define DATA_BUFFER     128 * 1024
 
 // experimental async writing support
 // if compiling without sysfs, should be set to false

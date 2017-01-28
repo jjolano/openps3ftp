@@ -140,7 +140,7 @@ int Client::data_start(func f, short events)
 	{
 		// add to pollfds
 		pollfd data_pollfd;
-		data_pollfd.fd = socket_data;
+		data_pollfd.fd = FD(socket_data);
 		data_pollfd.events = (events|POLLIN);
 
 		pollfds->push_back(data_pollfd);

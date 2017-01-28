@@ -1,6 +1,9 @@
 // Comment below to disable use of libsysfs functions when compiling.
 //#define _USE_SYSFS_
 
+// Enables a workaround on PSL1GHT's somewhat poor performing poll function.
+#define _USE_FASTPOLL_
+
 #define CELL_FS_SUCCEEDED	0
 #define CELL_FS_EBUSY		(-31)
 
@@ -12,7 +15,7 @@ int closesocket(int socket);
 }
 #endif
 
-#define close(a)                        closesocket(a)
+#define close(a)						closesocket(a)
 
 #ifdef _USE_SYSFS_
 #define sysLv2FsStat					sysFsStat
@@ -29,4 +32,14 @@ int closesocket(int socket);
 #define sysLv2FsFStat					sysFsFstat
 #define sysLv2FsUnlink					sysFsUnlink
 #define sysLv2FsChmod					sysFsChmod
+#endif
+
+#ifdef _USE_FASTPOLL_
+#define poll(a,b,c)						fast_poll(a,b,c)
+
+#define FD(socket)						((socket)&~SOCKET_FD_MASK)
+#define OFD(socket)						(socket|SOCKET_FD_MASK)
+#else
+#define FD(socket)						(socket)
+#define OFD(socket)						(socket)
 #endif

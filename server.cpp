@@ -8,8 +8,10 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 
+#include <net/net.h>
 #include <net/poll.h>
 #include <sys/thread.h>
+#include <sys/lv2errno.h>
 
 #include "const.h"
 #include "server.h"
@@ -18,6 +20,13 @@
 #include "common.h"
 
 using namespace std;
+
+#ifdef _USE_FASTPOLL_
+int fast_poll(pollfd* fds, nfds_t nfds, int timeout)
+{
+	return netPoll(fds, nfds, timeout);
+}
+#endif
 
 void server_start(void* arg)
 {
@@ -54,7 +63,7 @@ void server_start(void* arg)
 
 	// Create and add server pollfd.
 	pollfd server_pollfd;
-	server_pollfd.fd = server;
+	server_pollfd.fd = FD(server);
 	server_pollfd.events = POLLIN;
 
 	pollfds.push_back(server_pollfd);
@@ -62,7 +71,7 @@ void server_start(void* arg)
 	// Server loop.
 	while(status->is_running)
 	{
-		int p = poll(&pollfds[0], (nfds_t)pollfds.size(), 250);
+		int p = poll(&pollfds[0], (nfds_t)pollfds.size(), 500);
 
 		if(p == -1)
 		{
@@ -88,7 +97,7 @@ void server_start(void* arg)
 
 				// handle socket events, depending on socket type
 				// server
-				if(pfd.fd == server)
+				if(OFD(pfd.fd) == server)
 				{
 					// incoming connection
 					int client_new = accept(server, NULL, NULL);
@@ -100,7 +109,7 @@ void server_start(void* arg)
 
 					// create and add pollfd
 					pollfd client_pollfd;
-					client_pollfd.fd = client_new;
+					client_pollfd.fd = FD(client_new);
 					client_pollfd.events = (POLLIN|POLLRDNORM);
 
 					pollfds.push_back(client_pollfd);
@@ -127,7 +136,7 @@ void server_start(void* arg)
 				else
 				{
 					// check if socket is data
-					map<int, Client*>::iterator cdata_it = clients_data.find(pfd.fd);
+					map<int, Client*>::iterator cdata_it = clients_data.find(OFD(pfd.fd));
 
 					if(cdata_it != clients_data.end())
 					{
@@ -152,7 +161,7 @@ void server_start(void* arg)
 					}
 
 					// check if socket is a client
-					map<int, Client*>::iterator client_it = clients.find(pfd.fd);
+					map<int, Client*>::iterator client_it = clients.find(OFD(pfd.fd));
 
 					if(client_it != clients.end())
 					{

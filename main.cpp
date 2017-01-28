@@ -18,16 +18,16 @@ using namespace std;
 
 void load_sysmodules(void)
 {
+	sysModuleLoad(SYSMODULE_FS);
 	netInitialize();
 	netCtlInit();
-	sysModuleLoad(SYSMODULE_FS);
 }
 
 void unload_sysmodules(void)
 {
-	sysModuleUnload(SYSMODULE_FS);
 	netCtlTerm();
 	netDeinitialize();
+	sysModuleUnload(SYSMODULE_FS);
 }
 
 #ifdef __cplusplus
@@ -106,7 +106,7 @@ int main(void)
 	status.is_running = 1;
 
 	sys_ppu_thread_t server_tid;
-	sysThreadCreate(&server_tid, server_start, (void*)&status, 1000, 0x100000, THREAD_JOINABLE, (char*)"ftpd");
+	sysThreadCreate(&server_tid, server_start, (void*)&status, 1000, 0x10000, THREAD_JOINABLE, (char*)"ftpd");
 
 	// Start application loop.
 	gfx->AppStart();
