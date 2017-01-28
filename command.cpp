@@ -276,7 +276,7 @@ void cmd_mkd(Client* client, string params)
 
 	if(sysLv2FsMkdir(path.c_str(), (S_IFMT|0777)) == 0)
 	{
-		client->send_code(257, "\"" + params + "\" was successfully created");
+		client->send_code(257, "\"" + path + "\" was successfully created");
 	}
 	else
 	{

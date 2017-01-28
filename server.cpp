@@ -2,6 +2,7 @@
 #include <csignal>
 #include <vector>
 #include <map>
+#include <new>
 #include <sstream>
 #include <algorithm>
 
@@ -31,15 +32,18 @@ int fast_poll(pollfd* fds, nfds_t nfds, int timeout)
 
 void server_start(void* arg)
 {
-	app_status* status = (app_status*)arg;
 	signal(SIGPIPE, SIG_IGN);
+	signal(SIGXCPU, SIG_IGN);
+	signal(SIGSYS, SIG_IGN);
+
+	app_status* status = (app_status*)arg;
 
 	// Create server variables.
 	vector<pollfd> pollfds;
 	map<int, Client*> clients;
 	map<int, Client*> clients_data;
 	map<string, cmdfunc> commands;
-	bool aio_toggle = AIO_ENABLED;
+	bool aio_toggle = false;
 
 	// Register server commands.
 	register_cmds(&commands);
@@ -76,6 +80,12 @@ void server_start(void* arg)
 	{
 		int p = poll(&pollfds[0], (nfds_t)pollfds.size(), 500);
 
+		if(p == 0)
+		{
+			// nothing happened
+			continue;
+		}
+
 		if(p == -1)
 		{
 			// poll error
@@ -87,7 +97,7 @@ void server_start(void* arg)
 		// iterate through connected sockets
 		for(vector<pollfd>::iterator pfd_it = pollfds.begin(); pfd_it != pollfds.end(); pfd_it++)
 		{
-			if(p <= 0)
+			if(p == 0)
 			{
 				break;
 			}
@@ -110,21 +120,34 @@ void server_start(void* arg)
 						continue;
 					}
 
-					// create and add pollfd
-					pollfd client_pollfd;
-					client_pollfd.fd = FD(client_new);
-					client_pollfd.events = (POLLIN|POLLRDNORM);
-
-					pollfds.push_back(client_pollfd);
-
 					// create new internal client
-					Client* client = new Client(client_new, &pollfds, &clients, &clients_data);
+					Client* client = new (nothrow) Client(client_new, &pollfds, &clients, &clients_data);
+
+					// check if allocated successfully
+					if(!client)
+					{
+						close(client_new);
+						continue;
+					}
+
+					if(!client->buffer || !client->buffer_data)
+					{
+						delete client;
+						continue;
+					}
 
 					// set default variables
 					client->cvar_use_aio = aio_toggle;
 
 					// assign socket to internal client
 					clients.insert(make_pair(client_new, client));
+
+					// create and add pollfd
+					pollfd client_pollfd;
+					client_pollfd.fd = FD(client_new);
+					client_pollfd.events = (POLLIN|POLLRDNORM);
+
+					pollfds.push_back(client_pollfd);
 
 					// hello!
 					client->send_multicode(220, WELCOME_MSG);

@@ -69,7 +69,17 @@ int main(void)
 	load_sysmodules();
 
 	// Initialize framebuffer.
-	NoRSX* gfx = new NoRSX();
+	NoRSX* gfx = new (nothrow) NoRSX();
+
+	if(!gfx)
+	{
+		// memory allocation error
+
+		// Unload sysmodules.
+		unload_sysmodules();
+
+		return -2;
+	}
 
 	// netctl variables
 	s32 netctl_state;

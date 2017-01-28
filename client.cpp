@@ -2,6 +2,7 @@
 #include <sstream>
 #include <vector>
 #include <map>
+#include <new>
 #include <cstdio>
 
 #include <netdb.h>
@@ -33,8 +34,8 @@ Client::Client(int client, vector<pollfd>* pfds, map<int, Client*>* clnts, map<i
 	socket_data = -1;
 	socket_pasv = -1;
 
-	buffer = new char[CMD_BUFFER];
-	buffer_data = new char[DATA_BUFFER];
+	buffer = new (nothrow) char[CMD_BUFFER];
+	buffer_data = new (nothrow) char[DATA_BUFFER];
 
 	pollfds = pfds;
 	clients = clnts;
@@ -44,7 +45,7 @@ Client::Client(int client, vector<pollfd>* pfds, map<int, Client*>* clnts, map<i
 	cvar_auth = false;
 	cvar_rest = 0;
 	cvar_fd = -1;
-	cvar_use_aio = AIO_ENABLED;
+	cvar_use_aio = false;
 }
 
 Client::~Client(void)

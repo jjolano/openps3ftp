@@ -1,7 +1,8 @@
 [Version 4.0c]
 - Source can now be compiled as a PSL1GHT static library.
-- Async IO writing is now enabled by default.
-- Cleaned up and optimized code.
+- Async IO writing can be toggled by using the custom command "AIO".
+  Experimental, but may provide some sort of benefit.
+- Slightly improved transfer performance when using multiple connections.
 
 [Version 4.0b - January 22, 2017]
 - Implemented libsysfs and experimental async IO writing support
