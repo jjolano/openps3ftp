@@ -30,8 +30,16 @@ LIBNAME		:= lib$(TARGET)
 OPTS		:= -D_USE_SYSFS_ -D_USE_FASTPOLL_ -D_USE_IOBUFFERS_
 
 # Define pkg file and application information
+ifeq ($(SDK),PSL1GHT)
 TITLE		:= OpenPS3FTP
 APPID		:= NPXS91337
+endif
+
+ifeq ($(SDK),CELL)
+TITLE		:= CellPS3FTP
+APPID		:= NPXS01337
+endif
+
 CONTENTID	:= UP0001-$(APPID)_00-0000000000000000
 SFOXML		:= $(CURDIR)/pkg-meta/sfo.xml
 ICON0		:= $(CURDIR)/pkg-meta/ICON0.PNG
