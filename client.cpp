@@ -9,8 +9,13 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 
+#ifndef _PS3SDK_
 #include <net/poll.h>
 #include <sys/file.h>
+#else
+#include <sys/poll.h>
+#include <cell/cell_fs.h>
+#endif
 
 #include "const.h"
 #include "server.h"
@@ -119,7 +124,7 @@ int Client::data_start(func f, short events)
 			getpeername(socket_ctrl, (sockaddr*)&sa, &len);
 			sa.sin_port = htons(20);
 
-			socket_data = socket(PF_INET, SOCK_STREAM, 0);
+			socket_data = socket(AF_INET, SOCK_STREAM, 0);
 
 			if(connect(socket_data, (sockaddr*)&sa, len) == -1)
 			{

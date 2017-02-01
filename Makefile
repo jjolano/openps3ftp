@@ -1,17 +1,18 @@
 # OpenPS3FTP Makefile
-# Check PSL1GHT environment variable
+TARGET		:= openps3ftp
+LIBNAME		:= lib$(TARGET)
+OPTS		:= -D_USE_SYSFS_ -D_USE_FASTPOLL_ -D_USE_IOBUFFERS_
+
 ifeq ($(strip $(PSL1GHT)),)
-	$(error PSL1GHT is not installed/configured on this system.)
+$(error PSL1GHT is not installed/configured on this system.)
 endif
 
 include $(PSL1GHT)/ppu_rules
 
-TARGET		:= openps3ftp
-LIBNAME		:= lib$(TARGET)
-
 # Define pkg file and application information
 TITLE		:= OpenPS3FTP
 APPID		:= NPXS91337
+CONTENTID	:= UP0001-NPXS91337_00-0000000000000000
 SFOXML		:= $(CURDIR)/pkg-meta/sfo.xml
 ICON0		:= $(CURDIR)/pkg-meta/ICON0.PNG
 
@@ -24,7 +25,7 @@ MAKE_SFO = $(SFO) --fromxml --title "$(3)" --appid "$(4)" $(1) $(2)
 
 # Libraries
 LIBPATHS	:= -L. -L$(PORTLIBS)/lib $(LIBPSL1GHT_LIB)
-LIBS		:= -l$(TARGET) -lNoRSX -lfreetype -lgcm_sys -lrsx -lnetctl -lnet -lsysutil -lsysmodule -lrt -lsysfs -llv2 -lm -lz
+LIBS		:= -l$(TARGET) -lNoRSX -lfreetype -lgcm_sys -lrsx -lnet -lnetctl -lsysutil -lsysmodule -lsysfs -llv2 -lrt
 
 # Includes
 INCLUDE		:= -I$(CURDIR)/ftp -I$(PORTLIBS)/include/freetype2 -I$(PORTLIBS)/include $(LIBPSL1GHT_INC)
@@ -35,7 +36,7 @@ OBJ			:= $(SRC:.cpp=.o)
 
 # Define compilation options
 CXXFLAGS	= -Os -mregnames -Wall -mcpu=cell $(MACHDEP) $(INCLUDE)
-LDFLAGS		= $(MACHDEP) -s
+LDFLAGS		= -s $(MACHDEP) $(LIBPATHS) $(LIBS)
 
 # Make rules
 .PHONY: all clean dist pkg lib install
@@ -58,6 +59,7 @@ install: lib
 
 $(LIBNAME).a: $(OBJ:main.o=)
 	$(AR) -rc $@ $^
+	$(PREFIX)ranlib $@
 
 $(TARGET).zip: $(CONTENTID).pkg
 	mkdir -p $(BUILDDIR)/npdrm $(BUILDDIR)/rex
@@ -83,8 +85,8 @@ $(TARGET).self: $(TARGET).elf
 	$(call MAKE_FSELF,$<,$@)
 
 $(TARGET).elf: main.o $(LIBNAME).a
-	$(CXX) $< $(LDFLAGS) $(LIBPATHS) $(LIBS) -o $@
+	$(CXX) $< $(LDFLAGS) -o $@
 	$(SPRX) $@
 
 %.o: %.cpp
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+	$(CXX) $(CXXFLAGS) $(OPTS) -c $< -o $@

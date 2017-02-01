@@ -4,8 +4,14 @@
 #include <vector>
 #include <map>
 
+#include "common.h"
+
+#ifndef _PS3SDK_
 #include <net/poll.h>
 #include <lv2/sysfs.h>
+#else
+#include <cell/cell_fs.h>
+#endif
 
 #include "command.h"
 

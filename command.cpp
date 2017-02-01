@@ -6,7 +6,6 @@
 #include <string>
 #include <vector>
 #include <map>
-#include <algorithm>
 
 #include <netdb.h>
 #include <netinet/in.h>
@@ -14,14 +13,20 @@
 #include <sys/stat.h>
 #include <sys/memory.h>
 
+#ifndef _PS3SDK_
 #include <sys/file.h>
 #include <net/poll.h>
+#else
+#include <sys/poll.h>
+#include <cell/cell_fs.h>
+#endif
 
 #include "const.h"
 #include "server.h"
 #include "client.h"
 #include "command.h"
 #include "common.h"
+#include "util.h"
 
 using namespace std;
 
@@ -343,7 +348,7 @@ void cmd_pasv(Client* client, string params)
 
 	sa.sin_port = 0; // auto
 
-	client->socket_pasv = socket(PF_INET, SOCK_STREAM, 0);
+	client->socket_pasv = socket(AF_INET, SOCK_STREAM, 0);
 
 	if(bind(client->socket_pasv, (sockaddr*)&sa, sizeof(sa)) == -1)
 	{
@@ -411,7 +416,7 @@ void cmd_port(Client* client, string params)
 		((unsigned char)(portargs[3]))
 	);
 
-	client->socket_data = socket(PF_INET, SOCK_STREAM, 0);
+	client->socket_data = socket(AF_INET, SOCK_STREAM, 0);
 
 	if(connect(client->socket_data, (sockaddr*)&sa, sizeof(sa)) == 0)
 	{
@@ -672,17 +677,30 @@ void aio_stor(sysFSAio* aio, s32 error, s32 xid, u64 size)
 	if(error == CELL_FS_SUCCEEDED)
 	{
 		aio->offset += size;
+		#ifdef _PS3SDK_
+		aio->user_data = AIO_READY;
+		#else
 		aio->usrdata = AIO_READY;
+		#endif
 	}
 	else
 	{
 		if(error == CELL_FS_EBUSY)
 		{
+			#ifdef _PS3SDK_
+			aio->user_data = AIO_WAITING;
+			#else
 			aio->usrdata = AIO_WAITING;
+			#endif
+
 		}
 		else
 		{
+			#ifdef _PS3SDK_
+			aio->user_data = error;
+			#else
 			aio->usrdata = error;
+			#endif
 		}
 	}
 }
@@ -697,22 +715,38 @@ int data_stor(Client* client)
 
 	if(client->cvar_use_aio)
 	{
+		#ifdef _PS3SDK_
+		if(client->cvar_aio.user_data == AIO_ACTIVE)
+		#else
 		if(client->cvar_aio.usrdata == AIO_ACTIVE)
+		#endif
 		{
 			// still writing
 			return 0;
 		}
 
+		#ifdef _PS3SDK_
+		if(client->cvar_aio.user_data == AIO_WAITING)
+		#else
 		if(client->cvar_aio.usrdata == AIO_WAITING)
+		#endif
 		{
+			#ifdef _PS3SDK_
+			client->cvar_aio.user_data = AIO_ACTIVE;
+			#else
 			client->cvar_aio.usrdata = AIO_ACTIVE;
+			#endif
 
 			s32 status = sysFsAioWrite(&client->cvar_aio, &client->cvar_aio_id, aio_stor);
 
 			if(status == CELL_FS_EBUSY)
 			{
 				// IO busy, try again on next tick
+				#ifdef _PS3SDK_
+				client->cvar_aio.user_data = AIO_WAITING;
+				#else
 				client->cvar_aio.usrdata = AIO_WAITING;
+				#endif
 			}
 
 			if(status != CELL_FS_SUCCEEDED)
@@ -746,16 +780,28 @@ int data_stor(Client* client)
 
 	if(client->cvar_use_aio)
 	{
+		#ifdef _PS3SDK_
+		if(client->cvar_aio.user_data == AIO_READY)
+		#else
 		if(client->cvar_aio.usrdata == AIO_READY)
+		#endif
 		{
+			#ifdef _PS3SDK_
+			client->cvar_aio.user_data = AIO_ACTIVE;
+			#else
 			client->cvar_aio.usrdata = AIO_ACTIVE;
+			#endif
 			client->cvar_aio.size = read;
 
 			s32 status = sysFsAioWrite(&client->cvar_aio, &client->cvar_aio_id, aio_stor);
 
 			if(status == CELL_FS_EBUSY)
 			{
+				#ifdef _PS3SDK_
+				client->cvar_aio.user_data = AIO_WAITING;
+				#else
 				client->cvar_aio.usrdata = AIO_WAITING;
+				#endif
 			}
 			
 			if(status != CELL_FS_SUCCEEDED)
@@ -850,8 +896,13 @@ void cmd_stor(Client* client, string params)
 		{
 			client->cvar_aio.fd = fd;
 			client->cvar_aio.offset = 0;
+			#ifdef _PS3SDK_
+			client->cvar_aio.buf = (void*)client->buffer_data;
+			client->cvar_aio.user_data = AIO_READY;
+			#else
 			client->cvar_aio.buffer_addr = (intptr_t)client->buffer_data;
 			client->cvar_aio.usrdata = AIO_READY;
+			#endif
 		}
 	}
 	else
@@ -909,8 +960,13 @@ void cmd_appe(Client* client, string params)
 		{
 			client->cvar_aio.fd = fd;
 			client->cvar_aio.offset = 0;
+			#ifdef _PS3SDK_
+			client->cvar_aio.buf = (void*)client->buffer_data;
+			client->cvar_aio.user_data = AIO_READY;
+			#else
 			client->cvar_aio.buffer_addr = (intptr_t)client->buffer_data;
 			client->cvar_aio.usrdata = AIO_READY;
+			#endif
 		}
 	}
 	else
@@ -1205,7 +1261,7 @@ void cmd_site(Client* client, string params)
 	string sitecmd;
 	in >> sitecmd;
 
-	transform(sitecmd.begin(), sitecmd.end(), sitecmd.begin(), ::toupper);
+	sitecmd = string_to_upper(sitecmd);
 
 	if(sitecmd == "CHMOD")
 	{

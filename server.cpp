@@ -1,26 +1,32 @@
 #include <cstdio>
-#include <csignal>
 #include <vector>
 #include <map>
 #include <new>
 #include <sstream>
-#include <algorithm>
 
 #include <netdb.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
 
+#ifndef _PS3SDK_
 #include <net/net.h>
 #include <net/poll.h>
 #include <sys/thread.h>
 #include <sys/lv2errno.h>
 #include <sys/memory.h>
+#else
+#include <netex/net.h>
+#include <sys/poll.h>
+#include <netex/libnetctl.h>
+#include <sys/ppu_thread.h>
+#endif
 
 #include "const.h"
 #include "server.h"
 #include "client.h"
 #include "command.h"
 #include "common.h"
+#include "util.h"
 
 using namespace std;
 
@@ -33,10 +39,6 @@ int fast_poll(pollfd* fds, nfds_t nfds, int timeout)
 
 void server_start(void* arg)
 {
-	signal(SIGPIPE, SIG_IGN);
-	signal(SIGXCPU, SIG_IGN);
-	signal(SIGSYS, SIG_IGN);
-
 	app_status* status = (app_status*)arg;
 
 #ifdef _USE_IOBUFFERS_
@@ -57,7 +59,7 @@ void server_start(void* arg)
 	register_cmds(&commands);
 
 	// Create server socket.
-	int server = socket(PF_INET, SOCK_STREAM, 0);
+	int server = socket(AF_INET, SOCK_STREAM, 0);
 
 	sockaddr_in myaddr;
 	myaddr.sin_family = AF_INET;
@@ -260,7 +262,7 @@ void server_start(void* arg)
 							}
 
 							// capitalize command string internally
-							transform(cmd.begin(), cmd.end(), cmd.begin(), ::toupper);
+							cmd = string_to_upper(cmd);
 
 							// internal commands
 							if(cmd == "QUIT")
