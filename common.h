@@ -85,6 +85,7 @@ typedef int32_t s32;
 #define S_ISDIR(m)						(((m) & S_IFMT) == S_IFDIR)
 #define S_ISLNK(m)						(((m) & S_IFMT) == S_IFLNK)
 
+#define lv2syscall4                     system_call_4
 #else
 #define CELL_FS_SUCCEEDED	0
 #define CELL_FS_EBUSY		(-31)

@@ -493,7 +493,9 @@ int data_list(Client* client)
 	if(get_working_directory(client) == "/")
 	{
 		if(strcmp(dirent.d_name, "app_home") == 0
-		|| strcmp(dirent.d_name, "host_root") == 0)
+		|| strcmp(dirent.d_name, "host_root") == 0
+		|| strcmp(dirent.d_name, "dev_flash2") == 0
+		|| strcmp(dirent.d_name, "dev_flash3") == 0)
 		{
 			return 0;
 		}
@@ -539,7 +541,7 @@ int data_list(Client* client)
 
 	ssize_t len = sprintf(client->buffer_data,
 		"%s %3d %-10d %-10d %10lu %s %s\r\n",
-		permissions, 1, stat.st_uid, stat.st_gid, stat.st_size, tstr, dirent.d_name);
+		permissions, 1, 0, 0, stat.st_size, tstr, dirent.d_name);
 	
 	ssize_t written = send(client->socket_data, client->buffer_data, (size_t)len, 0);
 
@@ -621,7 +623,9 @@ int data_nlst(Client* client)
 	if(get_working_directory(client) == "/")
 	{
 		if(strcmp(dirent.d_name, "app_home") == 0
-		|| strcmp(dirent.d_name, "host_root") == 0)
+		|| strcmp(dirent.d_name, "host_root") == 0
+		|| strcmp(dirent.d_name, "dev_flash2") == 0
+		|| strcmp(dirent.d_name, "dev_flash3") == 0)
 		{
 			return 0;
 		}
@@ -790,13 +794,6 @@ int data_stor(Client* client)
 		return -1;
 	}
 
-	if(read == 0)
-	{
-		client->send_code(226, "Transfer complete");
-		sysLv2FsClose(client->cvar_fd);
-		return 1;
-	}
-
 	client->buffer_data[read] = '\0';
 
 	if(client->cvar_use_aio)
@@ -830,6 +827,13 @@ int data_stor(Client* client)
 				client->send_code(452, "Failed to write data to file");
 				sysLv2FsClose(client->cvar_fd);
 				return -1;
+			}
+
+			if(read == 0)
+			{
+				client->send_code(226, "Transfer complete");
+				sysLv2FsClose(client->cvar_fd);
+				return 1;
 			}
 		}
 	}
@@ -1027,13 +1031,6 @@ int data_retr(Client* client)
 		return -1;
 	}
 
-	if(read == 0)
-	{
-		client->send_code(226, "Transfer complete");
-		sysLv2FsClose(client->cvar_fd);
-		return 1;
-	}
-
 	client->buffer_data[read] = '\0';
 
 	ssize_t written = send(client->socket_data, client->buffer_data, (size_t)read, 0);
@@ -1102,10 +1099,6 @@ void cmd_retr(Client* client, string params)
 
 	if(client->data_start(data_retr, POLLOUT|POLLWRNORM) != -1)
 	{
-		#ifdef _USE_IOBUFFERS_
-		sysFsSetIoBufferFromDefaultContainer(fd, IO_BUFFER, SYS_FS_IO_BUFFER_PAGE_SIZE_64KB);
-		#endif
-
 		client->cvar_fd = fd;
 		client->send_code(150, "Accepted data connection");
 	}

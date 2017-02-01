@@ -17,8 +17,8 @@
 #else
 #include <netex/net.h>
 #include <sys/poll.h>
-#include <netex/libnetctl.h>
 #include <sys/ppu_thread.h>
+#include <sys/syscall.h>
 #endif
 
 #include "const.h"
@@ -175,16 +175,17 @@ void server_start(void* arg)
 						// get client
 						Client* client = cdata_it->second;
 
-						// execute data handler
-						if(pfd.revents & (POLLOUT|POLLWRNORM|POLLIN|POLLRDNORM))
-						{
-							client->handle_data();
-						}
-
 						// check for disconnection
 						if(pfd.revents & (POLLHUP|POLLERR))
 						{
 							client->data_end();
+							continue;
+						}
+
+						// execute data handler
+						if(pfd.revents & (POLLOUT|POLLWRNORM|POLLIN|POLLRDNORM))
+						{
+							client->handle_data();
 						}
 
 						continue;
@@ -277,6 +278,34 @@ void server_start(void* arg)
 
 							if(cmd == "APP_EXIT")
 							{
+								client->send_code(221, "Exiting...");
+
+								status->is_running = 0;
+								break;
+							}
+
+							if(cmd == "SYS_SHUTDOWN")
+							{
+								client->send_code(221, "Shutting down...");
+
+								// syscall shutdown
+								{
+									lv2syscall4(379, 0x1100, 0, 0, 0);
+								}
+
+								status->is_running = 0;
+								break;
+							}
+
+							if(cmd == "SYS_RESTART")
+							{
+								client->send_code(221, "Restarting...");
+
+								// syscall restart
+								{
+									lv2syscall4(379, 0x1200, 0, 0, 0);
+								}
+
 								status->is_running = 0;
 								break;
 							}
@@ -300,6 +329,10 @@ void server_start(void* arg)
 				}
 			}
 		}
+
+		// update status
+		status->num_clients = clients.size();
+		status->num_connections = pollfds.size();
 	}
 
 	// Close sockets.
@@ -317,4 +350,9 @@ void server_start(void* arg)
 	status->is_running = 0;
 	close(server);
 	sysThreadExit(0);
+}
+
+void server_start_ex(uint64_t arg)
+{
+	server_start((void*)arg);
 }

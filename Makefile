@@ -27,7 +27,7 @@ endif
 LIBNAME		:= lib$(TARGET)
 
 # Applies to PSL1GHT SDK compilations.
-OPTS		:= -D_USE_SYSFS_ -D_USE_FASTPOLL_ -D_USE_IOBUFFERS_
+OPTS		?= -D_USE_SYSFS_ -D_USE_FASTPOLL_ -D_USE_IOBUFFERS_
 
 # Define pkg file and application information
 ifeq ($(SDK),PSL1GHT)
@@ -65,7 +65,7 @@ SRC			:= client.cpp command.cpp server.cpp util.cpp main.cpp
 OBJ			:= $(SRC:.cpp=.o)
 
 # Define compilation options
-CXXFLAGS	= -O2 -g -mregnames -Wall -mcpu=cell $(MACHDEP) $(INCLUDE)
+CXXFLAGS	= -Os -g -mregnames -Wall -mcpu=cell $(MACHDEP) $(INCLUDE)
 LDFLAGS		= -s $(MACHDEP) $(LIBPATHS) $(LIBS)
 
 endif
@@ -108,7 +108,7 @@ $(LIBNAME).a: $(OBJ:main.o=)
 endif
 
 ifeq ($(SDK),CELL)
-$(LIBNAME).a: Makefile.celllib.mk
+$(LIBNAME).a: Makefile.cell.lib.mk
 	$(MAKE) -f $< NAME=$(TARGET)
 endif
 
@@ -142,7 +142,7 @@ $(TARGET).elf: main.o $(LIBNAME).a
 endif
 
 ifeq ($(SDK),CELL)
-$(TARGET).elf: Makefile.cell.mk
+$(TARGET).elf: Makefile.cell.elf.mk
 	$(MAKE) -f $< NAME=$(TARGET)
 endif
 
