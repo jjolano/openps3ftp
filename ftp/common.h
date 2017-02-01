@@ -44,15 +44,6 @@
 #endif
 
 #ifdef _PS3SDK_
-#include <netex/net.h>
-
-int _sys_net_initialize_network(void)
-{
-	return sys_net_initialize_network();
-}
-
-#define netInitialize					_sys_net_initialize_network
-#define netDeinitialize					sys_net_finalize_network
 #define poll(a,b,c)						socketpoll(a,b,c)
 
 typedef uint64_t u64;

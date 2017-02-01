@@ -35,7 +35,7 @@ SRC			:= $(wildcard *.cpp)
 OBJ			:= $(SRC:.cpp=.o)
 
 # Define compilation options
-CXXFLAGS	= -Os -mregnames -Wall -mcpu=cell $(MACHDEP) $(INCLUDE)
+CXXFLAGS	= -Os -g -mregnames -Wall -mcpu=cell $(MACHDEP) $(INCLUDE)
 LDFLAGS		= -s $(MACHDEP) $(LIBPATHS) $(LIBS)
 
 # Make rules
