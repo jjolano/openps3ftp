@@ -370,6 +370,7 @@ void server_start(void* arg)
 		if(should_clean && clients_data.empty())
 		{
 			cellSysCacheClear();
+			should_clean = false;
 		}
 		#endif
 	}
