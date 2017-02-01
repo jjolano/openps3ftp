@@ -1,4 +1,6 @@
 # OpenPS3FTP Makefile
+include $(PSL1GHT)/ppu_rules
+
 TARGET		:= openps3ftp
 TARGET_CELL	:= cellps3ftp
 
@@ -7,12 +9,10 @@ CELLLIB		:= lib$(TARGET_CELL)
 
 OPTS		:= -D_USE_SYSFS_ -D_USE_FASTPOLL_ -D_USE_IOBUFFERS_
 
-include $(PSL1GHT)/ppu_rules
-
 # Define pkg file and application information
 TITLE		:= OpenPS3FTP
 APPID		:= NPXS91337
-CONTENTID	:= UP0001-NPXS91337_00-0000000000000000
+CONTENTID	:= UP0001-$(APPID)_00-0000000000000000
 SFOXML		:= $(CURDIR)/pkg-meta/sfo.xml
 ICON0		:= $(CURDIR)/pkg-meta/ICON0.PNG
 
@@ -25,13 +25,13 @@ MAKE_SFO = $(SFO) --fromxml --title "$(3)" --appid "$(4)" $(1) $(2)
 
 # Libraries
 LIBPATHS	:= -L. -L$(PORTLIBS)/lib $(LIBPSL1GHT_LIB)
-LIBS		:= -l$(TARGET) -lNoRSX -lfreetype -lgcm_sys -lrsx -lnetctl -lnet -lsysutil -lsysmodule -lsysfs -llv2 -lrt
+LIBS		:= -l$(TARGET) -lNoRSX -lfreetype -lgcm_sys -lrsx -lnetctl -lnet -lsysutil -lsysmodule -lrt -lsysfs -llv2 -lm -lz
 
 # Includes
 INCLUDE		:= -I. -I$(CURDIR)/ftp -I$(PORTLIBS)/include/freetype2 -I$(PORTLIBS)/include $(LIBPSL1GHT_INC)
 
 # Source Files
-SRC			:= $(wildcard *.cpp)
+SRC			:= client.cpp command.cpp server.cpp util.cpp main.cpp
 OBJ			:= $(SRC:.cpp=.o)
 
 # Define compilation options
