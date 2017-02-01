@@ -213,7 +213,10 @@ void server_start(void* arg)
 						if(pfd.revents & (POLLOUT|POLLWRNORM|POLLIN|POLLRDNORM))
 						{
 							client->handle_data();
+
+							#if defined(_USE_IOBUFFERS_) || defined(_PS3SDK_)
 							should_clean = true;
+							#endif
 						}
 
 						continue;

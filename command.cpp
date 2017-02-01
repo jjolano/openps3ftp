@@ -831,18 +831,17 @@ int data_stor(Client* client)
 
 			if(read == 0)
 			{
-				sysLv2FsClose(client->cvar_fd);
-
 				// move file to destination
 				stringstream from;
 				stringstream to;
 
 				from << client->cvar_fd_tempdir;
-				from << '/' << client->cvar_fd_filename;
+				from << '/' << client->socket_ctrl;
 
 				to << client->cvar_fd_movedir;
 				to << '/' << client->cvar_fd_filename;
 
+				sysLv2FsClose(client->cvar_fd);
 				sysLv2FsRename(from.str().c_str(), to.str().c_str());
 
 				client->send_code(226, "Transfer complete");
@@ -864,18 +863,17 @@ int data_stor(Client* client)
 
 		if(written == 0)
 		{
-			sysLv2FsClose(client->cvar_fd);
-
 			// move file to destination
 			stringstream from;
 			stringstream to;
 
 			from << client->cvar_fd_tempdir;
-			from << '/' << client->cvar_fd_filename;
+			from << '/' << client->socket_ctrl;
 
 			to << client->cvar_fd_movedir;
 			to << '/' << client->cvar_fd_filename;
 
+			sysLv2FsClose(client->cvar_fd);
 			sysLv2FsRename(from.str().c_str(), to.str().c_str());
 
 			client->send_code(226, "Transfer complete");
@@ -922,7 +920,10 @@ void cmd_stor(Client* client, string params)
 	if(!file_exists(path))
 	{
 		#if defined(_USE_IOBUFFERS_) || defined(_PS3SDK_)
-		temppath = get_absolute_path(client->cvar_fd_tempdir, params);
+		stringstream sc;
+		sc << client->socket_ctrl;
+
+		temppath = get_absolute_path(client->cvar_fd_tempdir, sc.str());
 		client->cvar_fd_movedir = get_working_directory(client);
 		client->cvar_fd_filename = params;
 

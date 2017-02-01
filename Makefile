@@ -3,18 +3,15 @@
 # SDK can be either PSL1GHT or CELL
 SDK			?= PSL1GHT
 
-ifeq ($(SDK),PSL1GHT)
 ifeq ($(PSL1GHT),)
 	$(error PSL1GHT not found.)
 endif
+
 include $(PSL1GHT)/ppu_rules
-else
+
 ifeq ($(SDK),CELL)
 ifeq ($(CELL_SDK),)
 	$(error CELL_SDK not found.)
-endif
-else
-	$(error Unknown/unsupported SDK.)
 endif
 endif
 
@@ -109,8 +106,8 @@ $(LIBNAME).a: $(OBJ:main.o=)
 endif
 
 ifeq ($(SDK),CELL)
-$(LIBNAME).a: Makefile.cell.lib.mk
-	$(MAKE) -f $< NAME=$(TARGET)
+$(LIBNAME).a:
+	$(MAKE) -f Makefile.cell.lib.mk NAME=$(TARGET)
 endif
 
 $(TARGET).zip: $(CONTENTID).pkg
@@ -134,7 +131,9 @@ PARAM.SFO: $(SFOXML)
 	$(call MAKE_SFO,$<,$@,$(TITLE),$(APPID))
 
 $(TARGET).self: $(TARGET).elf
+ifeq ($(SDK),PSL1GHT)
 	$(call MAKE_FSELF,$<,$@)
+endif
 
 ifeq ($(SDK),PSL1GHT)
 $(TARGET).elf: main.o $(LIBNAME).a
@@ -143,8 +142,8 @@ $(TARGET).elf: main.o $(LIBNAME).a
 endif
 
 ifeq ($(SDK),CELL)
-$(TARGET).elf: Makefile.cell.elf.mk
-	$(MAKE) -f $< NAME=$(TARGET)
+$(TARGET).elf: $(LIBNAME).a
+	$(MAKE) -f Makefile.cell.elf.mk NAME=$(TARGET)
 endif
 
 %.o: %.cpp
