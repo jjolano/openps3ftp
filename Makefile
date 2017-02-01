@@ -1,12 +1,32 @@
 # OpenPS3FTP Makefile
-include $(PSL1GHT)/ppu_rules
 
+# SDK can be either PSL1GHT or CELL
+SDK			?= PSL1GHT
+
+ifeq ($(SDK),PSL1GHT)
+ifeq ($(PSL1GHT),)
+	$(error PSL1GHT not found.)
+endif
+include $(PSL1GHT)/ppu_rules
+else
+ifeq ($(SDK),CELL)
+ifeq ($(CELL_SDK),)
+	$(error CELL_SDK not found.)
+endif
+else
+	$(error Unknown/unsupported SDK.)
+endif
+endif
+
+ifeq ($(SDK),PSL1GHT)
 TARGET		:= openps3ftp
-TARGET_CELL	:= cellps3ftp
+else
+TARGET		:= cellps3ftp
+endif
 
 LIBNAME		:= lib$(TARGET)
-CELLLIB		:= lib$(TARGET_CELL)
 
+# Applies to PSL1GHT SDK compilations.
 OPTS		:= -D_USE_SYSFS_ -D_USE_FASTPOLL_ -D_USE_IOBUFFERS_
 
 # Define pkg file and application information
@@ -23,6 +43,8 @@ MAKE_PKG = $(PKG) --contentid $(3) $(1) $(2)
 MAKE_FSELF = $(FSELF) $(1) $(2)
 MAKE_SFO = $(SFO) --fromxml --title "$(3)" --appid "$(4)" $(1) $(2)
 
+ifeq ($(SDK),PSL1GHT)
+
 # Libraries
 LIBPATHS	:= -L. -L$(PORTLIBS)/lib $(LIBPSL1GHT_LIB)
 LIBS		:= -l$(TARGET) -lNoRSX -lfreetype -lgcm_sys -lrsx -lnetctl -lnet -lsysutil -lsysmodule -lrt -lsysfs -llv2 -lm -lz
@@ -38,41 +60,49 @@ OBJ			:= $(SRC:.cpp=.o)
 CXXFLAGS	= -O2 -g -mregnames -Wall -mcpu=cell $(MACHDEP) $(INCLUDE)
 LDFLAGS		= -s $(MACHDEP) $(LIBPATHS) $(LIBS)
 
-# Make rules
-.PHONY: all clean dist pkg lib install
-
-ifdef _PS3SDK_
-all: $(TARGET_CELL).elf
-else
-all: $(TARGET).elf
 endif
 
+# Make rules
+.PHONY: all clean distclean dist pkg lib install
+
+all: $(TARGET).elf
+
 clean: 
-	rm -f $(OBJ) $(LIBNAME).a $(TARGET).zip $(TARGET).self $(TARGET).elf $(CONTENTID).pkg EBOOT.BIN PARAM.SFO $(CELLLIB).a $(TARGET_CELL).elf
+	rm -f $(OBJ) $(LIBNAME).a $(TARGET).zip $(TARGET).self $(TARGET).elf $(CONTENTID).pkg EBOOT.BIN PARAM.SFO
 	rm -rf $(CONTENTID) $(BUILDDIR) objs
 
-dist: clean $(TARGET).zip
+distclean:
+	$(MAKE) clean SDK=PSL1GHT
+	$(MAKE) clean SDK=CELL
+
+dist: distclean $(TARGET).zip
 
 pkg: $(CONTENTID).pkg
 
-ifdef _PS3SDK_
-lib: $(CELLLIB).a
-else
 lib: $(LIBNAME).a
-endif
 
-ifndef _PS3SDK_
+ifeq ($(SDK),PSL1GHT)
 install: lib
 	cp -fr $(CURDIR)/ftp $(PORTLIBS)/include/
 	cp -f $(LIBNAME).a $(PORTLIBS)/lib/
 endif
 
+ifeq ($(SDK),CELL)
+install: lib
+	cp -fr $(CURDIR)/ftp $(CELL_SDK)/target/ppu/include/
+	cp -f $(LIBNAME).a $(CELL_SDK)/target/ppu/lib/
+endif
+
+ifeq ($(SDK),PSL1GHT)
 $(LIBNAME).a: $(OBJ:main.o=)
 	$(AR) -rc $@ $^
 	$(PREFIX)ranlib $@
+endif
 
-$(CELLLIB).a: Makefile.celllib.mk
-	$(MAKE) -f $< NAME=$(TARGET_CELL)
+ifeq ($(SDK),CELL)
+$(LIBNAME).a: Makefile.celllib.mk
+	$(MAKE) -f $< NAME=$(TARGET)
+endif
 
 $(TARGET).zip: $(CONTENTID).pkg
 	mkdir -p $(BUILDDIR)/npdrm $(BUILDDIR)/rex
@@ -81,11 +111,7 @@ $(TARGET).zip: $(CONTENTID).pkg
 	-$(PACKAGE_FINALIZE) $(BUILDDIR)/npdrm/$<
 	zip -r9ql $(CURDIR)/$(TARGET).zip build readme.txt changelog.txt
 
-ifdef _PS3SDK_
-EBOOT.BIN: $(TARGET_CELL).elf
-else
 EBOOT.BIN: $(TARGET).elf
-endif
 	$(call MAKE_SELF_NPDRM,$<,$@,$(CONTENTID),04)
 
 $(CONTENTID).pkg: EBOOT.BIN PARAM.SFO $(ICON0)
@@ -101,15 +127,16 @@ PARAM.SFO: $(SFOXML)
 $(TARGET).self: $(TARGET).elf
 	$(call MAKE_FSELF,$<,$@)
 
+ifeq ($(SDK),PSL1GHT)
 $(TARGET).elf: main.o $(LIBNAME).a
 	$(CXX) $< $(LDFLAGS) -o $@
 	$(SPRX) $@
+endif
 
-$(TARGET_CELL).self: $(TARGET_CELL).elf
-	$(call MAKE_FSELF,$<,$@)
-
-$(TARGET_CELL).elf: Makefile.cell.mk
-	$(MAKE) -f $< NAME=$(TARGET_CELL)
+ifeq ($(SDK),CELL)
+$(TARGET).elf: Makefile.cell.mk
+	$(MAKE) -f $< NAME=$(TARGET)
+endif
 
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) $(OPTS) -c $< -o $@

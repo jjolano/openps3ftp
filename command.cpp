@@ -122,7 +122,7 @@ vector<unsigned short> parse_port(string args)
 	return vec;
 }
 
-void cmd_noop(Client* client, string params)
+void cmd_noop(Client* client, __attribute__((unused)) string params)
 {
 	client->send_code(200, "NOOP ok.");
 }
@@ -132,12 +132,12 @@ void cmd_clnt(Client* client, string params)
 	client->send_code(200, params + " sucks!");
 }
 
-void cmd_acct(Client* client, string params)
+void cmd_acct(Client* client, __attribute__((unused)) string params)
 {
 	client->send_code(202, "Command ignored. ACCT not implemented.");
 }
 
-void cmd_feat(Client* client, string params)
+void cmd_feat(Client* client, __attribute__((unused)) string params)
 {
 	vector<string> feat;
 
@@ -156,7 +156,7 @@ void cmd_feat(Client* client, string params)
 	client->send_code(211, "End");
 }
 
-void cmd_syst(Client* client, string params)
+void cmd_syst(Client* client, __attribute__((unused)) string params)
 {
 	client->send_code(215, "UNIX Type: L8");
 }
@@ -181,7 +181,7 @@ void cmd_user(Client* client, string params)
 	client->send_code(331, "Username " + params + " OK. Password required");
 }
 
-void cmd_pass(Client* client, string params)
+void cmd_pass(Client* client, __attribute__((unused)) string params)
 {
 	// actual auth done here
 	if(client->cvar_auth)
@@ -202,7 +202,7 @@ void cmd_pass(Client* client, string params)
 	client->send_code(230, "Successfully logged in as " + client->cvar_user);
 }
 
-void cmd_type(Client* client, string params)
+void cmd_type(Client* client, __attribute__((unused)) string params)
 {
 	if(!client->cvar_auth)
 	{
@@ -213,7 +213,7 @@ void cmd_type(Client* client, string params)
 	client->send_code(200, "TYPE ok.");
 }
 
-void cmd_allo(Client* client, string params)
+void cmd_allo(Client* client, __attribute__((unused)) string params)
 {
 	if(!client->cvar_auth)
 	{
@@ -260,7 +260,7 @@ void cmd_cwd(Client* client, string params)
 	}
 }
 
-void cmd_pwd(Client* client, string params)
+void cmd_pwd(Client* client, __attribute__((unused)) string params)
 {
 	if(!client->cvar_auth)
 	{
@@ -337,7 +337,7 @@ void cmd_rmd(Client* client, string params)
 	}
 }
 
-void cmd_cdup(Client* client, string params)
+void cmd_cdup(Client* client, __attribute__((unused)) string params)
 {
 	if(!client->cvar_auth)
 	{
@@ -349,7 +349,7 @@ void cmd_cdup(Client* client, string params)
 	client->send_code(250, "Working directory changed.");
 }
 
-void cmd_pasv(Client* client, string params)
+void cmd_pasv(Client* client, __attribute__((unused)) string params)
 {
 	if(!client->cvar_auth)
 	{
@@ -453,7 +453,7 @@ void cmd_port(Client* client, string params)
 	}
 }
 
-void cmd_abor(Client* client, string params)
+void cmd_abor(Client* client, __attribute__((unused)) string params)
 {
 	if(!client->cvar_auth)
 	{
@@ -560,7 +560,7 @@ int data_list(Client* client)
 	return 0;
 }
 
-void cmd_list(Client* client, string params)
+void cmd_list(Client* client, __attribute__((unused)) string params)
 {
 	if(!client->cvar_auth)
 	{
@@ -660,7 +660,7 @@ int data_nlst(Client* client)
 	return 0;
 }
 
-void cmd_nlst(Client* client, string params)
+void cmd_nlst(Client* client, __attribute__((unused)) string params)
 {
 	if(!client->cvar_auth)
 	{
@@ -693,7 +693,7 @@ void cmd_nlst(Client* client, string params)
 	}
 }
 
-void aio_stor(sysFSAio* aio, s32 error, s32 xid, u64 size)
+void aio_stor(sysFSAio* aio, s32 error, __attribute__((unused)) s32 xid, u64 size)
 {
 	if(error == CELL_FS_SUCCEEDED)
 	{
