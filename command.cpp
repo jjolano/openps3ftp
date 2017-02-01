@@ -831,8 +831,21 @@ int data_stor(Client* client)
 
 			if(read == 0)
 			{
-				client->send_code(226, "Transfer complete");
 				sysLv2FsClose(client->cvar_fd);
+
+				// move file to destination
+				stringstream from;
+				stringstream to;
+
+				from << client->cvar_fd_tempdir;
+				from << '/' << client->cvar_fd_filename;
+
+				to << client->cvar_fd_movedir;
+				to << '/' << client->cvar_fd_filename;
+
+				sysLv2FsRename(from.str().c_str(), to.str().c_str());
+
+				client->send_code(226, "Transfer complete");
 				return 1;
 			}
 		}
@@ -851,8 +864,21 @@ int data_stor(Client* client)
 
 		if(written == 0)
 		{
-			client->send_code(226, "Transfer complete");
 			sysLv2FsClose(client->cvar_fd);
+
+			// move file to destination
+			stringstream from;
+			stringstream to;
+
+			from << client->cvar_fd_tempdir;
+			from << '/' << client->cvar_fd_filename;
+
+			to << client->cvar_fd_movedir;
+			to << '/' << client->cvar_fd_filename;
+
+			sysLv2FsRename(from.str().c_str(), to.str().c_str());
+
+			client->send_code(226, "Transfer complete");
 			return 1;
 		}
 	}
@@ -889,11 +915,28 @@ void cmd_stor(Client* client, string params)
 		return;
 	}
 
+	string temppath(path);
+
 	u32 oflags = SYS_O_WRONLY;
 
 	if(!file_exists(path))
 	{
+		#if defined(_USE_IOBUFFERS_) || defined(_PS3SDK_)
+		temppath = get_absolute_path(client->cvar_fd_tempdir, params);
+		client->cvar_fd_movedir = get_working_directory(client);
+		client->cvar_fd_filename = params;
+
+		if(file_exists(temppath))
+		{
+			oflags |= SYS_O_TRUNC;
+		}
+		else
+		{
+			oflags |= SYS_O_CREAT;
+		}
+		#else
 		oflags |= SYS_O_CREAT;
+		#endif
 	}
 	else if(client->cvar_rest == 0)
 	{
@@ -901,7 +944,7 @@ void cmd_stor(Client* client, string params)
 	}
 
 	s32 fd;
-	if(sysLv2FsOpen(path.c_str(), oflags, &fd, (S_IFMT|0777), NULL, 0) == -1)
+	if(sysLv2FsOpen(temppath.c_str(), oflags, &fd, (S_IFMT|0777), NULL, 0) == -1)
 	{
 		client->send_code(550, "Cannot access file");
 		return;
@@ -909,7 +952,7 @@ void cmd_stor(Client* client, string params)
 
 	if(oflags & SYS_O_CREAT)
 	{
-		sysLv2FsChmod(path.c_str(), (S_IFMT|0777));
+		sysLv2FsChmod(temppath.c_str(), (S_IFMT|0777));
 	}
 
 	u64 pos;
@@ -917,10 +960,6 @@ void cmd_stor(Client* client, string params)
 
 	if(client->data_start(data_stor, POLLIN|POLLRDNORM) != -1)
 	{
-		#ifdef _USE_IOBUFFERS_
-		sysFsSetIoBufferFromDefaultContainer(fd, IO_BUFFER, SYS_FS_IO_BUFFER_PAGE_SIZE_64KB);
-		#endif
-
 		client->cvar_fd = fd;
 		client->send_code(150, "Accepted data connection");
 
@@ -988,10 +1027,6 @@ void cmd_appe(Client* client, string params)
 
 	if(client->data_start(data_stor, POLLIN|POLLRDNORM) != -1)
 	{
-		#ifdef _USE_IOBUFFERS_
-		sysFsSetIoBufferFromDefaultContainer(fd, IO_BUFFER, SYS_FS_IO_BUFFER_PAGE_SIZE_64KB);
-		#endif
-
 		client->cvar_fd = fd;
 		client->send_code(150, "Accepted data connection");
 

@@ -108,7 +108,6 @@ int main(void)
 #ifdef _USE_SYSFS_
 	// Prepare Async IO.
 	sysFsAioInit("/dev_hdd0");
-	sysFsAioInit(MOUNT_POINT);
 #endif
 
 	// Create the server thread.
@@ -146,7 +145,6 @@ int main(void)
 #ifdef _USE_SYSFS_
 	// Finish Async IO.
 	sysFsAioFinish("/dev_hdd0");
-	sysFsAioFinish(MOUNT_POINT);
 #endif
 
 	// Unmount dev_blind.

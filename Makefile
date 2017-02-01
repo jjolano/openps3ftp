@@ -27,7 +27,8 @@ endif
 LIBNAME		:= lib$(TARGET)
 
 # Applies to PSL1GHT SDK compilations.
-OPTS		?= -D_USE_SYSFS_ -D_USE_FASTPOLL_ -D_USE_IOBUFFERS_
+# EXTRAOPTS=-D_USE_IOBUFFERS_ if you have the proper exports in PSL1GHT sysutil.
+OPTS		?= -D_USE_SYSFS_ -D_USE_FASTPOLL_ $(EXTRAOPTS)
 
 # Define pkg file and application information
 ifeq ($(SDK),PSL1GHT)
@@ -65,7 +66,7 @@ SRC			:= client.cpp command.cpp server.cpp util.cpp main.cpp
 OBJ			:= $(SRC:.cpp=.o)
 
 # Define compilation options
-CXXFLAGS	= -Os -g -mregnames -Wall -mcpu=cell $(MACHDEP) $(INCLUDE)
+CXXFLAGS	= -O2 -g -mregnames -Wall -mcpu=cell $(MACHDEP) $(INCLUDE)
 LDFLAGS		= -s $(MACHDEP) $(LIBPATHS) $(LIBS)
 
 endif

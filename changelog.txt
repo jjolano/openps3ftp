@@ -1,8 +1,11 @@
 [Version 4.0c]
 - Source can now be compiled as a PSL1GHT static library.
-- Source can now be compiled using the cellsdk. Untested in actual use.
+- Source can now be compiled as a cellsdk static library.
 - Async IO writing can be toggled by using the custom command "AIO".
-  Experimental, but may provide some sort of benefit.
+  Experimental, but may provide some sort of benefit. Can only be used on
+  the internal hard drive (dev_hdd0).
+- Implemented internal commands: APP_EXIT, SYS_SHUTDOWN, SYS_RESTART
+- Implemented internal IO caching. May improve performance in some cases.
 - Slightly improved transfer performance when using multiple connections.
 - Added file length limit checking to prevent crashing the server thread.
 

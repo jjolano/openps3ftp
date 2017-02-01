@@ -1,7 +1,7 @@
 #include <cstdio>
+#include <cstring>
 #include <vector>
 #include <map>
-#include <new>
 #include <sstream>
 
 #include <netdb.h>
@@ -19,6 +19,7 @@
 #include <sys/poll.h>
 #include <sys/ppu_thread.h>
 #include <sys/syscall.h>
+#include <sysutil/sysutil_syscache.h>
 #endif
 
 #include "const.h"
@@ -29,6 +30,23 @@
 #include "util.h"
 
 using namespace std;
+
+#if defined(_USE_IOBUFFERS_) && !defined(_PS3SDK_)
+#ifdef __cplusplus
+extern "C" {
+#endif
+typedef struct {
+	char cacheId[32];
+	char getCachePath[1024];
+	void *reserved;
+} CellSysCacheParam;
+
+int cellSysCacheMount(CellSysCacheParam* param);
+int cellSysCacheClear(void);
+#ifdef __cplusplus
+}
+#endif
+#endif
 
 #ifdef _USE_FASTPOLL_
 int fast_poll(pollfd* fds, nfds_t nfds, int timeout)
@@ -41,12 +59,11 @@ void server_start(void* arg)
 {
 	app_status* status = (app_status*)arg;
 
-#ifdef _USE_IOBUFFERS_
-	// Allocate IO memory container.
-	sys_mem_container_t io_container;
-	sysMemContainerCreate(&io_container, IO_BUFFER);
-	sysFsSetDefaultContainer(io_container, IO_BUFFER);
-#endif
+	#if defined(_USE_IOBUFFERS_) || defined(_PS3SDK_)
+	// Mount system cache.
+	CellSysCacheParam sys_cache_mount_param;
+	cellSysCacheMount(&sys_cache_mount_param);
+	#endif
 
 	// Create server variables.
 	vector<pollfd> pollfds;
@@ -54,6 +71,10 @@ void server_start(void* arg)
 	map<int, Client*> clients_data;
 	map<string, cmdfunc> commands;
 	bool aio_toggle = false;
+
+	#if defined(_USE_IOBUFFERS_) || defined(_PS3SDK_)
+	bool should_clean = false;
+	#endif
 
 	// Register server commands.
 	register_cmds(&commands);
@@ -150,6 +171,12 @@ void server_start(void* arg)
 					// set default variables
 					client->cvar_use_aio = aio_toggle;
 
+					#if defined(_USE_IOBUFFERS_) || defined(_PS3SDK_)
+					client->cvar_fd_tempdir = sys_cache_mount_param.getCachePath;
+					#else
+					client->cvar_fd_tempdir = NULL;
+					#endif
+
 					// assign socket to internal client
 					clients.insert(make_pair(client_new, client));
 
@@ -186,6 +213,7 @@ void server_start(void* arg)
 						if(pfd.revents & (POLLOUT|POLLWRNORM|POLLIN|POLLRDNORM))
 						{
 							client->handle_data();
+							should_clean = true;
 						}
 
 						continue;
@@ -333,6 +361,14 @@ void server_start(void* arg)
 		// update status
 		status->num_clients = clients.size();
 		status->num_connections = pollfds.size();
+
+		#if defined(_USE_IOBUFFERS_) || defined(_PS3SDK_)
+		// Cleanup system cache when there are no data connections.
+		if(should_clean && clients_data.empty())
+		{
+			cellSysCacheClear();
+		}
+		#endif
 	}
 
 	// Close sockets.
@@ -341,11 +377,6 @@ void server_start(void* arg)
 		Client* client = client_it->second;
 		delete client;
 	}
-
-#ifdef _USE_IOBUFFERS_
-	// Cleanup memory.
-	sysMemContainerDestroy(io_container);
-#endif
 
 	status->is_running = 0;
 	close(server);

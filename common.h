@@ -10,10 +10,8 @@
 // Enables a workaround on PSL1GHT's somewhat poor performing poll function.
 #define _USE_FASTPOLL_
 
-// Requires sysfs - might improve performance?
-#ifdef _USE_SYSFS_
+// Requires an export not included in PSL1GHT.
 #define _USE_IOBUFFERS_
-#endif
 */
 
 #if defined(_USE_SYSFS_) && !defined(_PS3SDK_)
