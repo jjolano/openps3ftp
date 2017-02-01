@@ -1,3 +1,5 @@
+#pragma once
+
 #define APP_VERSION     "4.0c"
 #define WELCOME_MSG		"Welcome to OpenPS3FTP v" APP_VERSION "!"
 
