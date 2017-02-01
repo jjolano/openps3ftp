@@ -5,8 +5,7 @@ in and out of their console.
 Developers:
 - For PSL1GHT, a static library can be built by using make lib. To install
   to the standard PSL1GHT libraries, use make install.
-- For cellsdk, try compiling using the Makefile.cell.mk makefile. This gives
-  you a static library.
+- For cellsdk, try using make with _PS3SDK_=1.
 - Check "common.h" for compile-time options. Apply changes to the Makefile.
 - The only include file needed in your app is <ftp/server.h> which exposes
   the function server_start and C struct app_status. These are designed to be

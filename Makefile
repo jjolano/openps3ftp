@@ -1,11 +1,11 @@
 # OpenPS3FTP Makefile
 TARGET		:= openps3ftp
-LIBNAME		:= lib$(TARGET)
-OPTS		:= -D_USE_SYSFS_ -D_USE_FASTPOLL_ -D_USE_IOBUFFERS_
+TARGET_CELL	:= cellps3ftp
 
-ifeq ($(strip $(PSL1GHT)),)
-$(error PSL1GHT is not installed/configured on this system.)
-endif
+LIBNAME		:= lib$(TARGET)
+CELLLIB		:= lib$(TARGET_CELL)
+
+OPTS		:= -D_USE_SYSFS_ -D_USE_FASTPOLL_ -D_USE_IOBUFFERS_
 
 include $(PSL1GHT)/ppu_rules
 
@@ -44,8 +44,8 @@ LDFLAGS		= -s $(MACHDEP) $(LIBPATHS) $(LIBS)
 all: $(TARGET).elf
 
 clean: 
-	rm -f $(OBJ) $(LIBNAME).a $(TARGET).zip $(TARGET).self $(TARGET).elf $(CONTENTID).pkg EBOOT.BIN PARAM.SFO
-	rm -rf $(CONTENTID) $(BUILDDIR)
+	rm -f $(OBJ) $(LIBNAME).a $(TARGET).zip $(TARGET).self $(TARGET).elf $(CONTENTID).pkg EBOOT.BIN PARAM.SFO $(CELLLIB).a $(TARGET_CELL).elf
+	rm -rf $(CONTENTID) $(BUILDDIR) objs
 
 dist: clean $(TARGET).zip
 
@@ -61,6 +61,9 @@ $(LIBNAME).a: $(OBJ:main.o=)
 	$(AR) -rc $@ $^
 	$(PREFIX)ranlib $@
 
+$(CELLLIB).a: Makefile.celllib.mk
+	$(MAKE) -f $< NAME=$(TARGET_CELL)
+
 $(TARGET).zip: $(CONTENTID).pkg
 	mkdir -p $(BUILDDIR)/npdrm $(BUILDDIR)/rex
 	cp $< $(BUILDDIR)/npdrm/
@@ -68,7 +71,11 @@ $(TARGET).zip: $(CONTENTID).pkg
 	-$(PACKAGE_FINALIZE) $(BUILDDIR)/npdrm/$<
 	zip -r9ql $(CURDIR)/$(TARGET).zip build readme.txt changelog.txt
 
+ifdef _PS3SDK_
+EBOOT.BIN: $(TARGET_CELL).elf
+else
 EBOOT.BIN: $(TARGET).elf
+endif
 	$(call MAKE_SELF_NPDRM,$<,$@,$(CONTENTID),04)
 
 $(CONTENTID).pkg: EBOOT.BIN PARAM.SFO $(ICON0)
@@ -87,6 +94,12 @@ $(TARGET).self: $(TARGET).elf
 $(TARGET).elf: main.o $(LIBNAME).a
 	$(CXX) $< $(LDFLAGS) -o $@
 	$(SPRX) $@
+
+$(TARGET_CELL).self: $(TARGET_CELL).elf
+	$(call MAKE_FSELF,$<,$@)
+
+$(TARGET_CELL).elf: Makefile.cell.mk
+	$(MAKE) -f $< NAME=$(TARGET_CELL)
 
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) $(OPTS) -c $< -o $@
