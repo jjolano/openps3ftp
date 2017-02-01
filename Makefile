@@ -41,7 +41,11 @@ LDFLAGS		= -s $(MACHDEP) $(LIBPATHS) $(LIBS)
 # Make rules
 .PHONY: all clean dist pkg lib install
 
+ifdef _PS3SDK_
+all: $(TARGET_CELL).elf
+else
 all: $(TARGET).elf
+endif
 
 clean: 
 	rm -f $(OBJ) $(LIBNAME).a $(TARGET).zip $(TARGET).self $(TARGET).elf $(CONTENTID).pkg EBOOT.BIN PARAM.SFO $(CELLLIB).a $(TARGET_CELL).elf
@@ -51,11 +55,17 @@ dist: clean $(TARGET).zip
 
 pkg: $(CONTENTID).pkg
 
+ifdef _PS3SDK_
+lib: $(CELLLIB).a
+else
 lib: $(LIBNAME).a
+endif
 
+ifndef _PS3SDK_
 install: lib
 	cp -fr $(CURDIR)/ftp $(PORTLIBS)/include/
 	cp -f $(LIBNAME).a $(PORTLIBS)/lib/
+endif
 
 $(LIBNAME).a: $(OBJ:main.o=)
 	$(AR) -rc $@ $^
