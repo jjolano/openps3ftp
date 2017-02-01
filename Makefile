@@ -74,8 +74,8 @@ endif
 all: $(TARGET).elf
 
 clean: 
-	rm -f $(OBJ) $(LIBNAME).a $(TARGET).zip $(TARGET).self $(TARGET).elf $(CONTENTID).pkg EBOOT.BIN PARAM.SFO
-	rm -rf $(CONTENTID) $(BUILDDIR) objs
+	rm -f $(OBJ) $(LIBNAME).a $(TARGET).zip $(TARGET).self $(TARGET).elf $(APPID).pkg EBOOT.BIN PARAM.SFO
+	rm -rf $(APPID) $(BUILDDIR) objs
 
 distclean:
 	$(MAKE) clean SDK=PSL1GHT
@@ -83,7 +83,11 @@ distclean:
 
 dist: clean $(TARGET).zip
 
-pkg: $(CONTENTID).pkg
+sdkdist: distclean
+	$(MAKE) dist EXTRAOPTS=$(EXTRAOPTS)
+	$(MAKE) dist SDK=CELL
+
+pkg: $(APPID).pkg
 
 lib: $(LIBNAME).a
 
@@ -110,7 +114,7 @@ $(LIBNAME).a:
 	$(MAKE) -f Makefile.cell.lib.mk NAME=$(TARGET)
 endif
 
-$(TARGET).zip: $(CONTENTID).pkg
+$(TARGET).zip: $(APPID).pkg
 	mkdir -p $(BUILDDIR)/npdrm $(BUILDDIR)/rex
 	cp $< $(BUILDDIR)/npdrm/
 	cp $< $(BUILDDIR)/rex/
@@ -120,12 +124,12 @@ $(TARGET).zip: $(CONTENTID).pkg
 EBOOT.BIN: $(TARGET).elf
 	$(call MAKE_SELF_NPDRM,$<,$@,$(CONTENTID),04)
 
-$(CONTENTID).pkg: EBOOT.BIN PARAM.SFO $(ICON0)
-	mkdir -p $(CONTENTID)/USRDIR
-	cp $(ICON0) $(CONTENTID)/
-	cp PARAM.SFO $(CONTENTID)/
-	cp EBOOT.BIN $(CONTENTID)/USRDIR/
-	$(call MAKE_PKG,$(CONTENTID)/,$@,$(CONTENTID))
+$(APPID).pkg: EBOOT.BIN PARAM.SFO $(ICON0)
+	mkdir -p $(APPID)/USRDIR
+	cp $(ICON0) $(APPID)/
+	cp PARAM.SFO $(APPID)/
+	cp EBOOT.BIN $(APPID)/USRDIR/
+	$(call MAKE_PKG,$(APPID)/,$@,$(CONTENTID))
 
 PARAM.SFO: $(SFOXML)
 	$(call MAKE_SFO,$<,$@,$(TITLE),$(APPID))
