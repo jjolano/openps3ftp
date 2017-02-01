@@ -7,7 +7,7 @@ Developers:
   to the standard PSL1GHT libraries, use make install.
 - For cellsdk, try compiling using the Makefile.cell.mk makefile. This gives
   you a static library.
-- Check <ftp/common.h> for compile-time options. Apply changes to the Makefile.
+- Check "common.h" for compile-time options. Apply changes to the Makefile.
 - The only include file needed in your app is <ftp/server.h> which exposes
   the function server_start and C struct app_status. These are designed to be
   used in a separate PPU thread. See main.cpp for example usage.

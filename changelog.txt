@@ -1,8 +1,10 @@
 [Version 4.0c]
 - Source can now be compiled as a PSL1GHT static library.
+- Source can now be compiled using the cellsdk. Untested in actual use.
 - Async IO writing can be toggled by using the custom command "AIO".
   Experimental, but may provide some sort of benefit.
 - Slightly improved transfer performance when using multiple connections.
+- Added file length limit checking to prevent crashing the server thread.
 
 [Version 4.0b - January 22, 2017]
 - Implemented libsysfs and experimental async IO writing support

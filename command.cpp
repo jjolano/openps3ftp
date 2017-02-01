@@ -239,6 +239,13 @@ void cmd_cwd(Client* client, string params)
 	}
 
 	string path = get_absolute_path(get_working_directory(client), params);
+
+	// check path length
+	if(path.size() > MAX_PATH_LEN)
+	{
+		client->send_code(550, "Cannot access the specified directory. Path length exceeded.");
+		return;
+	}
 	
 	// check if directory exists
 	sysFSStat stat;
@@ -279,6 +286,13 @@ void cmd_mkd(Client* client, string params)
 	}
 
 	string path = get_absolute_path(get_working_directory(client), params);
+	
+	// check path length
+	if(path.size() > MAX_PATH_LEN)
+	{
+		client->send_code(550, "Cannot access the specified directory. Path length exceeded.");
+		return;
+	}
 
 	if(sysLv2FsMkdir(path.c_str(), (S_IFMT|0777)) == 0)
 	{
@@ -305,6 +319,13 @@ void cmd_rmd(Client* client, string params)
 	}
 	
 	string path = get_absolute_path(get_working_directory(client), params);
+
+	// check path length
+	if(path.size() > MAX_PATH_LEN)
+	{
+		client->send_code(550, "Cannot access the specified directory. Path length exceeded.");
+		return;
+	}
 
 	if(sysLv2FsRmdir(path.c_str()) == 0)
 	{
@@ -857,6 +878,13 @@ void cmd_stor(Client* client, string params)
 
 	string path = get_absolute_path(get_working_directory(client), params);
 
+	// check path length
+	if(path.size() > MAX_PATH_LEN || params.size() > MAX_FNAME_LEN)
+	{
+		client->send_code(550, "Path length exceeded.");
+		return;
+	}
+
 	u32 oflags = SYS_O_WRONLY;
 
 	if(!file_exists(path))
@@ -933,6 +961,13 @@ void cmd_appe(Client* client, string params)
 	}
 
 	string path = get_absolute_path(get_working_directory(client), params);
+
+	// check path length
+	if(path.size() > MAX_PATH_LEN || params.size() > MAX_FNAME_LEN)
+	{
+		client->send_code(550, "Path length exceeded.");
+		return;
+	}
 
 	if(!file_exists(path))
 	{
@@ -1041,6 +1076,13 @@ void cmd_retr(Client* client, string params)
 	}
 
 	string path = get_absolute_path(get_working_directory(client), params);
+
+	// check path length
+	if(path.size() > MAX_PATH_LEN || params.size() > MAX_FNAME_LEN)
+	{
+		client->send_code(550, "Path length exceeded.");
+		return;
+	}
 
 	if(!file_exists(path))
 	{
@@ -1173,6 +1215,13 @@ void cmd_dele(Client* client, string params)
 
 	string path = get_absolute_path(get_working_directory(client), params);
 
+	// check path length
+	if(path.size() > MAX_PATH_LEN || params.size() > MAX_FNAME_LEN)
+	{
+		client->send_code(550, "Path length exceeded.");
+		return;
+	}
+
 	if(sysLv2FsUnlink(path.c_str()) == 0)
 	{
 		client->send_code(250, "File successfully removed");
@@ -1198,6 +1247,13 @@ void cmd_rnfr(Client* client, string params)
 	}
 
 	string path = get_absolute_path(get_working_directory(client), params);
+
+	// check path length
+	if(path.size() > MAX_PATH_LEN || params.size() > MAX_FNAME_LEN)
+	{
+		client->send_code(550, "Path length exceeded.");
+		return;
+	}
 
 	if(file_exists(path))
 	{
@@ -1231,6 +1287,13 @@ void cmd_rnto(Client* client, string params)
 	}
 
 	string path = get_absolute_path(get_working_directory(client), params);
+
+	// check path length
+	if(path.size() > MAX_PATH_LEN || params.size() > MAX_FNAME_LEN)
+	{
+		client->send_code(550, "Path length exceeded.");
+		return;
+	}
 
 	if(sysLv2FsRename(client->cvar_rnfr.c_str(), path.c_str()) == 0)
 	{
@@ -1293,6 +1356,13 @@ void cmd_site(Client* client, string params)
 
 		string path = get_absolute_path(get_working_directory(client), filename);
 
+		// check path length
+		if(path.size() > MAX_PATH_LEN || params.size() > MAX_FNAME_LEN)
+		{
+			client->send_code(550, "Path length exceeded.");
+			return;
+		}
+
 		if(sysLv2FsChmod(path.c_str(), (S_IFMT|atoi(chmod.c_str()))) == 0)
 		{
 			client->send_code(200, "Permissions changed.");
@@ -1319,6 +1389,13 @@ void cmd_size(Client* client, string params)
 	}
 
 	string path = get_absolute_path(get_working_directory(client), params);
+
+	// check path length
+	if(path.size() > MAX_PATH_LEN || params.size() > MAX_FNAME_LEN)
+	{
+		client->send_code(550, "Path length exceeded.");
+		return;
+	}
 
 	sysFSStat stat;
 	if(sysLv2FsStat(path.c_str(), &stat) == 0)
@@ -1349,6 +1426,13 @@ void cmd_mdtm(Client* client, string params)
 	}
 
 	string path = get_absolute_path(get_working_directory(client), params);
+
+	// check path length
+	if(path.size() > MAX_PATH_LEN || params.size() > MAX_FNAME_LEN)
+	{
+		client->send_code(550, "Path length exceeded.");
+		return;
+	}
 
 	sysFSStat stat;
 	if(sysLv2FsStat(path.c_str(), &stat) == 0)

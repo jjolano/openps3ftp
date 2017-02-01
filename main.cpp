@@ -8,7 +8,7 @@
 #include <NoRSX.h>
 #include <NoRSX/NoRSXutil.h>
 
-#include "ftp/common.h"
+#include "common.h"
 #include "ftp/server.h"
 
 #define MOUNT_POINT	"/dev_blind"
