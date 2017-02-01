@@ -81,7 +81,7 @@ distclean:
 	$(MAKE) clean SDK=PSL1GHT
 	$(MAKE) clean SDK=CELL
 
-dist: distclean $(TARGET).zip
+dist: clean $(TARGET).zip
 
 pkg: $(CONTENTID).pkg
 
