@@ -517,8 +517,8 @@ int data_list(Client* client)
 	strftime(tstr, 13, "%b %e %H:%M", localtime(&stat.st_mtime));
 
 	ssize_t len = sprintf(client->buffer_data,
-		"%s %3d %-8d %-8d %10lu %s %s\r\n",
-		permissions, 1, 0, 0, stat.st_size, tstr, dirent.d_name);
+		"%s %3d %-10d %-10d %10lu %s %s\r\n",
+		permissions, 1, stat.st_uid, stat.st_gid, stat.st_size, tstr, dirent.d_name);
 	
 	ssize_t written = send(client->socket_data, client->buffer_data, (size_t)len, 0);
 
