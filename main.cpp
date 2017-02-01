@@ -19,6 +19,7 @@ using namespace std;
 void load_sysmodules(void)
 {
 	sysModuleLoad(SYSMODULE_FS);
+	sysModuleLoad(SYSMODULE_SYSUTIL);
 	netInitialize();
 	netCtlInit();
 }
@@ -27,6 +28,7 @@ void unload_sysmodules(void)
 {
 	netCtlTerm();
 	netDeinitialize();
+	sysModuleUnload(SYSMODULE_SYSUTIL);
 	sysModuleUnload(SYSMODULE_FS);
 }
 
