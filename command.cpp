@@ -1508,8 +1508,9 @@ void cmd_mdtm(Client* client, string params)
 	sysFSStat stat;
 	if(sysLv2FsStat(path.c_str(), &stat) == 0)
 	{
-		char tstr[15];
+		char tstr[16];
 		strftime(tstr, 14, "%Y%m%d%H%M%S", localtime(&stat.st_mtime));
+		tstr[15] = '\0';
 
 		client->send_code(213, tstr);
 	}

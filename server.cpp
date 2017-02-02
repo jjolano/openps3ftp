@@ -39,7 +39,7 @@ int fast_poll(pollfd* fds, nfds_t nfds, int timeout)
 }
 #endif
 
-void clean_tmp(void)
+int clean_tmp(void)
 {
 	s32 fd_dir;
 	if(sysLv2FsOpenDir(TMP_DIR, &fd_dir) == 0)
@@ -49,6 +49,12 @@ void clean_tmp(void)
 
 		while(sysLv2FsReadDir(fd_dir, &dirent, &read) == 0 && read != 0)
 		{
+			if(strcmp(dirent.d_name, ".") == 0
+			|| strcmp(dirent.d_name, "..") == 0)
+			{
+				continue;
+			}
+
 			// delete files
 			stringstream filename;
 			filename << TMP_DIR;
@@ -58,7 +64,10 @@ void clean_tmp(void)
 		}
 
 		sysLv2FsCloseDir(fd_dir);
+		return 0;
 	}
+
+	return 1;
 }
 
 void server_start(void* arg)
@@ -80,7 +89,7 @@ void server_start(void* arg)
 	bool aio_toggle = false;
 	string tmp_dir = "";
 
-	if(sysLv2FsMkdir(TMP_DIR, (S_IFMT|0777)) == 0)
+	if(clean_tmp() == 0 || sysLv2FsMkdir(TMP_DIR, (S_IFMT|0777)) == 0)
 	{
 		tmp_dir = TMP_DIR;
 	}
@@ -180,6 +189,8 @@ void server_start(void* arg)
 					// set default variables
 					client->cvar_use_aio = aio_toggle;
 					client->cvar_fd_tempdir = tmp_dir;
+					client->buffer = new (nothrow) char[CMD_BUFFER];
+					client->buffer_data = new (nothrow) char[DATA_BUFFER];
 					
 					int optval = CMD_BUFFER;
 					setsockopt(client_new, SOL_SOCKET, SO_RCVBUF, &optval, sizeof(optval));
@@ -197,7 +208,7 @@ void server_start(void* arg)
 					// hello!
 					client->send_multicode(220, WELCOME_MSG);
 					client->send_code(220, "Ready.");
-					continue;
+					break;
 				}
 				else
 				{

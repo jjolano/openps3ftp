@@ -8,18 +8,21 @@
 #include <NoRSX.h>
 #include <NoRSX/NoRSXutil.h>
 
-#include "common.h"
+#include "const.h"
 #include "ftp/server.h"
 
 #define MOUNT_POINT	"/dev_blind"
-#define MSG_OK		(msgType)(MSG_DIALOG_NORMAL|MSG_DIALOG_BTN_TYPE_OK|MSG_DIALOG_DISABLE_CANCEL_ON)
 
 using namespace std;
 
 void load_sysmodules(void)
 {
 	sysModuleLoad(SYSMODULE_FS);
+	sysModuleLoad(SYSMODULE_NET);
+	sysModuleLoad(SYSMODULE_NETCTL);
 	sysModuleLoad(SYSMODULE_SYSUTIL);
+	sysModuleLoad(SYSMODULE_FREETYPE_TT);
+	
 	netInitialize();
 	netCtlInit();
 }
@@ -28,7 +31,11 @@ void unload_sysmodules(void)
 {
 	netCtlTerm();
 	netDeinitialize();
+
+	sysModuleUnload(SYSMODULE_FREETYPE_TT);
 	sysModuleUnload(SYSMODULE_SYSUTIL);
+	sysModuleUnload(SYSMODULE_NETCTL);
+	sysModuleUnload(SYSMODULE_NET);
 	sysModuleUnload(SYSMODULE_FS);
 }
 
@@ -83,6 +90,9 @@ int main(void)
 		return -2;
 	}
 
+	Background bg(gfx);
+	Font text(LATIN2, gfx);
+
 	// netctl variables
 	s32 netctl_state;
 	net_ctl_info netctl_info;
@@ -115,30 +125,25 @@ int main(void)
 	// Create the server thread.
 	app_status status;
 	status.is_running = 1;
+	status.num_clients = 0;
+	status.num_connections = 0;
 
 	sys_ppu_thread_t server_tid;
-	sysThreadCreate(&server_tid, server_start, (void*)&status, 1000, 0x10000, THREAD_JOINABLE, (char*)"ftpd");
+	sysThreadCreate(&server_tid, server_start, (void*)&status, 1000, 0x100000, THREAD_JOINABLE, (char*)"ftpd");
 
 	// Start application loop.
-	gfx->AppStart();
-	msgDialogOpen2(MSG_OK, netctl_info.ip_address, dialog_callback, (void*)&status, NULL);
-
-	int buffer;
-	buffer = 0;
-
-	while(gfx->GetAppStatus() && status.is_running)
+	while(!gfx->ExitSignalStatus() && status.is_running)
 	{
-		flip(gfx->context, buffer);
+		bg.Mono(COLOR_BLACK);
+		text.Printf(100, 100, COLOR_WHITE, "OpenPS3FTP " APP_VERSION);
+		text.Printf(100, 150, COLOR_WHITE, "IP Address: %s", netctl_info.ip_address);
+		text.Printf(100, 200, COLOR_WHITE, "Clients: %d", status.num_clients);
+		text.Printf(100, 250, COLOR_WHITE, "Connections: %d", status.num_connections);
 
-		sysUtilCheckCallback();
-		buffer = !buffer;
-		
-		waitFlip();
+		gfx->Flip();
 	}
 
 	// Join server thread and wait for exit...
-	gfx->AppExit();
-	msgDialogAbort();
 	status.is_running = 0;
 
 	u64 thread_exit;

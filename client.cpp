@@ -2,7 +2,6 @@
 #include <sstream>
 #include <vector>
 #include <map>
-#include <new>
 #include <cstdio>
 
 #include <netdb.h>
@@ -51,6 +50,7 @@ Client::Client(int client, vector<pollfd>* pfds, map<int, Client*>* clnts, map<i
 	cvar_rest = 0;
 	cvar_fd = -1;
 	cvar_use_aio = false;
+	cvar_aio_id = -1;
 }
 
 Client::~Client(void)

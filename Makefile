@@ -52,14 +52,15 @@ ifeq ($(SDK),PSL1GHT)
 
 # Libraries
 LIBPATHS	:= -L. -L$(PORTLIBS)/lib $(LIBPSL1GHT_LIB)
-LIBS		:= -l$(TARGET) -lNoRSX -lfreetype -lgcm_sys -lrsx -lnetctl -lnet -lsysutil -lsysmodule -lrt -lsysfs -llv2 -lm -lz
+LIBS		:= -l$(TARGET) -lNoRSX -lfreetype -lpixman-1 -lgcm_sys -lrsx -lnetctl -lnet -lsysutil -lsysmodule -lrt -lsysfs -llv2 -lm -lz
 
 # Includes
 INCLUDE		:= -I. -I$(CURDIR)/ftp -I$(PORTLIBS)/include/freetype2 -I$(PORTLIBS)/include $(LIBPSL1GHT_INC)
 
 # Source Files
-SRC			:= client.cpp command.cpp server.cpp util.cpp main.cpp
+SRC			:= client.cpp command.cpp server.cpp util.cpp main.cpp rsxutil.cpp
 OBJ			:= $(SRC:.cpp=.o)
+LIBOBJ		:= $(filter-out main.o rsxutil.o, $(OBJ))
 
 # Define compilation options
 CXXFLAGS	= -O2 -g -mregnames -Wall -mcpu=cell $(MACHDEP) $(INCLUDE)
@@ -103,7 +104,7 @@ install: lib
 endif
 
 ifeq ($(SDK),PSL1GHT)
-$(LIBNAME).a: $(OBJ:main.o=)
+$(LIBNAME).a: $(LIBOBJ)
 	$(AR) -rc $@ $^
 	$(PREFIX)ranlib $@
 endif

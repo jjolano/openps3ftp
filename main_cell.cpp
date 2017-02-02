@@ -348,6 +348,8 @@ int userMain(void)
 
 	app_status status;
 	status.is_running = 1;
+	status.num_clients = 0;
+	status.num_connections = 0;
 
 	ret = cellSysutilRegisterCallback(0, sysutil_exit_callback, (void*)&status);  
 
@@ -417,6 +419,8 @@ int userMain(void)
 	}
 
 	status.is_running = 0;
+	status.num_clients = 0;
+	status.num_connections = 0;
 
 	// Join server thread and wait for exit...
 	uint64_t thread_exit;
