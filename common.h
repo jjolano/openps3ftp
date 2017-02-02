@@ -71,6 +71,7 @@ typedef int32_t s32;
 #define sysLv2FsChmod					cellFsChmod
 #define sysLv2FsRename					cellFsRename
 #define sysFsAioWrite					cellFsAioWrite
+#define sysFsGetFreeSize				cellFsGetFreeSize
 
 #define sysThreadExit					sys_ppu_thread_exit
 

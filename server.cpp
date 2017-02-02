@@ -7,6 +7,7 @@
 #include <netdb.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 
 #ifndef _PS3SDK_
 #include <net/net.h>
@@ -71,10 +72,6 @@ void server_start(void* arg)
 	map<int, Client*> clients_data;
 	map<string, cmdfunc> commands;
 	bool aio_toggle = false;
-
-	#if defined(_USE_IOBUFFERS_) || defined(_PS3SDK_)
-	bool should_clean = false;
-	#endif
 
 	// Register server commands.
 	register_cmds(&commands);
@@ -172,9 +169,14 @@ void server_start(void* arg)
 					client->cvar_use_aio = aio_toggle;
 
 					#if defined(_USE_IOBUFFERS_) || defined(_PS3SDK_)
-					client->cvar_fd_tempdir = sys_cache_mount_param.getCachePath;
-					#else
-					client->cvar_fd_tempdir = NULL;
+					stringstream cachedir;
+					cachedir << sys_cache_mount_param.getCachePath;
+					cachedir << '/' << client_new;
+
+					if(sysLv2FsMkdir(cachedir.str().c_str(), (S_IFMT|0777)) == 0)
+					{
+						client->cvar_fd_tempdir = cachedir.str();
+					}
 					#endif
 
 					// assign socket to internal client
@@ -213,10 +215,6 @@ void server_start(void* arg)
 						if(pfd.revents & (POLLOUT|POLLWRNORM|POLLIN|POLLRDNORM))
 						{
 							client->handle_data();
-
-							#if defined(_USE_IOBUFFERS_) || defined(_PS3SDK_)
-							should_clean = true;
-							#endif
 						}
 
 						continue;
@@ -364,16 +362,12 @@ void server_start(void* arg)
 		// update status
 		status->num_clients = clients.size();
 		status->num_connections = pollfds.size();
-
-		#if defined(_USE_IOBUFFERS_) || defined(_PS3SDK_)
-		// Cleanup system cache when there are no data connections.
-		if(should_clean && clients_data.empty())
-		{
-			cellSysCacheClear();
-			should_clean = false;
-		}
-		#endif
 	}
+
+	#if defined(_USE_IOBUFFERS_) || defined(_PS3SDK_)
+	// Clear cache.
+	cellSysCacheClear();
+	#endif
 
 	// Close sockets.
 	for(map<int, Client*>::iterator client_it = clients.begin(); client_it != clients.end(); client_it++)

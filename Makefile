@@ -115,10 +115,10 @@ $(LIBNAME).a:
 endif
 
 $(TARGET).zip: $(APPID).pkg
-	mkdir -p $(BUILDDIR)/npdrm $(BUILDDIR)/rex
-	cp $< $(BUILDDIR)/npdrm/
+	mkdir -p $(BUILDDIR)/cex $(BUILDDIR)/rex
+	cp $< $(BUILDDIR)/cex/
 	cp $< $(BUILDDIR)/rex/
-	-$(PACKAGE_FINALIZE) $(BUILDDIR)/npdrm/$<
+	-$(PACKAGE_FINALIZE) $(BUILDDIR)/cex/$<
 	zip -r9ql $(CURDIR)/$(TARGET).zip build readme.txt changelog.txt
 
 EBOOT.BIN: $(TARGET).elf

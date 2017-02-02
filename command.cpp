@@ -778,6 +778,7 @@ int data_stor(Client* client)
 			{
 				client->send_code(452, "Failed to write data to file");
 				sysLv2FsClose(client->cvar_fd);
+				
 				return -1;
 			}
 
@@ -785,12 +786,49 @@ int data_stor(Client* client)
 		}
 	}
 
+	stringstream from;
+	stringstream to;
+	
+	if(!client->cvar_fd_tempdir.empty())
+	{
+		from << client->cvar_fd_tempdir;
+		from << '/' << client->cvar_fd_filename;
+
+		to << client->cvar_fd_movedir;
+		to << '/' << client->cvar_fd_filename;
+
+		// check if we have enough space in cache
+		// otherwise move the file and reopen on disk
+		u32 temp_blocksize;
+		u64 temp_freeblocks;
+
+		if(file_exists(from.str())
+		&& sysFsGetFreeSize(client->cvar_fd_tempdir.c_str(), &temp_blocksize, &temp_freeblocks) == 0
+		&& temp_freeblocks == 0)
+		{
+			sysLv2FsClose(client->cvar_fd);
+		
+			if(sysLv2FsRename(from.str().c_str(), to.str().c_str()) == -1
+			|| sysLv2FsOpen(to.str().c_str(), SYS_O_WRONLY|SYS_O_APPEND, &client->cvar_fd, (S_IFMT|0777), NULL, 0) == -1)
+			{
+				client->send_code(452, "Failed to write cache data.");
+				return -1;
+			}
+		}
+	}
+
 	ssize_t read = recv(client->socket_data, client->buffer_data, DATA_BUFFER - 1, 0);
 
 	if(read == -1)
 	{
-		client->send_code(451, "Error in data transmission");
 		sysLv2FsClose(client->cvar_fd);
+
+		if(!client->cvar_fd_tempdir.empty())
+		{
+			sysLv2FsUnlink(from.str().c_str());
+		}
+		
+		client->send_code(451, "Error in data transmission");
 		return -1;
 	}
 
@@ -824,25 +862,26 @@ int data_stor(Client* client)
 			
 			if(status != CELL_FS_SUCCEEDED)
 			{
-				client->send_code(452, "Failed to write data to file");
 				sysLv2FsClose(client->cvar_fd);
+				
+				if(!client->cvar_fd_tempdir.empty())
+				{
+					sysLv2FsUnlink(from.str().c_str());
+				}
+
+				client->send_code(452, "Failed to write data to file");
 				return -1;
 			}
 
 			if(read == 0)
 			{
 				// move file to destination
-				stringstream from;
-				stringstream to;
-
-				from << client->cvar_fd_tempdir;
-				from << '/' << client->socket_ctrl;
-
-				to << client->cvar_fd_movedir;
-				to << '/' << client->cvar_fd_filename;
-
 				sysLv2FsClose(client->cvar_fd);
-				sysLv2FsRename(from.str().c_str(), to.str().c_str());
+
+				if(!client->cvar_fd_tempdir.empty())
+				{
+					sysLv2FsRename(from.str().c_str(), to.str().c_str());
+				}
 
 				client->send_code(226, "Transfer complete");
 				return 1;
@@ -856,25 +895,26 @@ int data_stor(Client* client)
 		if(sysLv2FsWrite(client->cvar_fd, client->buffer_data, (u64)read, &written) == -1
 		|| written < (u64)read)
 		{
-			client->send_code(452, "Failed to write data to file");
 			sysLv2FsClose(client->cvar_fd);
+
+			if(!client->cvar_fd_tempdir.empty())
+			{
+				sysLv2FsUnlink(from.str().c_str());
+			}
+
+			client->send_code(452, "Failed to write data to file");
 			return -1;
 		}
 
 		if(written == 0)
 		{
 			// move file to destination
-			stringstream from;
-			stringstream to;
-
-			from << client->cvar_fd_tempdir;
-			from << '/' << client->socket_ctrl;
-
-			to << client->cvar_fd_movedir;
-			to << '/' << client->cvar_fd_filename;
-
 			sysLv2FsClose(client->cvar_fd);
-			sysLv2FsRename(from.str().c_str(), to.str().c_str());
+
+			if(!client->cvar_fd_tempdir.empty())
+			{
+				sysLv2FsRename(from.str().c_str(), to.str().c_str());
+			}
 
 			client->send_code(226, "Transfer complete");
 			return 1;
@@ -919,25 +959,25 @@ void cmd_stor(Client* client, string params)
 
 	if(!file_exists(path))
 	{
-		#if defined(_USE_IOBUFFERS_) || defined(_PS3SDK_)
-		stringstream sc;
-		sc << client->socket_ctrl;
-
-		temppath = get_absolute_path(client->cvar_fd_tempdir, sc.str());
-		client->cvar_fd_movedir = get_working_directory(client);
-		client->cvar_fd_filename = params;
-
-		if(file_exists(temppath))
+		if(!client->cvar_fd_tempdir.empty())
 		{
-			oflags |= SYS_O_TRUNC;
+			temppath = get_absolute_path(client->cvar_fd_tempdir, params);
+			client->cvar_fd_movedir = get_working_directory(client);
+			client->cvar_fd_filename = params;
+
+			if(file_exists(temppath))
+			{
+				oflags |= SYS_O_TRUNC;
+			}
+			else
+			{
+				oflags |= SYS_O_CREAT;
+			}
 		}
 		else
 		{
 			oflags |= SYS_O_CREAT;
 		}
-		#else
-		oflags |= SYS_O_CREAT;
-		#endif
 	}
 	else if(client->cvar_rest == 0)
 	{
