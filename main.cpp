@@ -132,7 +132,8 @@ int main(void)
 	sysThreadCreate(&server_tid, server_start, (void*)&status, 1000, 0x100000, THREAD_JOINABLE, (char*)"ftpd");
 
 	// Start application loop.
-	while(!gfx->ExitSignalStatus() && status.is_running)
+	gfx->AppStart();
+	while(gfx->GetAppStatus() && status.is_running)
 	{
 		bg.Mono(COLOR_BLACK);
 		text.Printf(100, 100, COLOR_WHITE, "OpenPS3FTP " APP_VERSION);

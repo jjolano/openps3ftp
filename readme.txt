@@ -10,6 +10,8 @@ Developers:
 - The only include file needed in your app is <ftp/server.h> which exposes
   the function server_start and C struct app_status. These are designed to be
   used in a separate PPU thread. See main.cpp for example usage.
+- This uses an older commit of NoRSX, since the supposed performance patch
+  the latest commit brings actually made things slower. A lot slower.
 
 Users:
 - For best results, use 2 simultaneous connections at a time. The console
