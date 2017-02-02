@@ -86,8 +86,8 @@ void server_start(void* arg)
 	map<int, Client*> clients;
 	map<int, Client*> clients_data;
 	map<string, cmdfunc> commands;
-	bool aio_toggle = false;
-	string tmp_dir = "";
+	bool aio_toggle = true;
+	string tmp_dir;
 
 	if(clean_tmp() == 0 || sysLv2FsMkdir(TMP_DIR, (S_IFMT|0777)) == 0)
 	{

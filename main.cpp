@@ -63,15 +63,6 @@ LV2_SYSCALL sysLv2FsUnmount(const char* path)
 }
 #endif
 
-void dialog_callback(msgButton button, void* usrData)
-{
-	if(button == MSG_DIALOG_BTN_OK)
-	{
-		app_status* status = (app_status*)usrData;
-		status->is_running = 0;
-	}
-}
-
 int main(void)
 {
 	// Initialize required sysmodules.
@@ -162,13 +153,13 @@ int main(void)
 
 			if(last_num_clients != status.num_clients)
 			{
-				flipped = 0;
+				flipped = -2;
 				last_num_clients = status.num_clients;
 			}
 
 			if(last_num_connections != status.num_connections)
 			{
-				flipped = 0;
+				flipped = -2;
 				last_num_connections = status.num_connections;
 			}
 

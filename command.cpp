@@ -801,7 +801,7 @@ int data_stor(Client* client)
 	stringstream from;
 	stringstream to;
 	
-	if(!client->cvar_fd_tempdir.empty())
+	if(client->cvar_fd_usetemp)
 	{
 		from << client->cvar_fd_tempdir;
 		from << '/' << client->socket_ctrl;
@@ -816,7 +816,7 @@ int data_stor(Client* client)
 	{
 		sysLv2FsClose(client->cvar_fd);
 
-		if(!client->cvar_fd_tempdir.empty())
+		if(client->cvar_fd_usetemp)
 		{
 			sysLv2FsUnlink(from.str().c_str());
 		}
@@ -857,7 +857,7 @@ int data_stor(Client* client)
 			{
 				sysLv2FsClose(client->cvar_fd);
 				
-				if(!client->cvar_fd_tempdir.empty())
+				if(client->cvar_fd_usetemp)
 				{
 					sysLv2FsUnlink(from.str().c_str());
 				}
@@ -871,7 +871,7 @@ int data_stor(Client* client)
 				// move file to destination
 				sysLv2FsClose(client->cvar_fd);
 
-				if(!client->cvar_fd_tempdir.empty())
+				if(client->cvar_fd_usetemp)
 				{
 					if(sysLv2FsRename(from.str().c_str(), to.str().c_str()) != 0)
 					{
@@ -895,7 +895,7 @@ int data_stor(Client* client)
 		{
 			sysLv2FsClose(client->cvar_fd);
 
-			if(!client->cvar_fd_tempdir.empty())
+			if(client->cvar_fd_usetemp)
 			{
 				sysLv2FsUnlink(from.str().c_str());
 			}
@@ -909,7 +909,7 @@ int data_stor(Client* client)
 			// move file to destination
 			sysLv2FsClose(client->cvar_fd);
 
-			if(!client->cvar_fd_tempdir.empty())
+			if(client->cvar_fd_usetemp)
 			{
 				if(sysLv2FsRename(from.str().c_str(), to.str().c_str()) != 0)
 				{
@@ -983,10 +983,13 @@ void cmd_stor(Client* client, string params)
 			{
 				oflags |= SYS_O_CREAT;
 			}
+
+			client->cvar_fd_usetemp = true;
 		}
 		else
 		{
 			oflags |= SYS_O_CREAT;
+			client->cvar_fd_usetemp = false;
 		}
 	}
 	else if(client->cvar_rest == 0)

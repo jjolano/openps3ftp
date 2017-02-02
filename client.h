@@ -43,6 +43,7 @@ public:
 	string cvar_fd_tempdir;
 	string cvar_fd_movedir;
 	string cvar_fd_filename;
+	bool cvar_fd_usetemp;
 	bool cvar_use_aio;
 	sysFSAio cvar_aio;
 	s32 cvar_aio_id;
