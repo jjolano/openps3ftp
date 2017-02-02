@@ -1,6 +1,6 @@
 #pragma once
 
-#define APP_VERSION     "4.0c"
+#define APP_VERSION     "4.1"
 #define WELCOME_MSG		"Welcome to OpenPS3FTP v" APP_VERSION "!"
 
 #define TMP_DIR			"/dev_hdd0/tmp/ftp"

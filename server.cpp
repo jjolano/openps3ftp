@@ -319,32 +319,6 @@ void server_start(void* arg)
 								break;
 							}
 
-							if(cmd == "SYS_SHUTDOWN")
-							{
-								client->send_code(221, "Shutting down...");
-
-								// syscall shutdown
-								{
-									lv2syscall4(379, 0x1100, 0, 0, 0);
-								}
-
-								status->is_running = 0;
-								break;
-							}
-
-							if(cmd == "SYS_RESTART")
-							{
-								client->send_code(221, "Restarting...");
-
-								// syscall restart
-								{
-									lv2syscall4(379, 0x1200, 0, 0, 0);
-								}
-
-								status->is_running = 0;
-								break;
-							}
-
 							if(cmd == "AIO")
 							{
 								aio_toggle = !aio_toggle;

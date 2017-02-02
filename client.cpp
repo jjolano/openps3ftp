@@ -49,7 +49,8 @@ Client::Client(int client, vector<pollfd>* pfds, map<int, Client*>* clnts, map<i
 	cvar_auth = false;
 	cvar_rest = 0;
 	cvar_fd = -1;
-	cvar_use_aio = false;
+	cvar_aio.fd = -1;
+	cvar_use_aio = true;
 	cvar_aio_id = -1;
 }
 
@@ -208,4 +209,5 @@ void Client::data_end(void)
 
 	// cvars
 	cvar_fd = -1;
+	cvar_aio.fd = -1;
 }

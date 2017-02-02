@@ -520,9 +520,16 @@ int data_list(Client* client)
 	{
 		permissions[0] = 'l';
 	}
-	else
+	else if(S_ISREG(stat.st_mode))
 	{
 		permissions[0] = '-';
+	}
+	else
+	{
+		permissions[0] = '?';
+
+		// probably invalid, so skip it
+		return 0;
 	}
 
 	permissions[1] = ((stat.st_mode & S_IRUSR) ? 'r' : '-');
@@ -536,12 +543,12 @@ int data_list(Client* client)
 	permissions[9] = ((stat.st_mode & S_IXOTH) ? 'x' : '-');
 	permissions[10] = '\0';
 
-	char tstr[14];
-	strftime(tstr, 13, "%b %e %H:%M", localtime(&stat.st_mtime));
+	char tstr[16];
+	strftime(tstr, 15, "%b %e %H:%M", localtime(&stat.st_mtime));
 
 	ssize_t len = sprintf(client->buffer_data,
 		"%s %3d %-10d %-10d %10lu %s %s\r\n",
-		permissions, 1, 0, 0, stat.st_size, tstr, dirent.d_name);
+		permissions, 1, stat.st_uid, stat.st_gid, stat.st_size, tstr, dirent.d_name);
 	
 	ssize_t written = send(client->socket_data, client->buffer_data, (size_t)len, 0);
 
@@ -738,7 +745,7 @@ int data_stor(Client* client)
 		return -1;
 	}
 
-	if(client->cvar_use_aio)
+	if(client->cvar_aio.fd != -1)
 	{
 		#ifdef _PS3SDK_
 		if(client->cvar_aio.user_data == AIO_ACTIVE)
@@ -815,7 +822,7 @@ int data_stor(Client* client)
 
 	client->buffer_data[read] = '\0';
 
-	if(client->cvar_use_aio)
+	if(client->cvar_aio.fd != -1)
 	{
 		#ifdef _PS3SDK_
 		if(client->cvar_aio.user_data == AIO_READY)
@@ -945,12 +952,16 @@ void cmd_stor(Client* client, string params)
 	}
 
 	string temppath(path);
+	string hddpath("/dev_hdd0");
+
+	// enable special things only for hdd
+	bool is_hdd = (path.compare(0, hddpath.size(), hddpath) == 0);
 
 	u32 oflags = SYS_O_WRONLY;
 
 	if(!file_exists(path))
 	{
-		if(!client->cvar_fd_tempdir.empty())
+		if(is_hdd && !client->cvar_fd_tempdir.empty())
 		{
 			stringstream sc;
 			sc << client->socket_ctrl;
@@ -1004,86 +1015,22 @@ void cmd_stor(Client* client, string params)
 
 		if(client->cvar_use_aio)
 		{
-			client->cvar_aio.fd = fd;
-			client->cvar_aio.offset = 0;
-			#ifdef _PS3SDK_
-			client->cvar_aio.buf = (void*)client->buffer_data;
-			client->cvar_aio.user_data = AIO_READY;
-			#else
-			client->cvar_aio.buffer_addr = (intptr_t)client->buffer_data;
-			client->cvar_aio.usrdata = AIO_READY;
-			#endif
-		}
-	}
-	else
-	{
-		sysLv2FsClose(fd);
-		client->send_code(425, "Cannot open data connection");
-	}
-}
-
-void cmd_appe(Client* client, string params)
-{
-	if(!client->cvar_auth)
-	{
-		client->send_code(530, "Not logged in");
-		return;
-	}
-	
-	if(client->cvar_fd != -1)
-	{
-		client->send_code(450, "Transfer already in progress");
-		return;
-	}
-
-	if(params.empty())
-	{
-		client->send_code(501, "No filename specified");
-		return;
-	}
-
-	string path = get_absolute_path(get_working_directory(client), params);
-
-	// check path length
-	if(path.size() > MAX_PATH_LEN || params.size() > MAX_FNAME_LEN)
-	{
-		client->send_code(550, "Path length exceeded.");
-		return;
-	}
-
-	if(!file_exists(path))
-	{
-		client->send_code(550, "File does not exist for appending");
-		return;
-	}
-
-	s32 fd;
-	if(sysLv2FsOpen(path.c_str(), SYS_O_WRONLY|SYS_O_APPEND, &fd, (S_IFMT|0777), NULL, 0) != 0)
-	{
-		client->send_code(550, "Cannot access file");
-		return;
-	}
-
-	if(client->data_start(data_stor, POLLIN|POLLRDNORM) != -1)
-	{
-		#if defined(_USE_IOBUFFERS_) || defined(_PS3SDK_)
-		sysFsSetIoBufferFromDefaultContainer(fd, DATA_BUFFER, SYS_FS_IO_BUFFER_PAGE_SIZE_64KB);
-		#endif
-		
-		client->cvar_fd = fd;
-		client->send_code(150, "Accepted data connection");
-
-		if(client->cvar_use_aio)
-		{
-			client->cvar_aio.fd = fd;
-			client->cvar_aio.offset = 0;
-			#ifdef _PS3SDK_
-			client->cvar_aio.buf = (void*)client->buffer_data;
-			client->cvar_aio.user_data = AIO_READY;
-			#else
-			client->cvar_aio.buffer_addr = (intptr_t)client->buffer_data;
-			client->cvar_aio.usrdata = AIO_READY;
-			#endif
+			if(is_hdd)
+			{
+				client->cvar_aio.fd = fd;
+				client->cvar_aio.offset = 0;
+				#ifdef _PS3SDK_
+				client->cvar_aio.buf = (void*)client->buffer_data;
+				client->cvar_aio.user_data = AIO_READY;
+				#else
+				client->cvar_aio.buffer_addr = (intptr_t)client->buffer_data;
+				client->cvar_aio.usrdata = AIO_READY;
+				#endif
+			}
+			else
+			{
+				client->cvar_aio.fd = -1;
+			}
 		}
 	}
 	else
@@ -1509,8 +1456,7 @@ void cmd_mdtm(Client* client, string params)
 	if(sysLv2FsStat(path.c_str(), &stat) == 0)
 	{
 		char tstr[16];
-		strftime(tstr, 14, "%Y%m%d%H%M%S", localtime(&stat.st_mtime));
-		tstr[15] = '\0';
+		strftime(tstr, 15, "%Y%m%d%H%M%S", localtime(&stat.st_mtime));
 
 		client->send_code(213, tstr);
 	}
@@ -1545,7 +1491,6 @@ void register_cmds(map<string, cmdfunc>* cmd_handlers)
 	register_cmd(cmd_handlers, "LIST", cmd_list);
 	register_cmd(cmd_handlers, "NLST", cmd_nlst);
 	register_cmd(cmd_handlers, "STOR", cmd_stor);
-	register_cmd(cmd_handlers, "APPE", cmd_stor);
 	register_cmd(cmd_handlers, "RETR", cmd_retr);
 	register_cmd(cmd_handlers, "STRU", cmd_stru);
 	register_cmd(cmd_handlers, "MODE", cmd_mode);

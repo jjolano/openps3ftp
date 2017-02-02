@@ -90,6 +90,7 @@ typedef int32_t s32;
 
 #define S_ISDIR(m)						(((m) & S_IFMT) == S_IFDIR)
 #define S_ISLNK(m)						(((m) & S_IFMT) == S_IFLNK)
+#define S_ISREG(m)						(((m) & S_IFMT) == S_IFREG)
 
 #define lv2syscall4                     system_call_4
 #else

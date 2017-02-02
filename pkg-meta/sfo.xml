@@ -1,6 +1,6 @@
 <?xml version="1.0" ?>
 <sfo>
-	<value name="APP_VER" type="string">04.00</value>
+	<value name="APP_VER" type="string">04.01</value>
 	<value name="ATTRIBUTE" type="integer">0</value>
 	<value name="BOOTABLE" type="integer">1</value>
 	<value name="CATEGORY" type="string">CB</value>
@@ -11,5 +11,5 @@
 	<value name="SOUND_FORMAT" type="integer">791</value>
 	<value name="TITLE" type="string">OpenPS3FTP</value>
 	<value name="TITLE_ID" type="string">NPXS91337</value>
-	<value name="VERSION" type="string">01.03</value>
+	<value name="VERSION" type="string">01.00</value>
 </sfo>

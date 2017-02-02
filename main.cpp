@@ -156,8 +156,8 @@ int main(void)
 		{
 			if(gfx->GetXMBStatus() == XMB_OPEN)
 			{
-				// flip an extra 2 frames
-				flipped = -2;
+				// flip an extra 4 frames
+				flipped = -4;
 			}
 
 			if(last_num_clients != status.num_clients)
@@ -179,6 +179,8 @@ int main(void)
 			sysUtilCheckCallback();
 		}
 	}
+
+	gfx->Flip();
 
 	// Join server thread and wait for exit...
 	status.is_running = 0;
