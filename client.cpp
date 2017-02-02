@@ -39,8 +39,8 @@ Client::Client(int client, vector<pollfd>* pfds, map<int, Client*>* clnts, map<i
 	socket_data = -1;
 	socket_pasv = -1;
 
-	buffer = new (nothrow) char[CMD_BUFFER];
-	buffer_data = new (nothrow) char[DATA_BUFFER];
+	buffer = NULL;
+	buffer_data = NULL;
 
 	pollfds = pfds;
 	clients = clnts;
@@ -157,6 +157,10 @@ int Client::data_start(func f, short events)
 				return -1;
 			}
 		}
+
+		// set socket option
+		int optval = DATA_BUFFER;
+		setsockopt(socket_data, SOL_SOCKET, SO_RCVBUF, &optval, sizeof(optval));
 
 		// add to pollfds
 		pollfd data_pollfd;

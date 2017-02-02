@@ -996,7 +996,7 @@ void cmd_stor(Client* client, string params)
 	if(client->data_start(data_stor, POLLIN|POLLRDNORM) != -1)
 	{
 		#if defined(_USE_IOBUFFERS_) || defined(_PS3SDK_)
-		sysFsSetIoBufferFromDefaultContainer(fd, IO_BUFFER, SYS_FS_IO_BUFFER_PAGE_SIZE_64KB);
+		sysFsSetIoBufferFromDefaultContainer(fd, DATA_BUFFER, SYS_FS_IO_BUFFER_PAGE_SIZE_64KB);
 		#endif
 
 		client->cvar_fd = fd;
@@ -1067,7 +1067,7 @@ void cmd_appe(Client* client, string params)
 	if(client->data_start(data_stor, POLLIN|POLLRDNORM) != -1)
 	{
 		#if defined(_USE_IOBUFFERS_) || defined(_PS3SDK_)
-		sysFsSetIoBufferFromDefaultContainer(fd, IO_BUFFER, SYS_FS_IO_BUFFER_PAGE_SIZE_64KB);
+		sysFsSetIoBufferFromDefaultContainer(fd, DATA_BUFFER, SYS_FS_IO_BUFFER_PAGE_SIZE_64KB);
 		#endif
 		
 		client->cvar_fd = fd;

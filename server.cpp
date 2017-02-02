@@ -180,6 +180,9 @@ void server_start(void* arg)
 					// set default variables
 					client->cvar_use_aio = aio_toggle;
 					client->cvar_fd_tempdir = tmp_dir;
+					
+					int optval = CMD_BUFFER;
+					setsockopt(client_new, SOL_SOCKET, SO_RCVBUF, &optval, sizeof(optval));
 
 					// assign socket to internal client
 					clients.insert(make_pair(client_new, client));

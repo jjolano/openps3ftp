@@ -12,6 +12,9 @@ Developers:
   used in a separate PPU thread. See main.cpp for example usage.
 
 Users:
+- For best results, use 2 simultaneous connections at a time. The console
+  cannot reliably handle a high number of IO requests and ends up crashing.
+  Some adjustments to help alleviate this may come in future updates.
 - There are two builds included in a standard distribution: CEX and REX.
   CEX is usable on (O/C)FW 3.40 to 3.55, and REX is for any CFW 3.56+.
 - CellPS3FTP and OpenPS3FTP are the same codebase for the actual FTP server.

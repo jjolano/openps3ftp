@@ -49,11 +49,11 @@ typedef int64_t s64;
 typedef uint32_t u32;
 typedef int32_t s32;
 
-#define close							socketclose
+#define close									socketclose
 
-#define sysFSAio						CellFsAio
-#define sysFSStat						CellFsStat
-#define sysFSDirent						CellFsDirent
+#define sysFSAio								CellFsAio
+#define sysFSStat								CellFsStat
+#define sysFSDirent								CellFsDirent
 
 #define sysLv2FsStat							cellFsStat
 #define sysLv2FsCloseDir						cellFsClosedir
@@ -86,12 +86,15 @@ typedef int32_t s32;
 #define SYS_O_TRUNC						CELL_FS_O_TRUNC
 #define SYS_O_APPEND					CELL_FS_O_APPEND
 #define SYS_FS_IO_BUFFER_PAGE_SIZE_64KB	CELL_FS_IO_BUFFER_PAGE_SIZE_64KB
+#define SYS_FS_IO_BUFFER_PAGE_SIZE_1MB	CELL_FS_IO_BUFFER_PAGE_SIZE_1MB
 
 #define S_ISDIR(m)						(((m) & S_IFMT) == S_IFDIR)
 #define S_ISLNK(m)						(((m) & S_IFMT) == S_IFLNK)
 
 #define lv2syscall4                     system_call_4
 #else
+extern "C" int closesocket(int socket);
+#define close							closesocket
 #define CELL_FS_SUCCEEDED	0
 #define CELL_FS_EBUSY		(-31)
 #endif

@@ -7,6 +7,7 @@
 - Implemented internal IO caching. May improve performance in some cases.
 - Slightly improved transfer performance when using multiple connections.
 - Added file length limit checking to prevent crashing the server thread.
+- Fixed most if not all instances of "completed" stuck file transfers.
 
 [Version 4.0b - January 22, 2017]
 - Implemented libsysfs and experimental async IO writing support
