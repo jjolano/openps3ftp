@@ -105,6 +105,13 @@ void server_start(void* arg)
 	setsockopt(server, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
 	setsockopt(server, SOL_SOCKET, SO_REUSEPORT, &optval, sizeof(optval));
 
+	#ifdef _USE_LINGER_
+	linger opt_linger;
+	opt_linger.l_onoff = 1;
+	opt_linger.l_linger = 0;
+	setsockopt(server, SOL_SOCKET, SO_LINGER, &opt_linger, sizeof(opt_linger));
+	#endif
+
 	sockaddr_in myaddr;
 	myaddr.sin_family = AF_INET;
 	myaddr.sin_port = htons(21);
@@ -115,6 +122,11 @@ void server_start(void* arg)
 	{
 		// Could not bind port to socket.
 		status->is_running = 0;
+
+		#ifdef _USE_LINGER_
+		shutdown(server, SHUT_RDWR);
+		#endif
+
 		close(server);
 		sysThreadExit(1);
 	}
@@ -181,12 +193,23 @@ void server_start(void* arg)
 						continue;
 					}
 
+					#ifdef _USE_LINGER_
+					linger opt_linger;
+					opt_linger.l_onoff = 1;
+					opt_linger.l_linger = 0;
+					setsockopt(client_new, SOL_SOCKET, SO_LINGER, &opt_linger, sizeof(opt_linger));
+					#endif
+
 					// create new internal client
 					Client* client = new (nothrow) Client(client_new, &pollfds, &clients, &clients_data);
 
 					// check if allocated successfully
 					if(!client)
 					{
+						#ifdef _USE_LINGER_
+						shutdown(client_new, SHUT_RDWR);
+						#endif
+
 						close(client_new);
 						continue;
 					}
@@ -382,6 +405,11 @@ void server_start(void* arg)
 	}
 
 	status->is_running = 0;
+	
+	#ifdef _USE_LINGER_
+	shutdown(server, SHUT_RDWR);
+	#endif
+
 	close(server);
 	sysThreadExit(0);
 }

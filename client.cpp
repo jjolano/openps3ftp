@@ -57,6 +57,11 @@ Client::Client(int client, vector<pollfd>* pfds, map<int, Client*>* clnts, map<i
 Client::~Client(void)
 {
 	data_end();
+
+	#ifdef _USE_LINGER_
+	shutdown(socket_ctrl, SHUT_RDWR);
+	#endif
+
 	close(socket_ctrl);
 
 	delete[] buffer;
@@ -114,6 +119,8 @@ void Client::handle_data(void)
 
 int Client::data_start(func f, short events)
 {
+	bool opt_set = false;
+
 	if(socket_data == -1)
 	{
 		if(socket_pasv == -1)
@@ -127,8 +134,29 @@ int Client::data_start(func f, short events)
 
 			socket_data = socket(AF_INET, SOCK_STREAM, 0);
 
+			// set socket option
+			int optval = DATA_BUFFER;
+			setsockopt(socket_data, SOL_SOCKET, SO_RCVBUF, &optval, sizeof(optval));
+			setsockopt(socket_data, SOL_SOCKET, SO_SNDBUF, &optval, sizeof(optval));
+
+			optval = 1;
+			setsockopt(socket_data, SOL_SOCKET, SO_OOBINLINE, &optval, sizeof(optval));
+
+			#ifdef _USE_LINGER_
+			linger opt_linger;
+			opt_linger.l_onoff = 1;
+			opt_linger.l_linger = 0;
+			setsockopt(socket_data, SOL_SOCKET, SO_LINGER, &opt_linger, sizeof(opt_linger));
+			#endif
+
+			opt_set = true;
+
 			if(connect(socket_data, (sockaddr*)&sa, len) == -1)
 			{
+				#ifdef _USE_LINGER_
+				shutdown(socket_data, SHUT_RDWR);
+				#endif
+
 				close(socket_data);
 				socket_data = -1;
 			}
@@ -137,6 +165,10 @@ int Client::data_start(func f, short events)
 		{
 			// passive mode
 			socket_data = accept(socket_pasv, NULL, NULL);
+
+			#ifdef _USE_LINGER_
+			shutdown(socket_pasv, SHUT_RDWR);
+			#endif
 
 			close(socket_pasv);
 			socket_pasv = -1;
@@ -154,25 +186,33 @@ int Client::data_start(func f, short events)
 			{
 				// rip
 				send_code(500, "Failed to allocate memory! Try restarting the app.");
+
+				#ifdef _USE_LINGER_
+				shutdown(socket_data, SHUT_RDWR);
+				#endif
+
 				close(socket_data);
 				return -1;
 			}
 		}
 
-		// set socket option
-		int optval = DATA_BUFFER;
-		setsockopt(socket_data, SOL_SOCKET, SO_RCVBUF, &optval, sizeof(optval));
-		setsockopt(socket_data, SOL_SOCKET, SO_SNDBUF, &optval, sizeof(optval));
+		if(!opt_set)
+		{
+			// set socket option
+			int optval = DATA_BUFFER;
+			setsockopt(socket_data, SOL_SOCKET, SO_RCVBUF, &optval, sizeof(optval));
+			setsockopt(socket_data, SOL_SOCKET, SO_SNDBUF, &optval, sizeof(optval));
 
-		optval = 1;
-		setsockopt(socket_data, SOL_SOCKET, SO_OOBINLINE, &optval, sizeof(optval));
+			optval = 1;
+			setsockopt(socket_data, SOL_SOCKET, SO_OOBINLINE, &optval, sizeof(optval));
 
-		#ifdef _USE_LINGER_
-		linger opt_linger;
-		opt_linger.l_onoff = 1;
-		opt_linger.l_linger = 0;
-		setsockopt(socket_data, SOL_SOCKET, SO_LINGER, &opt_linger, sizeof(opt_linger));
-		#endif
+			#ifdef _USE_LINGER_
+			linger opt_linger;
+			opt_linger.l_onoff = 1;
+			opt_linger.l_linger = 0;
+			setsockopt(socket_data, SOL_SOCKET, SO_LINGER, &opt_linger, sizeof(opt_linger));
+			#endif
+		}
 
 		// add to pollfds
 		pollfd data_pollfd;
@@ -216,6 +256,10 @@ void Client::data_end(void)
 
 	if(socket_pasv != -1)
 	{
+		#ifdef _USE_LINGER_
+		shutdown(socket_pasv, SHUT_RDWR);
+		#endif
+
 		close(socket_pasv);
 		socket_pasv = -1;
 	}

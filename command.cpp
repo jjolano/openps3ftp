@@ -359,6 +359,10 @@ void cmd_pasv(Client* client, __attribute__((unused)) string params)
 	
 	if(client->socket_pasv != -1)
 	{
+		#ifdef _USE_LINGER_
+		shutdown(client->socket_pasv, SHUT_RDWR);
+		#endif
+
 		close(client->socket_pasv);
 	}
 
@@ -376,8 +380,19 @@ void cmd_pasv(Client* client, __attribute__((unused)) string params)
 	setsockopt(client->socket_pasv, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
 	setsockopt(client->socket_pasv, SOL_SOCKET, SO_REUSEPORT, &optval, sizeof(optval));
 
+	#ifdef _USE_LINGER_
+	linger opt_linger;
+	opt_linger.l_onoff = 1;
+	opt_linger.l_linger = 0;
+	setsockopt(client->socket_pasv, SOL_SOCKET, SO_LINGER, &opt_linger, sizeof(opt_linger));
+	#endif
+
 	if(bind(client->socket_pasv, (sockaddr*)&sa, sizeof(sa)) != 0)
 	{
+		#ifdef _USE_LINGER_
+		shutdown(client->socket_pasv, SHUT_RDWR);
+		#endif
+
 		close(client->socket_pasv);
 		client->socket_pasv = -1;
 
@@ -451,6 +466,10 @@ void cmd_port(Client* client, string params)
 	}
 	else
 	{
+		#ifdef _USE_LINGER_
+		shutdown(client->socket_data, SHUT_RDWR);
+		#endif
+
 		close(client->socket_data);
 		client->socket_data = -1;
 
