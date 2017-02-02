@@ -162,6 +162,7 @@ int Client::data_start(func f, short events)
 		// set socket option
 		int optval = DATA_BUFFER;
 		setsockopt(socket_data, SOL_SOCKET, SO_RCVBUF, &optval, sizeof(optval));
+		setsockopt(socket_data, SOL_SOCKET, SO_SNDBUF, &optval, sizeof(optval));
 
 		// add to pollfds
 		pollfd data_pollfd;

@@ -194,6 +194,7 @@ void server_start(void* arg)
 					
 					int optval = CMD_BUFFER;
 					setsockopt(client_new, SOL_SOCKET, SO_RCVBUF, &optval, sizeof(optval));
+					setsockopt(client_new, SOL_SOCKET, SO_SNDBUF, &optval, sizeof(optval));
 
 					// assign socket to internal client
 					clients.insert(make_pair(client_new, client));
