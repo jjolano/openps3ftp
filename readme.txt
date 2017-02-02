@@ -2,7 +2,7 @@ OpenPS3FTP is an open source FTP server for the PlayStation 3. It supports
 the basic FTP commands that the typical user would need to transfer files
 in and out of their console.
 
-Satisfied? Consider donating $1 (or $0.01) to show your appreciation.
+Consider donating $1 (or $0.01) to show your appreciation. Thank you!
 
 PayPal: http://bit.ly/gmzGcI
 
@@ -27,8 +27,6 @@ Users:
   Some adjustments to help alleviate this may come in future updates.
 - There are two builds included in a standard distribution: CEX and REX.
   CEX is usable on (O/C)FW 3.40 to 3.55, and REX is for any CFW 3.56+.
-- CellPS3FTP and OpenPS3FTP are the same codebase for the actual FTP server.
-  The only difference is the SDK used to compile the executable.
 
 Future Plans:
 - Performance tuning, as usual.
