@@ -58,9 +58,9 @@ LIBS		:= -l$(TARGET) -lNoRSX -lfreetype -lpixman-1 -lgcm_sys -lrsx -lnetctl -lne
 INCLUDE		:= -I. -I$(CURDIR)/ftp -I$(PORTLIBS)/include/freetype2 -I$(PORTLIBS)/include $(LIBPSL1GHT_INC)
 
 # Source Files
-SRC			:= client.cpp command.cpp server.cpp util.cpp main.cpp rsxutil.cpp
+SRC			:= client.cpp command.cpp server.cpp util.cpp main.cpp
 OBJ			:= $(SRC:.cpp=.o)
-LIBOBJ		:= $(filter-out main.o rsxutil.o, $(OBJ))
+LIBOBJ		:= $(filter-out main.o, $(OBJ))
 
 # Define compilation options
 CXXFLAGS	= -O2 -g -mregnames -Wall -mcpu=cell $(MACHDEP) $(INCLUDE)
