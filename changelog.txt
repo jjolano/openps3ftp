@@ -9,6 +9,8 @@
 - Fixed most if not all instances of "completed" stuck file transfers.
 - Removed support for APPE command.
 - Implemented a new simple UI.
+- Fixed a long-standing bug that caused the network stack to crash when
+  performing a large number of data operations in a short amount of time.
 
 [Version 4.0b - January 22, 2017]
 - Implemented libsysfs and experimental async IO writing support
