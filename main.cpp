@@ -120,7 +120,7 @@ int main(void)
 	status.num_connections = 0;
 
 	sys_ppu_thread_t server_tid;
-	sysThreadCreate(&server_tid, server_start, (void*)&status, 1000, 0x100000, THREAD_JOINABLE, (char*)"ftpd");
+	sysThreadCreate(&server_tid, server_start, (void*)&status, 1000, 0x10000, THREAD_JOINABLE, (char*)"ftpd");
 
 	// Start application loop.
 	gfx->AppStart();
