@@ -371,7 +371,7 @@ void cmd_pasv(Client* client, __attribute__((unused)) string params)
 
 	client->socket_pasv = socket(AF_INET, SOCK_STREAM, 0);
 
-	if(bind(client->socket_pasv, (sockaddr*)&sa, sizeof(sa)) == -1)
+	if(bind(client->socket_pasv, (sockaddr*)&sa, sizeof(sa)) != 0)
 	{
 		close(client->socket_pasv);
 		client->socket_pasv = -1;
@@ -476,7 +476,7 @@ int data_list(Client* client)
 	sysFSDirent dirent;
 	u64 read;
 
-	if(sysLv2FsReadDir(client->cvar_fd, &dirent, &read) == -1)
+	if(sysLv2FsReadDir(client->cvar_fd, &dirent, &read) != 0)
 	{
 		client->send_code(451, "Failed to read directory");
 		sysLv2FsCloseDir(client->cvar_fd);
@@ -504,7 +504,7 @@ int data_list(Client* client)
 	string path = get_absolute_path(get_working_directory(client), dirent.d_name);
 
 	sysFSStat stat;
-	if(sysLv2FsStat(path.c_str(), &stat) == -1)
+	if(sysLv2FsStat(path.c_str(), &stat) != 0)
 	{
 		// skip
 		return 0;
@@ -577,7 +577,7 @@ void cmd_list(Client* client, __attribute__((unused)) string params)
 	}
 
 	s32 fd;
-	if(sysLv2FsOpenDir(get_working_directory(client).c_str(), &fd) == -1)
+	if(sysLv2FsOpenDir(get_working_directory(client).c_str(), &fd) != 0)
 	{
 		client->send_code(550, "Cannot access directory");
 		return;
@@ -606,7 +606,7 @@ int data_nlst(Client* client)
 	sysFSDirent dirent;
 	u64 read;
 
-	if(sysLv2FsReadDir(client->cvar_fd, &dirent, &read) == -1)
+	if(sysLv2FsReadDir(client->cvar_fd, &dirent, &read) != 0)
 	{
 		client->send_code(451, "Failed to read directory");
 		sysLv2FsCloseDir(client->cvar_fd);
@@ -634,7 +634,7 @@ int data_nlst(Client* client)
 	string path = get_absolute_path(get_working_directory(client), dirent.d_name);
 
 	sysFSStat stat;
-	if(sysLv2FsStat(path.c_str(), &stat) == -1)
+	if(sysLv2FsStat(path.c_str(), &stat) != 0)
 	{
 		// skip
 		return 0;
@@ -679,7 +679,7 @@ void cmd_nlst(Client* client, __attribute__((unused)) string params)
 	}
 
 	s32 fd;
-	if(sysLv2FsOpenDir(get_working_directory(client).c_str(), &fd) == -1)
+	if(sysLv2FsOpenDir(get_working_directory(client).c_str(), &fd) != 0)
 	{
 		client->send_code(550, "Cannot access directory");
 		return;
@@ -792,29 +792,10 @@ int data_stor(Client* client)
 	if(!client->cvar_fd_tempdir.empty())
 	{
 		from << client->cvar_fd_tempdir;
-		from << '/' << client->cvar_fd_filename;
+		from << '/' << client->socket_ctrl;
 
 		to << client->cvar_fd_movedir;
 		to << '/' << client->cvar_fd_filename;
-
-		// check if we have enough space in cache
-		// otherwise move the file and reopen on disk
-		u32 temp_blocksize;
-		u64 temp_freeblocks;
-
-		if(file_exists(from.str())
-		&& sysFsGetFreeSize(client->cvar_fd_tempdir.c_str(), &temp_blocksize, &temp_freeblocks) == 0
-		&& temp_freeblocks == 0)
-		{
-			sysLv2FsClose(client->cvar_fd);
-		
-			if(sysLv2FsRename(from.str().c_str(), to.str().c_str()) == -1
-			|| sysLv2FsOpen(to.str().c_str(), SYS_O_WRONLY|SYS_O_APPEND, &client->cvar_fd, (S_IFMT|0777), NULL, 0) == -1)
-			{
-				client->send_code(452, "Failed to write cache data.");
-				return -1;
-			}
-		}
 	}
 
 	ssize_t read = recv(client->socket_data, client->buffer_data, DATA_BUFFER - 1, 0);
@@ -880,7 +861,12 @@ int data_stor(Client* client)
 
 				if(!client->cvar_fd_tempdir.empty())
 				{
-					sysLv2FsRename(from.str().c_str(), to.str().c_str());
+					if(sysLv2FsRename(from.str().c_str(), to.str().c_str()) != 0)
+					{
+						sysLv2FsUnlink(from.str().c_str());
+						client->send_code(452, "Failed to write file");
+						return -1;
+					}
 				}
 
 				client->send_code(226, "Transfer complete");
@@ -892,7 +878,7 @@ int data_stor(Client* client)
 	{
 		u64 written;
 
-		if(sysLv2FsWrite(client->cvar_fd, client->buffer_data, (u64)read, &written) == -1
+		if(sysLv2FsWrite(client->cvar_fd, client->buffer_data, (u64)read, &written) != 0
 		|| written < (u64)read)
 		{
 			sysLv2FsClose(client->cvar_fd);
@@ -913,7 +899,12 @@ int data_stor(Client* client)
 
 			if(!client->cvar_fd_tempdir.empty())
 			{
-				sysLv2FsRename(from.str().c_str(), to.str().c_str());
+				if(sysLv2FsRename(from.str().c_str(), to.str().c_str()) != 0)
+				{
+					sysLv2FsUnlink(from.str().c_str());
+					client->send_code(452, "Failed to write file");
+					return -1;
+				}
 			}
 
 			client->send_code(226, "Transfer complete");
@@ -961,7 +952,10 @@ void cmd_stor(Client* client, string params)
 	{
 		if(!client->cvar_fd_tempdir.empty())
 		{
-			temppath = get_absolute_path(client->cvar_fd_tempdir, params);
+			stringstream sc;
+			sc << client->socket_ctrl;
+
+			temppath = get_absolute_path(client->cvar_fd_tempdir, sc.str());
 			client->cvar_fd_movedir = get_working_directory(client);
 			client->cvar_fd_filename = params;
 
@@ -985,7 +979,7 @@ void cmd_stor(Client* client, string params)
 	}
 
 	s32 fd;
-	if(sysLv2FsOpen(temppath.c_str(), oflags, &fd, (S_IFMT|0777), NULL, 0) == -1)
+	if(sysLv2FsOpen(temppath.c_str(), oflags, &fd, (S_IFMT|0777), NULL, 0) != 0)
 	{
 		client->send_code(550, "Cannot access file");
 		return;
@@ -1001,6 +995,10 @@ void cmd_stor(Client* client, string params)
 
 	if(client->data_start(data_stor, POLLIN|POLLRDNORM) != -1)
 	{
+		#if defined(_USE_IOBUFFERS_) || defined(_PS3SDK_)
+		sysFsSetIoBufferFromDefaultContainer(fd, IO_BUFFER, SYS_FS_IO_BUFFER_PAGE_SIZE_64KB);
+		#endif
+
 		client->cvar_fd = fd;
 		client->send_code(150, "Accepted data connection");
 
@@ -1060,7 +1058,7 @@ void cmd_appe(Client* client, string params)
 	}
 
 	s32 fd;
-	if(sysLv2FsOpen(path.c_str(), SYS_O_WRONLY|SYS_O_APPEND, &fd, (S_IFMT|0777), NULL, 0) == -1)
+	if(sysLv2FsOpen(path.c_str(), SYS_O_WRONLY|SYS_O_APPEND, &fd, (S_IFMT|0777), NULL, 0) != 0)
 	{
 		client->send_code(550, "Cannot access file");
 		return;
@@ -1068,6 +1066,10 @@ void cmd_appe(Client* client, string params)
 
 	if(client->data_start(data_stor, POLLIN|POLLRDNORM) != -1)
 	{
+		#if defined(_USE_IOBUFFERS_) || defined(_PS3SDK_)
+		sysFsSetIoBufferFromDefaultContainer(fd, IO_BUFFER, SYS_FS_IO_BUFFER_PAGE_SIZE_64KB);
+		#endif
+		
 		client->cvar_fd = fd;
 		client->send_code(150, "Accepted data connection");
 
@@ -1100,7 +1102,7 @@ int data_retr(Client* client)
 	}
 
 	u64 read;
-	if(sysLv2FsRead(client->cvar_fd, client->buffer_data, DATA_BUFFER - 1, &read) == -1)
+	if(sysLv2FsRead(client->cvar_fd, client->buffer_data, DATA_BUFFER - 1, &read) != 0)
 	{
 		client->send_code(452, "Failed to read file");
 		sysLv2FsClose(client->cvar_fd);
@@ -1164,7 +1166,7 @@ void cmd_retr(Client* client, string params)
 	}
 
 	s32 fd;
-	if(sysLv2FsOpen(path.c_str(), SYS_O_RDONLY, &fd, 0, NULL, 0) == -1)
+	if(sysLv2FsOpen(path.c_str(), SYS_O_RDONLY, &fd, 0, NULL, 0) != 0)
 	{
 		client->send_code(550, "Cannot open file");
 		return;

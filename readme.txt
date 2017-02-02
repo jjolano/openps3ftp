@@ -10,8 +10,6 @@ Developers:
 - The only include file needed in your app is <ftp/server.h> which exposes
   the function server_start and C struct app_status. These are designed to be
   used in a separate PPU thread. See main.cpp for example usage.
-- A modified libsysutil for PSL1GHT is included, and is required when compiling
-  with the _USE_IOBUFFERS_ option.
 
 Users:
 - There are two builds included in a standard distribution: CEX and REX.

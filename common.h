@@ -10,7 +10,7 @@
 // Enables a workaround on PSL1GHT's somewhat poor performing poll function.
 #define _USE_FASTPOLL_
 
-// Requires an export not included in PSL1GHT.
+// Enables usage of a large memory buffer for IO writing operations.
 #define _USE_IOBUFFERS_
 */
 
@@ -55,23 +55,28 @@ typedef int32_t s32;
 #define sysFSStat						CellFsStat
 #define sysFSDirent						CellFsDirent
 
-#define sysLv2FsStat					cellFsStat
-#define sysLv2FsCloseDir				cellFsClosedir
-#define sysLv2FsClose					cellFsClose
-#define sysLv2FsReadDir					cellFsReaddir
-#define sysLv2FsWrite					cellFsWrite
-#define sysLv2FsRead					cellFsRead
-#define sysLv2FsRmdir					cellFsRmdir
-#define sysLv2FsMkdir					cellFsMkdir
-#define sysLv2FsOpenDir					cellFsOpendir
-#define sysLv2FsOpen(a,b,c,d,e,f)		cellFsOpen(a,b,c,e,f)
-#define sysLv2FsLSeek64					cellFsLseek
-#define sysLv2FsFStat					cellFsFstat
-#define sysLv2FsUnlink					cellFsUnlink
-#define sysLv2FsChmod					cellFsChmod
-#define sysLv2FsRename					cellFsRename
-#define sysFsAioWrite					cellFsAioWrite
-#define sysFsGetFreeSize				cellFsGetFreeSize
+#define sysLv2FsStat							cellFsStat
+#define sysLv2FsCloseDir						cellFsClosedir
+#define sysLv2FsClose							cellFsClose
+#define sysLv2FsReadDir							cellFsReaddir
+#define sysLv2FsWrite							cellFsWrite
+#define sysLv2FsRead							cellFsRead
+#define sysLv2FsRmdir							cellFsRmdir
+#define sysLv2FsMkdir							cellFsMkdir
+#define sysLv2FsOpenDir							cellFsOpendir
+#define sysLv2FsOpen(a,b,c,d,e,f)				cellFsOpen(a,b,c,e,f)
+#define sysLv2FsLSeek64							cellFsLseek
+#define sysLv2FsFStat							cellFsFstat
+#define sysLv2FsUnlink							cellFsUnlink
+#define sysLv2FsChmod							cellFsChmod
+#define sysLv2FsRename							cellFsRename
+#define sysFsAioWrite							cellFsAioWrite
+#define sysFsGetFreeSize						cellFsGetFreeSize
+#define sysFsSetDefaultContainer				cellFsSetDefaultContainer
+#define sysFsSetIoBufferFromDefaultContainer	cellFsSetIoBufferFromDefaultContainer
+#define sysMemContainerCreate					sys_memory_container_create
+#define sysMemContainerDestroy					sys_memory_container_destroy
+#define sys_mem_container_t						sys_memory_container_t
 
 #define sysThreadExit					sys_ppu_thread_exit
 
@@ -80,6 +85,7 @@ typedef int32_t s32;
 #define SYS_O_CREAT						CELL_FS_O_CREAT
 #define SYS_O_TRUNC						CELL_FS_O_TRUNC
 #define SYS_O_APPEND					CELL_FS_O_APPEND
+#define SYS_FS_IO_BUFFER_PAGE_SIZE_64KB	CELL_FS_IO_BUFFER_PAGE_SIZE_64KB
 
 #define S_ISDIR(m)						(((m) & S_IFMT) == S_IFDIR)
 #define S_ISLNK(m)						(((m) & S_IFMT) == S_IFLNK)

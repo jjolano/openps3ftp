@@ -24,8 +24,7 @@ endif
 LIBNAME		:= lib$(TARGET)
 
 # Applies to PSL1GHT SDK compilations.
-# EXTRAOPTS=-D_USE_IOBUFFERS_ if you have the proper exports in PSL1GHT sysutil.
-OPTS		?= -D_USE_SYSFS_ -D_USE_FASTPOLL_ $(EXTRAOPTS)
+OPTS		?= -D_USE_SYSFS_ -D_USE_FASTPOLL_ -D_USE_IOBUFFERS_ $(EXTRAOPTS)
 
 # Define pkg file and application information
 ifeq ($(SDK),PSL1GHT)
@@ -69,7 +68,7 @@ LDFLAGS		= -s $(MACHDEP) $(LIBPATHS) $(LIBS)
 endif
 
 # Make rules
-.PHONY: all clean distclean dist pkg lib install
+.PHONY: all clean distclean dist pkg lib install PARAM.SFO
 
 all: $(TARGET).elf
 
