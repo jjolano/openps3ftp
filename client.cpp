@@ -167,6 +167,13 @@ int Client::data_start(func f, short events)
 		optval = 1;
 		setsockopt(socket_data, SOL_SOCKET, SO_OOBINLINE, &optval, sizeof(optval));
 
+		#ifdef _USE_LINGER_
+		linger opt_linger;
+		opt_linger.l_onoff = 1;
+		opt_linger.l_linger = 0;
+		setsockopt(socket_data, SOL_SOCKET, SO_LINGER, &opt_linger, sizeof(opt_linger));
+		#endif
+
 		// add to pollfds
 		pollfd data_pollfd;
 		data_pollfd.fd = FD(socket_data);
@@ -198,6 +205,10 @@ void Client::data_end(void)
 		}
 
 		clients_data->erase(clients_data->find(socket_data));
+
+		#ifdef _USE_LINGER_
+		shutdown(socket_data, SHUT_RDWR);
+		#endif
 
 		close(socket_data);
 		socket_data = -1;

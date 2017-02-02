@@ -23,6 +23,9 @@ endif
 
 LIBNAME		:= lib$(TARGET)
 
+# Applies to both SDK compilations.
+EXTRAOPTS	?= -D_USE_LINGER_
+
 # Applies to PSL1GHT SDK compilations.
 OPTS		?= -D_USE_SYSFS_ -D_USE_FASTPOLL_ -D_USE_IOBUFFERS_ $(EXTRAOPTS)
 
@@ -100,7 +103,7 @@ dist: clean $(TARGET).zip
 
 sdkdist: distclean
 	$(MAKE) dist EXTRAOPTS=$(EXTRAOPTS)
-	$(MAKE) dist SDK=CELL
+	$(MAKE) dist SDK=CELL EXTRAOPTS=$(EXTRAOPTS)
 
 pkg: $(APPID).pkg
 
@@ -126,7 +129,7 @@ endif
 
 ifeq ($(SDK),CELL)
 $(LIBNAME).a:
-	$(MAKE) -f Makefile.cell.lib.mk NAME=$(TARGET)
+	$(MAKE) -f Makefile.cell.lib.mk NAME=$(TARGET) EXTRAOPTS=$(EXTRAOPTS)
 endif
 
 $(TARGET).zip: $(APPID).pkg
