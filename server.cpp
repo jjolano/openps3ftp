@@ -100,6 +100,11 @@ void server_start(void* arg)
 	// Create server socket.
 	int server = socket(AF_INET, SOCK_STREAM, 0);
 
+	// Set socket options.
+	int optval = 1;
+	setsockopt(server, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
+	setsockopt(server, SOL_SOCKET, SO_REUSEPORT, &optval, sizeof(optval));
+
 	sockaddr_in myaddr;
 	myaddr.sin_family = AF_INET;
 	myaddr.sin_port = htons(21);
@@ -192,9 +197,12 @@ void server_start(void* arg)
 					client->buffer = new (nothrow) char[CMD_BUFFER];
 					client->buffer_data = new (nothrow) char[DATA_BUFFER];
 					
-					int optval = CMD_BUFFER;
+					optval = CMD_BUFFER;
 					setsockopt(client_new, SOL_SOCKET, SO_RCVBUF, &optval, sizeof(optval));
 					setsockopt(client_new, SOL_SOCKET, SO_SNDBUF, &optval, sizeof(optval));
+
+					optval = 1;
+					setsockopt(client_new, SOL_SOCKET, SO_OOBINLINE, &optval, sizeof(optval));
 
 					// assign socket to internal client
 					clients.insert(make_pair(client_new, client));
@@ -202,7 +210,7 @@ void server_start(void* arg)
 					// create and add pollfd
 					pollfd client_pollfd;
 					client_pollfd.fd = FD(client_new);
-					client_pollfd.events = (POLLIN|POLLRDNORM);
+					client_pollfd.events = (POLLIN|POLLRDNORM|POLLRDBAND|POLLPRI);
 
 					pollfds.push_back(client_pollfd);
 
@@ -222,7 +230,7 @@ void server_start(void* arg)
 						Client* client = cdata_it->second;
 
 						// execute data handler
-						if(pfd.revents & (POLLOUT|POLLWRNORM|POLLIN|POLLRDNORM))
+						if(pfd.revents & (POLLOUT|POLLWRNORM|POLLIN|POLLRDNORM|POLLRDBAND|POLLPRI))
 						{
 							client->handle_data();
 						}
@@ -245,7 +253,7 @@ void server_start(void* arg)
 						Client* client = client_it->second;
 
 						// check receiving event
-						if(pfd.revents & (POLLIN|POLLRDNORM))
+						if(pfd.revents & (POLLIN|POLLRDNORM|POLLRDBAND|POLLPRI))
 						{
 							// make sure we have a buffer allocated
 							if(!client->buffer)

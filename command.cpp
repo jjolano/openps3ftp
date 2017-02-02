@@ -371,6 +371,11 @@ void cmd_pasv(Client* client, __attribute__((unused)) string params)
 
 	client->socket_pasv = socket(AF_INET, SOCK_STREAM, 0);
 
+	// sockopts
+	int optval = 1;
+	setsockopt(client->socket_pasv, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
+	setsockopt(client->socket_pasv, SOL_SOCKET, SO_REUSEPORT, &optval, sizeof(optval));
+
 	if(bind(client->socket_pasv, (sockaddr*)&sa, sizeof(sa)) != 0)
 	{
 		close(client->socket_pasv);
@@ -1004,7 +1009,7 @@ void cmd_stor(Client* client, string params)
 	u64 pos;
 	sysLv2FsLSeek64(fd, client->cvar_rest, SEEK_SET, &pos);
 
-	if(client->data_start(data_stor, POLLIN|POLLRDNORM) != -1)
+	if(client->data_start(data_stor, POLLIN|POLLRDNORM|POLLRDBAND|POLLPRI) != -1)
 	{
 		#if defined(_USE_IOBUFFERS_) || defined(_PS3SDK_)
 		sysFsSetIoBufferFromDefaultContainer(fd, DATA_BUFFER, SYS_FS_IO_BUFFER_PAGE_SIZE_64KB);

@@ -164,10 +164,13 @@ int Client::data_start(func f, short events)
 		setsockopt(socket_data, SOL_SOCKET, SO_RCVBUF, &optval, sizeof(optval));
 		setsockopt(socket_data, SOL_SOCKET, SO_SNDBUF, &optval, sizeof(optval));
 
+		optval = 1;
+		setsockopt(socket_data, SOL_SOCKET, SO_OOBINLINE, &optval, sizeof(optval));
+
 		// add to pollfds
 		pollfd data_pollfd;
 		data_pollfd.fd = FD(socket_data);
-		data_pollfd.events = (events|POLLIN);
+		data_pollfd.events = (events|POLLIN|POLLPRI);
 
 		pollfds->push_back(data_pollfd);
 
