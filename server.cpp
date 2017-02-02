@@ -229,16 +229,17 @@ void server_start(void* arg)
 						// get client
 						Client* client = cdata_it->second;
 
-						// execute data handler
-						if(pfd.revents & (POLLOUT|POLLWRNORM|POLLIN|POLLRDNORM|POLLRDBAND|POLLPRI))
-						{
-							client->handle_data();
-						}
-						
 						// check for disconnection
 						if(pfd.revents & (POLLHUP|POLLERR))
 						{
 							client->data_end();
+							continue;
+						}
+
+						// execute data handler
+						if(pfd.revents & (POLLOUT|POLLWRNORM|POLLIN|POLLRDNORM|POLLRDBAND|POLLPRI))
+						{
+							client->handle_data();
 						}
 
 						continue;
@@ -251,6 +252,15 @@ void server_start(void* arg)
 					{
 						// get client
 						Client* client = client_it->second;
+
+						// check disconnect event
+						if(pfd.revents & (POLLHUP|POLLERR))
+						{
+							delete client;
+							pollfds.erase(pfd_it);
+							clients.erase(client_it);
+							continue;
+						}
 
 						// check receiving event
 						if(pfd.revents & (POLLIN|POLLRDNORM|POLLRDBAND|POLLPRI))
@@ -339,14 +349,6 @@ void server_start(void* arg)
 
 							// handle client command
 							client->handle_command(&commands, cmd, params);
-						}
-
-						// check disconnect event
-						if(pfd.revents & (POLLHUP|POLLERR))
-						{
-							delete client;
-							pollfds.erase(pfd_it);
-							clients.erase(client_it);
 						}
 
 						continue;
