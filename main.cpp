@@ -133,15 +133,51 @@ int main(void)
 
 	// Start application loop.
 	gfx->AppStart();
+
+	int flipped = 0;
+	int last_num_clients = 0;
+	int last_num_connections = 0;
+
 	while(gfx->GetAppStatus() && status.is_running)
 	{
-		bg.Mono(COLOR_BLACK);
-		text.Printf(100, 100, COLOR_WHITE, "OpenPS3FTP " APP_VERSION);
-		text.Printf(100, 150, COLOR_WHITE, "IP Address: %s", netctl_info.ip_address);
-		text.Printf(100, 200, COLOR_WHITE, "Clients: %d", status.num_clients);
-		text.Printf(100, 250, COLOR_WHITE, "Connections: %d", status.num_connections);
+		if(gfx->GetXMBStatus() == XMB_CLOSE && flipped < 2)
+		{
+			bg.Mono(COLOR_BLACK);
 
-		gfx->Flip();
+			text.Printf(100, 100, COLOR_WHITE, "OpenPS3FTP " APP_VERSION);
+			text.Printf(100, 150, COLOR_WHITE, "IP Address: %s", netctl_info.ip_address);
+			text.Printf(100, 200, COLOR_WHITE, "Clients: %d", status.num_clients);
+			text.Printf(100, 250, COLOR_WHITE, "Connections: %d", status.num_connections);
+
+			flipped++;
+			gfx->Flip();
+		}
+		else
+		{
+			if(gfx->GetXMBStatus() == XMB_OPEN)
+			{
+				// flip an extra 2 frames
+				flipped = -2;
+			}
+
+			if(last_num_clients != status.num_clients)
+			{
+				flipped = 0;
+				last_num_clients = status.num_clients;
+			}
+
+			if(last_num_connections != status.num_connections)
+			{
+				flipped = 0;
+				last_num_connections = status.num_connections;
+			}
+
+			waitFlip();
+			flip(gfx->context, gfx->currentBuffer);
+			gfx->currentBuffer = !gfx->currentBuffer;
+			setRenderTarget(gfx->context, &gfx->buffers[gfx->currentBuffer]);
+			sysUtilCheckCallback();
+		}
 	}
 
 	// Join server thread and wait for exit...
