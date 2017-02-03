@@ -32,17 +32,20 @@ void socket_send_message(int socket, string message)
 	send(socket, message.c_str(), message.size(), 0);
 }
 
-Client::Client(int client, vector<pollfd>* pfds, map<int, Client*>* clnts, map<int, Client*>* cdata)
+Client::Client(int sock, vector<pollfd>* pfds, map<int, Client*>* cdata)
 {
-	socket_ctrl = client;
+	socket_ctrl = sock;
 	socket_data = -1;
 	socket_pasv = -1;
 
-	buffer = NULL;
-	buffer_data = NULL;
+	buffer = new (nothrow) char[CMD_BUFFER];
+	buffer_data = new (nothrow) char[DATA_BUFFER];
+	
+	#if defined(_USE_IOBUFFERS_) || defined(_PS3SDK_)
+	sysMemContainerCreate(&buffer_io, IO_BUFFER);
+	#endif
 
 	pollfds = pfds;
-	clients = clnts;
 	clients_data = cdata;
 
 	// cvars
@@ -66,6 +69,10 @@ Client::~Client(void)
 
 	delete[] buffer;
 	delete[] buffer_data;
+
+	#if defined(_USE_IOBUFFERS_) || defined(_PS3SDK_)
+	sysMemContainerDestroy(buffer_io);
+	#endif
 }
 
 void Client::send_string(string message)
@@ -89,9 +96,9 @@ void Client::send_multicode(int code, string message)
 	socket_send_message(socket_ctrl, code_str.str() + '-' + message);
 }
 
-void Client::handle_command(map<string, cmdfunc>* cmds, string cmd, string params)
+void Client::handle_command(map<string, cmd_callback>* cmds, string cmd, string params)
 {
-	map<string, cmdfunc>::iterator cmds_it = (*cmds).find(cmd);
+	map<string, cmd_callback>::iterator cmds_it = (*cmds).find(cmd);
 
 	if(cmds_it != (*cmds).end())
 	{
@@ -117,7 +124,7 @@ void Client::handle_data(void)
 	}
 }
 
-int Client::data_start(func f, short events)
+int Client::data_start(data_callback callback, short events)
 {
 	bool opt_set = false;
 
@@ -132,7 +139,7 @@ int Client::data_start(func f, short events)
 			getpeername(socket_ctrl, (sockaddr*)&sa, &len);
 			sa.sin_port = htons(20);
 
-			socket_data = socket(AF_INET, SOCK_STREAM, 0);
+			socket_data = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 
 			// set socket option
 			int optval = DATA_BUFFER;
@@ -225,7 +232,7 @@ int Client::data_start(func f, short events)
 		clients_data->insert(make_pair(socket_data, this));
 
 		// register data handler
-		data_handler = f;
+		data_handler = callback;
 	}
 
 	return socket_data;
@@ -269,4 +276,11 @@ void Client::data_end(void)
 	// cvars
 	cvar_fd = -1;
 	cvar_aio.fd = -1;
+}
+
+void Client::set_io_buffer(s32 fd)
+{
+	#if defined(_USE_IOBUFFERS_) || defined(_PS3SDK_)
+	sysFsSetIoBuffer(fd, DATA_BUFFER, SYS_FS_IO_BUFFER_PAGE_SIZE_64KB, buffer_io);
+	#endif
 }

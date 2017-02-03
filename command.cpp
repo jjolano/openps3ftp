@@ -294,7 +294,7 @@ void cmd_mkd(Client* client, string params)
 		return;
 	}
 
-	if(sysLv2FsMkdir(path.c_str(), (S_IFMT|0777)) == 0)
+	if(sysLv2FsMkdir(path.c_str(), 0777) == 0)
 	{
 		client->send_code(257, "\"" + path + "\" was successfully created");
 	}
@@ -1017,7 +1017,7 @@ void cmd_stor(Client* client, string params)
 	}
 
 	s32 fd;
-	if(sysLv2FsOpen(temppath.c_str(), oflags, &fd, (S_IFMT|0777), NULL, 0) != 0)
+	if(sysLv2FsOpen(temppath.c_str(), oflags, &fd, 0777, NULL, 0) != 0)
 	{
 		client->send_code(550, "Cannot access file");
 		return;
@@ -1025,7 +1025,7 @@ void cmd_stor(Client* client, string params)
 
 	if(oflags & SYS_O_CREAT)
 	{
-		sysLv2FsChmod(temppath.c_str(), (S_IFMT|0777));
+		sysLv2FsChmod(temppath.c_str(), 0777);
 	}
 
 	u64 pos;
@@ -1033,10 +1033,7 @@ void cmd_stor(Client* client, string params)
 
 	if(client->data_start(data_stor, POLLIN|POLLRDNORM|POLLRDBAND|POLLPRI) != -1)
 	{
-		#if defined(_USE_IOBUFFERS_) || defined(_PS3SDK_)
-		sysFsSetIoBufferFromDefaultContainer(fd, DATA_BUFFER, SYS_FS_IO_BUFFER_PAGE_SIZE_64KB);
-		#endif
-
+		client->set_io_buffer(fd);
 		client->cvar_fd = fd;
 		client->send_code(150, "Accepted data connection");
 
@@ -1408,7 +1405,9 @@ void cmd_site(Client* client, string params)
 			return;
 		}
 
-		if(sysLv2FsChmod(path.c_str(), (S_IFMT|atoi(chmod.c_str()))) == 0)
+		int mode = strtoul(chmod.c_str(), 0, 8);
+
+		if(sysLv2FsChmod(path.c_str(), mode) == 0)
 		{
 			client->send_code(200, "Permissions changed.");
 		}
@@ -1493,7 +1492,7 @@ void cmd_mdtm(Client* client, string params)
 	}
 }
 
-void register_cmds(map<string, cmdfunc>* cmd_handlers)
+void register_cmds(map<string, cmd_callback>* cmd_handlers)
 {
 	// No authorization required commands
 	register_cmd(cmd_handlers, "NOOP", cmd_noop);

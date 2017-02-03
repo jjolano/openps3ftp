@@ -87,7 +87,7 @@ LDFLAGS		= -s $(MACHDEP) $(LIBPATHS) $(LIBS)
 endif
 
 # Make rules
-.PHONY: all clean distclean dist pkg lib install PARAM.SFO
+.PHONY: all clean distclean sdkdist dist pkg lib install PARAM.SFO
 
 all: $(TARGET).elf
 

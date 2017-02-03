@@ -1,16 +1,18 @@
 [Version 4.1]
+- Removed support for APPE command.
+- Implemented a new simple UI.
 - Source can now be compiled as a PSL1GHT static library.
 - Source can now be compiled as a CELLSDK static library.
 - Implemented asynchronous IO writing. May improve stability in some cases.
-  * By default, this is enabled. You can toggle this using the command "AIO".
+  * By default, this is disabled. You can toggle this using the command "AIO".
 - Implemented internal IO caching. May improve performance in some cases.
+- Improved single-file transfer performance compared to previous versions.
 - Slightly improved transfer performance when using multiple connections.
-- Added file length limit checking to prevent crashing the server thread.
+- Implemented additional error checking to prevent potential crashes.
 - Fixed most if not all instances of "completed" stuck file transfers.
-- Removed support for APPE command.
-- Implemented a new simple UI.
 - Fixed a long-standing bug that caused the network stack to crash when
   performing a large number of data operations in a short amount of time.
+  * This bug apparently exists on all current FTP homebrew servers.
 
 [Version 4.0b - January 22, 2017]
 - Implemented libsysfs and experimental async IO writing support

@@ -4,7 +4,7 @@
 #include <vector>
 #include <map>
 
-#include "common.h"
+#include <sys/memory.h>
 
 #ifndef _PS3SDK_
 #include <net/poll.h>
@@ -13,18 +13,17 @@
 #include <cell/cell_fs.h>
 #endif
 
-#include "command.h"
+#include "types.h"
+#include "common.h"
 
 using namespace std;
 
-typedef int (*func)(Client*);
-
 class Client {
 private:
-	func data_handler;
+	data_callback data_handler;
 	vector<pollfd>* pollfds;
-	map<int, Client*>* clients;
 	map<int, Client*>* clients_data;
+	sys_mem_container_t buffer_io;
 
 public:
 	int socket_ctrl;
@@ -48,14 +47,15 @@ public:
 	sysFSAio cvar_aio;
 	s32 cvar_aio_id;
 
-	Client(int, vector<pollfd>*, map<int, Client*>*, map<int, Client*>*);
+	Client(int sock, vector<pollfd>* pfds, map<int, Client*>* cdata);
 	~Client(void);
 	
-	void send_string(string);
-	void send_code(int, string);
-	void send_multicode(int, string);
-	void handle_command(map<string, cmdfunc>*, string, string);
+	void send_string(string message);
+	void send_code(int code, string message);
+	void send_multicode(int code, string message);
+	void handle_command(map<string, cmd_callback>* cmds, string cmd, string params);
 	void handle_data(void);
-	int data_start(func, short events);
+	int data_start(data_callback callback, short events);
 	void data_end(void);
+	void set_io_buffer(s32 fd);
 };

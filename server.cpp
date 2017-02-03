@@ -32,13 +32,6 @@
 
 using namespace std;
 
-#ifdef _USE_FASTPOLL_
-int fast_poll(pollfd* fds, nfds_t nfds, int timeout)
-{
-	return netPoll(fds, nfds, timeout);
-}
-#endif
-
 int clean_tmp(void)
 {
 	s32 fd_dir;
@@ -46,7 +39,7 @@ int clean_tmp(void)
 	{
 		sysFSDirent dirent;
 		u64 read;
-
+		
 		while(sysLv2FsReadDir(fd_dir, &dirent, &read) == 0 && read != 0)
 		{
 			if(strcmp(dirent.d_name, ".") == 0
@@ -74,61 +67,45 @@ void server_start(void* arg)
 {
 	app_status* status = (app_status*)arg;
 
-	#if defined(_USE_IOBUFFERS_) || defined(_PS3SDK_)
-	// Allocate IO memory container.
-	sys_mem_container_t io_container;
-	sysMemContainerCreate(&io_container, IO_BUFFER);
-	sysFsSetDefaultContainer(io_container, IO_BUFFER);
-	#endif
-
 	// Create server variables.
-	vector<pollfd> pollfds;
-	map<int, Client*> clients;
-	map<int, Client*> clients_data;
-	map<string, cmdfunc> commands;
-	bool aio_toggle = true;
-	string tmp_dir;
+	vector<pollfd> pollfds;				// stores all socket connection info
+	map<int, Client*> clients;			// stores all client info, indexed by the ftp control socket
+	map<int, Client*> clients_data;		// stores all client info, indexed by the ftp data socket
+	map<string, cmd_callback> commands;	// stores all registered ftp commands
 
-	if(clean_tmp() == 0 || sysLv2FsMkdir(TMP_DIR, (S_IFMT|0777)) == 0)
-	{
-		tmp_dir = TMP_DIR;
-	}
+	bool aio_toggle = false;			// the default state of async io
+	string tmp_dir;						// the tmp directory location for the ftp server
 
 	// Register server commands.
 	register_cmds(&commands);
 
+	// Attempt to create/use existing temporary directory.
+	if(clean_tmp() == 0 || sysLv2FsMkdir(TMP_DIR, 0777) == 0)
+	{
+		tmp_dir = TMP_DIR;
+	}
+
 	// Create server socket.
-	int server = socket(AF_INET, SOCK_STREAM, 0);
+	int server = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 
 	// Set socket options.
 	int optval = 1;
 	setsockopt(server, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
 	setsockopt(server, SOL_SOCKET, SO_REUSEPORT, &optval, sizeof(optval));
 
-	#ifdef _USE_LINGER_
-	linger opt_linger;
-	opt_linger.l_onoff = 1;
-	opt_linger.l_linger = 0;
-	setsockopt(server, SOL_SOCKET, SO_LINGER, &opt_linger, sizeof(opt_linger));
-	#endif
-
-	sockaddr_in myaddr;
-	myaddr.sin_family = AF_INET;
-	myaddr.sin_port = htons(21);
-	myaddr.sin_addr.s_addr = INADDR_ANY;
+	sockaddr_in sa;
+	sa.sin_family = AF_INET;
+	sa.sin_port = htons(21);
+	sa.sin_addr.s_addr = INADDR_ANY;
 
 	// Bind port 21 to server socket.
-	if(bind(server, (sockaddr*)&myaddr, sizeof myaddr) != 0)
+	if(bind(server, (sockaddr*)&sa, sizeof(sa)) != 0)
 	{
 		// Could not bind port to socket.
 		status->is_running = 0;
-
-		#ifdef _USE_LINGER_
-		shutdown(server, SHUT_RDWR);
-		#endif
-
 		close(server);
 		sysThreadExit(1);
+		return;
 	}
 
 	// Start listening for connections.
@@ -201,7 +178,7 @@ void server_start(void* arg)
 					#endif
 
 					// create new internal client
-					Client* client = new (nothrow) Client(client_new, &pollfds, &clients, &clients_data);
+					Client* client = new (nothrow) Client(client_new, &pollfds, &clients_data);
 
 					// check if allocated successfully
 					if(!client)
@@ -217,8 +194,6 @@ void server_start(void* arg)
 					// set default variables
 					client->cvar_use_aio = aio_toggle;
 					client->cvar_fd_tempdir = tmp_dir;
-					client->buffer = new (nothrow) char[CMD_BUFFER];
-					client->buffer_data = new (nothrow) char[DATA_BUFFER];
 					
 					optval = CMD_BUFFER;
 					setsockopt(client_new, SOL_SOCKET, SO_RCVBUF, &optval, sizeof(optval));
@@ -364,9 +339,9 @@ void server_start(void* arg)
 							if(cmd == "AIO")
 							{
 								aio_toggle = !aio_toggle;
-								string aio_status(aio_toggle ? "true" : "false");
+								string aio_status(aio_toggle ? "enabled" : "disabled");
 
-								client->send_code(200, "Async IO toggled for new connections: " + aio_status);
+								client->send_code(200, "Asynchronous IO " + aio_status);
 								continue;
 							}
 
@@ -385,11 +360,6 @@ void server_start(void* arg)
 		status->num_connections = pollfds.size() - 1;
 	}
 
-	#if defined(_USE_IOBUFFERS_) || defined(_PS3SDK_)
-	// Cleanup memory.
-	sysMemContainerDestroy(io_container);
-	#endif
-
 	// Close sockets.
 	for(map<int, Client*>::iterator client_it = clients.begin(); client_it != clients.end(); client_it++)
 	{
@@ -405,10 +375,6 @@ void server_start(void* arg)
 	}
 
 	status->is_running = 0;
-	
-	#ifdef _USE_LINGER_
-	shutdown(server, SHUT_RDWR);
-	#endif
 
 	close(server);
 	sysThreadExit(0);

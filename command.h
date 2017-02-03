@@ -3,13 +3,10 @@
 #include <string>
 #include <map>
 
-class Client;
-
-#include "client.h"
+#include "types.h"
 
 using namespace std;
 
-typedef void (*cmdfunc)(Client*, string);
-
 #define register_cmd(a,b,c) a->insert(make_pair(b,c));
-void register_cmds(map<string, cmdfunc>*);
+
+void register_cmds(map<string, cmd_callback>*);

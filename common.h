@@ -32,7 +32,7 @@
 #endif
 
 #if defined(_USE_FASTPOLL_) && !defined(_PS3SDK_)
-#define poll(a,b,c)						fast_poll(a,b,c)
+#define poll(a,b,c)						netPoll(a,b,c)
 
 #define FD(socket)						((socket)&~SOCKET_FD_MASK)
 #define OFD(socket)						(socket|SOCKET_FD_MASK)
@@ -72,6 +72,7 @@ typedef int32_t s32;
 #define sysLv2FsRename							cellFsRename
 #define sysFsAioWrite							cellFsAioWrite
 #define sysFsGetFreeSize						cellFsGetFreeSize
+#define sysFsSetIoBuffer                        cellFsSetIoBuffer
 #define sysFsSetDefaultContainer				cellFsSetDefaultContainer
 #define sysFsSetIoBufferFromDefaultContainer	cellFsSetIoBufferFromDefaultContainer
 #define sysMemContainerCreate					sys_memory_container_create
