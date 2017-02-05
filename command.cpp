@@ -375,11 +375,6 @@ void cmd_pasv(Client* client, __attribute__((unused)) string params)
 
 	client->socket_pasv = socket(AF_INET, SOCK_STREAM, 0);
 
-	// sockopts
-	int optval = 1;
-	setsockopt(client->socket_pasv, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
-	setsockopt(client->socket_pasv, SOL_SOCKET, SO_REUSEPORT, &optval, sizeof(optval));
-
 	#ifdef _USE_LINGER_
 	linger opt_linger;
 	opt_linger.l_onoff = 1;

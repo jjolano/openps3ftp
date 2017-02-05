@@ -11,7 +11,7 @@
 #define TMP_DIR			"/dev_hdd0/tmp/ftp"
 #define LISTEN_BACKLOG  10
 #define CMD_BUFFER      2 * 1024
-#define DATA_BUFFER     64 * 1024
+#define DATA_BUFFER     128 * 1024
 #define IO_BUFFER		DATA_BUFFER * 4
 
 #define MAX_PATH_LEN	1024

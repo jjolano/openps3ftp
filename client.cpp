@@ -146,9 +146,6 @@ int Client::data_start(data_callback callback, short events)
 			setsockopt(socket_data, SOL_SOCKET, SO_RCVBUF, &optval, sizeof(optval));
 			setsockopt(socket_data, SOL_SOCKET, SO_SNDBUF, &optval, sizeof(optval));
 
-			optval = 1;
-			setsockopt(socket_data, SOL_SOCKET, SO_OOBINLINE, &optval, sizeof(optval));
-
 			#ifdef _USE_LINGER_
 			linger opt_linger;
 			opt_linger.l_onoff = 1;
@@ -209,9 +206,6 @@ int Client::data_start(data_callback callback, short events)
 			int optval = DATA_BUFFER;
 			setsockopt(socket_data, SOL_SOCKET, SO_RCVBUF, &optval, sizeof(optval));
 			setsockopt(socket_data, SOL_SOCKET, SO_SNDBUF, &optval, sizeof(optval));
-
-			optval = 1;
-			setsockopt(socket_data, SOL_SOCKET, SO_OOBINLINE, &optval, sizeof(optval));
 
 			#ifdef _USE_LINGER_
 			linger opt_linger;

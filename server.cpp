@@ -88,11 +88,6 @@ void server_start(void* arg)
 	// Create server socket.
 	int server = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 
-	// Set socket options.
-	int optval = 1;
-	setsockopt(server, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
-	setsockopt(server, SOL_SOCKET, SO_REUSEPORT, &optval, sizeof(optval));
-
 	sockaddr_in sa;
 	sa.sin_family = AF_INET;
 	sa.sin_port = htons(21);
@@ -195,12 +190,9 @@ void server_start(void* arg)
 					client->cvar_use_aio = aio_toggle;
 					client->cvar_fd_tempdir = tmp_dir;
 					
-					optval = CMD_BUFFER;
+					int optval = CMD_BUFFER;
 					setsockopt(client_new, SOL_SOCKET, SO_RCVBUF, &optval, sizeof(optval));
 					setsockopt(client_new, SOL_SOCKET, SO_SNDBUF, &optval, sizeof(optval));
-
-					optval = 1;
-					setsockopt(client_new, SOL_SOCKET, SO_OOBINLINE, &optval, sizeof(optval));
 
 					// assign socket to internal client
 					clients.insert(make_pair(client_new, client));
@@ -208,7 +200,7 @@ void server_start(void* arg)
 					// create and add pollfd
 					pollfd client_pollfd;
 					client_pollfd.fd = FD(client_new);
-					client_pollfd.events = (POLLIN|POLLRDNORM|POLLRDBAND|POLLPRI);
+					client_pollfd.events = (POLLIN|POLLRDNORM);
 
 					pollfds.push_back(client_pollfd);
 
@@ -235,7 +227,7 @@ void server_start(void* arg)
 						}
 
 						// execute data handler
-						if(pfd.revents & (POLLOUT|POLLWRNORM|POLLIN|POLLRDNORM|POLLRDBAND|POLLPRI))
+						if(pfd.revents & (POLLOUT|POLLWRNORM|POLLIN|POLLRDNORM))
 						{
 							client->handle_data();
 						}
@@ -261,7 +253,7 @@ void server_start(void* arg)
 						}
 
 						// check receiving event
-						if(pfd.revents & (POLLIN|POLLRDNORM|POLLRDBAND|POLLPRI))
+						if(pfd.revents & (POLLIN|POLLRDNORM))
 						{
 							// make sure we have a buffer allocated
 							if(!client->buffer)
