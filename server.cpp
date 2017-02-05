@@ -32,37 +32,6 @@
 
 using namespace std;
 
-int clean_tmp(void)
-{
-	s32 fd_dir;
-	if(sysLv2FsOpenDir(TMP_DIR, &fd_dir) == 0)
-	{
-		sysFSDirent dirent;
-		u64 read;
-		
-		while(sysLv2FsReadDir(fd_dir, &dirent, &read) == 0 && read != 0)
-		{
-			if(strcmp(dirent.d_name, ".") == 0
-			|| strcmp(dirent.d_name, "..") == 0)
-			{
-				continue;
-			}
-
-			// delete files
-			stringstream filename;
-			filename << TMP_DIR;
-			filename << '/' << dirent.d_name;
-
-			sysLv2FsUnlink(filename.str().c_str());
-		}
-
-		sysLv2FsCloseDir(fd_dir);
-		return 0;
-	}
-
-	return 1;
-}
-
 void server_start(void* arg)
 {
 	app_status* status = (app_status*)arg;
@@ -74,16 +43,9 @@ void server_start(void* arg)
 	map<string, cmd_callback> commands;	// stores all registered ftp commands
 
 	bool aio_toggle = false;			// the default state of async io
-	string tmp_dir;						// the tmp directory location for the ftp server
-
+	
 	// Register server commands.
 	register_cmds(&commands);
-
-	// Attempt to create/use existing temporary directory.
-	if(clean_tmp() == 0 || sysLv2FsMkdir(TMP_DIR, 0777) == 0)
-	{
-		tmp_dir = TMP_DIR;
-	}
 
 	// Create server socket.
 	int server = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -188,7 +150,6 @@ void server_start(void* arg)
 
 					// set default variables
 					client->cvar_use_aio = aio_toggle;
-					client->cvar_fd_tempdir = tmp_dir;
 					
 					int optval = CMD_BUFFER;
 					setsockopt(client_new, SOL_SOCKET, SO_RCVBUF, &optval, sizeof(optval));
@@ -357,13 +318,6 @@ void server_start(void* arg)
 	{
 		Client* client = client_it->second;
 		delete client;
-	}
-
-	// Remove temp folder.
-	if(!tmp_dir.empty())
-	{
-		clean_tmp();
-		sysLv2FsRmdir(tmp_dir.c_str());
 	}
 
 	status->is_running = 0;

@@ -373,7 +373,7 @@ void cmd_pasv(Client* client, __attribute__((unused)) string params)
 
 	sa.sin_port = 0; // auto
 
-	client->socket_pasv = socket(AF_INET, SOCK_STREAM, 0);
+	client->socket_pasv = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 
 	#ifdef _USE_LINGER_
 	linger opt_linger;
@@ -452,7 +452,19 @@ void cmd_port(Client* client, string params)
 		((unsigned char)(portargs[3]))
 	);
 
-	client->socket_data = socket(AF_INET, SOCK_STREAM, 0);
+	client->socket_data = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+
+	// set socket option
+	int optval = DATA_BUFFER;
+	setsockopt(client->socket_data, SOL_SOCKET, SO_RCVBUF, &optval, sizeof(optval));
+	setsockopt(client->socket_data, SOL_SOCKET, SO_SNDBUF, &optval, sizeof(optval));
+
+	#ifdef _USE_LINGER_
+	linger opt_linger;
+	opt_linger.l_onoff = 1;
+	opt_linger.l_linger = 0;
+	setsockopt(client->socket_pasv, SOL_SOCKET, SO_LINGER, &opt_linger, sizeof(opt_linger));
+	#endif
 
 	if(connect(client->socket_data, (sockaddr*)&sa, sizeof(sa)) == 0)
 	{
@@ -812,29 +824,11 @@ int data_stor(Client* client)
 		}
 	}
 
-	stringstream from;
-	stringstream to;
-	
-	if(client->cvar_fd_usetemp)
-	{
-		from << client->cvar_fd_tempdir;
-		from << '/' << client->socket_ctrl;
-
-		to << client->cvar_fd_movedir;
-		to << '/' << client->cvar_fd_filename;
-	}
-
 	ssize_t read = recv(client->socket_data, client->buffer_data, DATA_BUFFER - 1, 0);
 
 	if(read == -1)
 	{
 		sysLv2FsClose(client->cvar_fd);
-
-		if(client->cvar_fd_usetemp)
-		{
-			sysLv2FsUnlink(from.str().c_str());
-		}
-		
 		client->send_code(451, "Error in data transmission");
 		return -1;
 	}
@@ -870,31 +864,13 @@ int data_stor(Client* client)
 			if(status != CELL_FS_SUCCEEDED)
 			{
 				sysLv2FsClose(client->cvar_fd);
-				
-				if(client->cvar_fd_usetemp)
-				{
-					sysLv2FsUnlink(from.str().c_str());
-				}
-
 				client->send_code(452, "Failed to write data to file");
 				return -1;
 			}
 
 			if(read == 0)
 			{
-				// move file to destination
 				sysLv2FsClose(client->cvar_fd);
-
-				if(client->cvar_fd_usetemp)
-				{
-					if(sysLv2FsRename(from.str().c_str(), to.str().c_str()) != 0)
-					{
-						sysLv2FsUnlink(from.str().c_str());
-						client->send_code(452, "Failed to write file");
-						return -1;
-					}
-				}
-
 				client->send_code(226, "Transfer complete");
 				return 1;
 			}
@@ -908,31 +884,13 @@ int data_stor(Client* client)
 		|| written < (u64)read)
 		{
 			sysLv2FsClose(client->cvar_fd);
-
-			if(client->cvar_fd_usetemp)
-			{
-				sysLv2FsUnlink(from.str().c_str());
-			}
-
 			client->send_code(452, "Failed to write data to file");
 			return -1;
 		}
 
 		if(written == 0)
 		{
-			// move file to destination
 			sysLv2FsClose(client->cvar_fd);
-
-			if(client->cvar_fd_usetemp)
-			{
-				if(sysLv2FsRename(from.str().c_str(), to.str().c_str()) != 0)
-				{
-					sysLv2FsUnlink(from.str().c_str());
-					client->send_code(452, "Failed to write file");
-					return -1;
-				}
-			}
-
 			client->send_code(226, "Transfer complete");
 			return 1;
 		}
@@ -970,7 +928,6 @@ void cmd_stor(Client* client, string params)
 		return;
 	}
 
-	string temppath(path);
 	string hddpath("/dev_hdd0");
 
 	// enable special things only for hdd
@@ -980,31 +937,7 @@ void cmd_stor(Client* client, string params)
 
 	if(!file_exists(path))
 	{
-		if(is_hdd && !client->cvar_fd_tempdir.empty())
-		{
-			stringstream sc;
-			sc << client->socket_ctrl;
-
-			temppath = get_absolute_path(client->cvar_fd_tempdir, sc.str());
-			client->cvar_fd_movedir = get_working_directory(client);
-			client->cvar_fd_filename = params;
-
-			if(file_exists(temppath))
-			{
-				oflags |= SYS_O_TRUNC;
-			}
-			else
-			{
-				oflags |= SYS_O_CREAT;
-			}
-
-			client->cvar_fd_usetemp = true;
-		}
-		else
-		{
-			oflags |= SYS_O_CREAT;
-			client->cvar_fd_usetemp = false;
-		}
+		oflags |= SYS_O_CREAT;
 	}
 	else if(client->cvar_rest == 0)
 	{
@@ -1012,7 +945,7 @@ void cmd_stor(Client* client, string params)
 	}
 
 	s32 fd;
-	if(sysLv2FsOpen(temppath.c_str(), oflags, &fd, 0777, NULL, 0) != 0)
+	if(sysLv2FsOpen(path.c_str(), oflags, &fd, 0777, NULL, 0) != 0)
 	{
 		client->send_code(550, "Cannot access file");
 		return;
@@ -1020,13 +953,13 @@ void cmd_stor(Client* client, string params)
 
 	if(oflags & SYS_O_CREAT)
 	{
-		sysLv2FsChmod(temppath.c_str(), 0777);
+		sysLv2FsChmod(path.c_str(), 0777);
 	}
 
 	u64 pos;
 	sysLv2FsLSeek64(fd, client->cvar_rest, SEEK_SET, &pos);
 
-	if(client->data_start(data_stor, POLLIN|POLLRDNORM|POLLRDBAND|POLLPRI) != -1)
+	if(client->data_start(data_stor, POLLIN|POLLRDNORM) != -1)
 	{
 		client->set_io_buffer(fd);
 		client->cvar_fd = fd;

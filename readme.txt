@@ -25,6 +25,8 @@ Developers:
   used in a separate PPU thread. See main.cpp for example usage.
 - This uses an older commit of NoRSX, since the supposed performance patch
   the latest commit brings actually made things slower. A lot slower.
+- Library includes may change with each new release, and I cannot guarantee
+  full backwards compatibility.
 - Questions/need support? Create an "Issue" on the GitHub repo.
 
 Users:

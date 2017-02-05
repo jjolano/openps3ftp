@@ -8,7 +8,6 @@
 #define WELCOME_MSG		"Welcome to OpenPS3FTP v" APP_VERSION "!"
 #endif
 
-#define TMP_DIR			"/dev_hdd0/tmp/ftp"
 #define LISTEN_BACKLOG  10
 #define CMD_BUFFER      2 * 1024
 #define DATA_BUFFER     128 * 1024

@@ -52,7 +52,6 @@ Client::Client(int sock, vector<pollfd>* pfds, map<int, Client*>* cdata)
 	cvar_auth = false;
 	cvar_rest = 0;
 	cvar_fd = -1;
-	cvar_fd_usetemp = false;
 	cvar_aio.fd = -1;
 	cvar_aio_id = -1;
 }
@@ -126,8 +125,6 @@ void Client::handle_data(void)
 
 int Client::data_start(data_callback callback, short events)
 {
-	bool opt_set = false;
-
 	if(socket_data == -1)
 	{
 		if(socket_pasv == -1)
@@ -153,8 +150,6 @@ int Client::data_start(data_callback callback, short events)
 			setsockopt(socket_data, SOL_SOCKET, SO_LINGER, &opt_linger, sizeof(opt_linger));
 			#endif
 
-			opt_set = true;
-
 			if(connect(socket_data, (sockaddr*)&sa, len) == -1)
 			{
 				#ifdef _USE_LINGER_
@@ -169,6 +164,18 @@ int Client::data_start(data_callback callback, short events)
 		{
 			// passive mode
 			socket_data = accept(socket_pasv, NULL, NULL);
+
+			// set socket option
+			int optval = DATA_BUFFER;
+			setsockopt(socket_data, SOL_SOCKET, SO_RCVBUF, &optval, sizeof(optval));
+			setsockopt(socket_data, SOL_SOCKET, SO_SNDBUF, &optval, sizeof(optval));
+
+			#ifdef _USE_LINGER_
+			linger opt_linger;
+			opt_linger.l_onoff = 1;
+			opt_linger.l_linger = 0;
+			setsockopt(socket_data, SOL_SOCKET, SO_LINGER, &opt_linger, sizeof(opt_linger));
+			#endif
 
 			#ifdef _USE_LINGER_
 			shutdown(socket_pasv, SHUT_RDWR);
@@ -198,21 +205,6 @@ int Client::data_start(data_callback callback, short events)
 				close(socket_data);
 				return -1;
 			}
-		}
-
-		if(!opt_set)
-		{
-			// set socket option
-			int optval = DATA_BUFFER;
-			setsockopt(socket_data, SOL_SOCKET, SO_RCVBUF, &optval, sizeof(optval));
-			setsockopt(socket_data, SOL_SOCKET, SO_SNDBUF, &optval, sizeof(optval));
-
-			#ifdef _USE_LINGER_
-			linger opt_linger;
-			opt_linger.l_onoff = 1;
-			opt_linger.l_linger = 0;
-			setsockopt(socket_data, SOL_SOCKET, SO_LINGER, &opt_linger, sizeof(opt_linger));
-			#endif
 		}
 
 		// add to pollfds
