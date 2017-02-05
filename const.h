@@ -1,35 +1,21 @@
-#include <errno.h>
-#include <sysutil/msg.h>
+#pragma once
 
-#define APP_VERSION     "4.0"
+#ifndef APP_VERSION
+#define APP_VERSION     "4.1"
+#endif
 
-#define MOUNT_POINT     "/dev_blind"
+#ifndef WELCOME_MSG
+#define WELCOME_MSG		"Welcome to OpenPS3FTP v" APP_VERSION "!"
+#endif
 
 #define LISTEN_BACKLOG  10
-#define CMD_BUFFER      4096
-#define DATA_BUFFER     64 * 1024 // 64K seems to be the sweet spot
+#define CMD_BUFFER      2 * 1024
+#define DATA_BUFFER     128 * 1024
+#define IO_BUFFER		DATA_BUFFER * 4
 
-#define MSG_OK          (msgType)(MSG_DIALOG_NORMAL|MSG_DIALOG_BTN_TYPE_OK|MSG_DIALOG_DISABLE_CANCEL_ON)
+#define MAX_PATH_LEN	1024
+#define MAX_FNAME_LEN	256
 
-#define _USE_SYSFS_
-
-#if defined _USE_SYSFS_
-#define sysLv2FsStat					sysFsStat
-#define sysLv2FsCloseDir				sysFsClosedir
-#define sysLv2FsClose					sysFsClose
-#define sysLv2FsReadDir					sysFsReaddir
-#define sysLv2FsWrite					sysFsWrite
-#define sysLv2FsRead					sysFsRead
-#define sysLv2FsRmdir					sysFsRmdir
-#define sysLv2FsMkdir					sysFsMkdir
-#define sysLv2FsOpenDir					sysFsOpendir
-#define sysLv2FsOpen(a,b,c,d,e,f)		sysFsOpen(a,b,c,e,f)
-#define sysLv2FsLSeek64(a,b,c,d)		sysFsLseek(a,(s64)b,c,d)
-#define sysLv2FsFStat					sysFsFstat
-#define sysLv2FsUnlink					sysFsUnlink
-#define sysLv2FsChmod					sysFsChmod
-
-#define AIO_ENABLED                     false
-#define CELL_FS_SUCCEEDED               0
-#define CELL_FS_EBUSY                   (-31)
-#endif
+#define AIO_ACTIVE      1
+#define AIO_WAITING		2
+#define AIO_READY		0

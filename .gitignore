@@ -1,0 +1,9 @@
+**/
+*.o
+*.SFO
+*.BIN
+*.pkg
+*.elf
+*.zip
+*.a
+*.self

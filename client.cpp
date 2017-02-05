@@ -2,193 +2,271 @@
 #include <sstream>
 #include <vector>
 #include <map>
+#include <cstdio>
 
-#include <net/net.h>
-#include <net/netdb.h>
+#include <netdb.h>
 #include <netinet/in.h>
+#include <sys/socket.h>
+
+#ifndef _PS3SDK_
+#include <net/poll.h>
 #include <sys/file.h>
-#include <sys/stat.h>
+#else
+#include <sys/poll.h>
+#include <cell/cell_fs.h>
+#endif
 
 #include "const.h"
 #include "server.h"
 #include "client.h"
 #include "command.h"
+#include "common.h"
 
 using namespace std;
 
 void socket_send_message(int socket, string message)
 {
-    message += '\r';
-    message += '\n';
+	message += '\r';
+	message += '\n';
 
-    send(socket, message.c_str(), message.size(), 0);
+	send(socket, message.c_str(), message.size(), 0);
 }
 
-Client::Client(int client, vector<pollfd>* pfds, map<int, Client*>* clnts, map<int, Client*>* cdata)
+Client::Client(int sock, vector<pollfd>* pfds, map<int, Client*>* cdata)
 {
-    socket_ctrl = client;
-    socket_data = -1;
-    socket_pasv = -1;
+	socket_ctrl = sock;
+	socket_data = -1;
+	socket_pasv = -1;
 
-    buffer = new char[CMD_BUFFER];
-    buffer_data = new char[DATA_BUFFER];
+	buffer = new (nothrow) char[CMD_BUFFER];
+	buffer_data = new (nothrow) char[DATA_BUFFER];
+	
+	#if defined(_USE_IOBUFFERS_) || defined(_PS3SDK_)
+	sysMemContainerCreate(&buffer_io, IO_BUFFER);
+	#endif
 
-    pollfds = pfds;
-    clients = clnts;
-    clients_data = cdata;
+	pollfds = pfds;
+	clients_data = cdata;
 
-    // cvars
-    cvar_auth = false;
-    cvar_rest = 0;
-    cvar_fd = -1;
-    cvar_use_aio = AIO_ENABLED;
+	// cvars
+	cvar_auth = false;
+	cvar_rest = 0;
+	cvar_fd = -1;
+	cvar_aio.fd = -1;
+	cvar_aio_id = -1;
 }
 
 Client::~Client(void)
 {
-    data_end();
-    closesocket(socket_ctrl);
+	data_end();
 
-    delete[] buffer;
-    delete[] buffer_data;
+	#ifdef _USE_LINGER_
+	shutdown(socket_ctrl, SHUT_RDWR);
+	#endif
+
+	close(socket_ctrl);
+
+	delete[] buffer;
+	delete[] buffer_data;
+
+	#if defined(_USE_IOBUFFERS_) || defined(_PS3SDK_)
+	sysMemContainerDestroy(buffer_io);
+	#endif
 }
 
 void Client::send_string(string message)
 {
-    socket_send_message(socket_ctrl, message);
+	socket_send_message(socket_ctrl, message);
 }
 
 void Client::send_code(int code, string message)
 {
-    ostringstream code_str;
-    code_str << code;
+	ostringstream code_str;
+	code_str << code;
 
-    socket_send_message(socket_ctrl, code_str.str() + ' ' + message);
+	socket_send_message(socket_ctrl, code_str.str() + ' ' + message);
 }
 
 void Client::send_multicode(int code, string message)
 {
-    ostringstream code_str;
-    code_str << code;
+	ostringstream code_str;
+	code_str << code;
 
-    socket_send_message(socket_ctrl, code_str.str() + '-' + message);
+	socket_send_message(socket_ctrl, code_str.str() + '-' + message);
 }
 
-void Client::handle_command(map<string, cmdfunc>* cmds, string cmd, string params)
+void Client::handle_command(map<string, cmd_callback>* cmds, string cmd, string params)
 {
-    map<string, cmdfunc>::iterator cmds_it;
-    cmds_it = (*cmds).find(cmd);
+	map<string, cmd_callback>::iterator cmds_it = (*cmds).find(cmd);
 
-    if(cmds_it != (*cmds).end())
-    {
-        // command handler found
-        (cmds_it->second)(this, params);
-    }
-    else
-    {
-        // no handler found
-        stringstream dbg;
-        dbg << "pfds=";
-        dbg << pollfds->size();
-        dbg << ":clnts=";
-        dbg << clients->size();
-        dbg << ":cdata=";
-        dbg << clients_data->size();
+	if(cmds_it != (*cmds).end())
+	{
+		// command handler found
+		(cmds_it->second)(this, params);
+	}
+	else
+	{
+		// no handler found
+		send_code(502, cmd + " not supported");
+	}
 
-        send_multicode(502, cmd + " not supported");
-        send_code(502, dbg.str());
-    }
-
-    lastcmd = cmd;
+	lastcmd = cmd;
 }
 
 void Client::handle_data(void)
 {
-    int ret;
-    ret = data_handler(this);
+	int ret = data_handler(this);
 
-    if(ret != 0)
-    {
-        data_end();
-    }
+	if(ret != 0)
+	{
+		data_end();
+	}
 }
 
-int Client::data_start(func f, short events)
+int Client::data_start(data_callback callback, short events)
 {
-    if(socket_data == -1)
-    {
-        if(socket_pasv == -1)
-        {
-            // active mode
-            sockaddr_in sa;
-            socklen_t len = sizeof(sa);
+	if(socket_data == -1)
+	{
+		if(socket_pasv == -1)
+		{
+			// legacy active mode
+			sockaddr_in sa;
+			socklen_t len = sizeof(sa);
 
-            getpeername(socket_ctrl, (sockaddr*)&sa, &len);
-            sa.sin_port = htons(20);
+			getpeername(socket_ctrl, (sockaddr*)&sa, &len);
+			sa.sin_port = htons(20);
 
-            int socket_data_new;
-            socket_data_new = socket(PF_INET, SOCK_STREAM, 0);
+			socket_data = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 
-            if(connect(socket_data_new, (sockaddr*)&sa, len) == -1)
-            {
-                closesocket(socket_data_new);
-                return socket_data;
-            }
+			// set socket option
+			int optval = DATA_BUFFER;
+			setsockopt(socket_data, SOL_SOCKET, SO_RCVBUF, &optval, sizeof(optval));
+			setsockopt(socket_data, SOL_SOCKET, SO_SNDBUF, &optval, sizeof(optval));
 
-            socket_data = socket_data_new;
-        }
-        else
-        {
-            // passive mode
-            socket_data = accept(socket_pasv, NULL, NULL);
+			#ifdef _USE_LINGER_
+			linger opt_linger;
+			opt_linger.l_onoff = 1;
+			opt_linger.l_linger = 0;
+			setsockopt(socket_data, SOL_SOCKET, SO_LINGER, &opt_linger, sizeof(opt_linger));
+			#endif
 
-            closesocket(socket_pasv);
-            socket_pasv = -1;
-        }
-    }
+			if(connect(socket_data, (sockaddr*)&sa, len) == -1)
+			{
+				#ifdef _USE_LINGER_
+				shutdown(socket_data, SHUT_RDWR);
+				#endif
 
-    if(socket_data != -1)
-    {
-        // add to pollfds
-        pollfd data_pollfd;
-        data_pollfd.fd = socket_data;
-        data_pollfd.events = events | POLLIN;
+				close(socket_data);
+				socket_data = -1;
+			}
+		}
+		else
+		{
+			// passive mode
+			socket_data = accept(socket_pasv, NULL, NULL);
 
-        pollfds->push_back(data_pollfd);
+			// set socket option
+			int optval = DATA_BUFFER;
+			setsockopt(socket_data, SOL_SOCKET, SO_RCVBUF, &optval, sizeof(optval));
+			setsockopt(socket_data, SOL_SOCKET, SO_SNDBUF, &optval, sizeof(optval));
 
-        // register socket
-        clients_data->insert(make_pair(socket_data, this));
+			#ifdef _USE_LINGER_
+			linger opt_linger;
+			opt_linger.l_onoff = 1;
+			opt_linger.l_linger = 0;
+			setsockopt(socket_data, SOL_SOCKET, SO_LINGER, &opt_linger, sizeof(opt_linger));
+			#endif
 
-        data_handler = f;
-    }
+			#ifdef _USE_LINGER_
+			shutdown(socket_pasv, SHUT_RDWR);
+			#endif
 
-    return socket_data;
+			close(socket_pasv);
+			socket_pasv = -1;
+		}
+	}
+
+	if(socket_data != -1)
+	{
+		// make sure we have a buffer allocated
+		if(!buffer_data)
+		{
+			buffer_data = new (nothrow) char[DATA_BUFFER];
+
+			if(!buffer_data)
+			{
+				// rip
+				send_code(500, "Failed to allocate memory! Try restarting the app.");
+
+				#ifdef _USE_LINGER_
+				shutdown(socket_data, SHUT_RDWR);
+				#endif
+
+				close(socket_data);
+				return -1;
+			}
+		}
+
+		// add to pollfds
+		pollfd data_pollfd;
+		data_pollfd.fd = FD(socket_data);
+		data_pollfd.events = (events|POLLIN|POLLPRI);
+
+		pollfds->push_back(data_pollfd);
+
+		// register socket
+		clients_data->insert(make_pair(socket_data, this));
+
+		// register data handler
+		data_handler = callback;
+	}
+
+	return socket_data;
 }
 
 void Client::data_end(void)
 {
-    if(socket_data != -1)
-    {
-        for(vector<pollfd>::iterator it = pollfds->begin(); it != pollfds->end(); it++)
-        {
-            if(it->fd == socket_data)
-            {
-                pollfds->erase(it);
-                break;
-            }
-        }
+	if(socket_data != -1)
+	{
+		for(vector<pollfd>::iterator it = pollfds->begin(); it != pollfds->end(); it++)
+		{
+			if(it->fd == socket_data)
+			{
+				pollfds->erase(it);
+				break;
+			}
+		}
 
-        clients_data->erase(clients_data->find(socket_data));
-    }
+		clients_data->erase(clients_data->find(socket_data));
 
-    closesocket(socket_data);
-    closesocket(socket_pasv);
+		#ifdef _USE_LINGER_
+		shutdown(socket_data, SHUT_RDWR);
+		#endif
 
-    socket_data = -1;
-    socket_pasv = -1;
+		close(socket_data);
+		socket_data = -1;
+	}
 
-    data_handler = NULL;
+	if(socket_pasv != -1)
+	{
+		#ifdef _USE_LINGER_
+		shutdown(socket_pasv, SHUT_RDWR);
+		#endif
 
-    // cvars
-    cvar_fd = -1;
+		close(socket_pasv);
+		socket_pasv = -1;
+	}
+
+	data_handler = NULL;
+
+	// cvars
+	cvar_fd = -1;
+	cvar_aio.fd = -1;
+}
+
+void Client::set_io_buffer(s32 fd)
+{
+	#if defined(_USE_IOBUFFERS_) || defined(_PS3SDK_)
+	sysFsSetIoBuffer(fd, DATA_BUFFER, SYS_FS_IO_BUFFER_PAGE_SIZE_64KB, buffer_io);
+	#endif
 }
