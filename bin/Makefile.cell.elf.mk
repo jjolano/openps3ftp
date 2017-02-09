@@ -8,6 +8,7 @@ GCM_UTIL = $(CELL_COMMON_DIR)/gcmutil
 
 PPU_SRCS = $(GCM_UTIL)/EntryPoint.c $(wildcard cell/*.cpp) $(wildcard helper/*.cpp) $(wildcard feat/*/*.cpp)
 PPU_TARGET = cellps3ftp.elf
+PPU_CPPFLAGS += -DCELL_SDK
 
 SUBDIRS = $(GCM_UTIL)
 

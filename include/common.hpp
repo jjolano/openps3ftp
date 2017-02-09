@@ -35,10 +35,10 @@ extern "C" int closesocket(int socket);
 #ifdef CELL_SDK
 #define PS3
 /* CELL SDK includes */
-#include <cell/cell.h>
+#include <cell.h>
 #include <sys/ppu_thread.h>
 #include <sys/syscall.h>
-#include <poll.h>
+#include <sys/poll.h>
 
 /* CELL SDK defines */
 #define close(a)		socketclose(a)
