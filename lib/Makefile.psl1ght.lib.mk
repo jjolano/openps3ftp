@@ -9,7 +9,7 @@ INCLUDE		:= -I../include -I$(PORTLIBS)/include $(LIBPSL1GHT_INC)
 
 # Source Files
 SRCS		:= $(wildcard *.cpp)
-OBJS		:= $(SRCS:.cpp=.o)
+OBJS		:= $(SRCS:.cpp=.ppu.o)
 
 # Define compilation options
 DEFINES		:= -DPSL1GHT_SDK
@@ -23,7 +23,7 @@ all: $(TARGET_LIB)
 clean: 
 	rm -f $(OBJS) $(TARGET_LIB)
 
-install: lib
+install: all
 	mkdir -p $(PORTLIBS)/include/ftp
 	cp -f ../include/*.hpp $(PORTLIBS)/include/ftp/
 	cp -f $(TARGET_LIB) $(PORTLIBS)/lib/

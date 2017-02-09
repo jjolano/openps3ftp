@@ -70,9 +70,9 @@ namespace FTP
 			#ifdef LINUX
 			errno = 0;
 
-			*dirent = ::readdir((DIR*) ((intptr_t) fd));
+			dirent = ::readdir((DIR*) ((intptr_t) fd));
 			
-			if(*dirent != NULL)
+			if(dirent != NULL)
 			{
 				*nread = 1;
 				ret = 0;
