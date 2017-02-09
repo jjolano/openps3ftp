@@ -41,7 +41,6 @@ namespace FTP
 
 			void* get_cvar(std::string name);
 			void set_cvar(std::string name, void* value_ptr);
-			void del_cvar(std::string name);
 
 			bool socket_disconnect(int socket_dc);
 			void socket_event(int socket_ev);

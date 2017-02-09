@@ -90,6 +90,7 @@ namespace FTP
 			else
 			{
 				void* cvar_ptr = get_cvar("port_addr");
+				struct sockaddr_in* port_addr = (struct sockaddr_in*) cvar_ptr;
 
 				struct sockaddr_in active_addr;
 				socklen_t len = sizeof(struct sockaddr_in);
@@ -97,8 +98,10 @@ namespace FTP
 				if(cvar_ptr != NULL)
 				{
 					// port
-					memcpy(&active_addr, cvar_ptr, len);
-					del_cvar("port_addr");
+					memcpy(&active_addr, port_addr, len);
+
+					delete port_addr;
+					set_cvar("port_addr", NULL);
 				}
 				else
 				{
@@ -154,7 +157,6 @@ namespace FTP
 
 	bool Client::pasv_enter(struct sockaddr_in* pasv_addr)
 	{
-		del_cvar("port_addr");
 		data_end();
 		socket_disconnect(socket_pasv);
 
@@ -193,7 +195,6 @@ namespace FTP
 		using namespace std;
 
 		map<string, void*>::iterator cvar_it;
-		
 		cvar_it = cvar.find(name);
 
 		if(cvar_it != cvar.end())
@@ -206,32 +207,21 @@ namespace FTP
 
 	void Client::set_cvar(std::string name, void* value_ptr)
 	{
-		using namespace std;
-
-		map<string, void*>::iterator cvar_it;
-		
-		cvar_it = cvar.find(name);
-
-		if(cvar_it != cvar.end())
+		if(value_ptr == NULL)
 		{
-			delete cvar_it->second;
+			using namespace std;
+
+			map<string, void*>::iterator cvar_it;
+			cvar_it = cvar.find(name);
+
+			if(cvar_it != cvar.end())
+			{
+				cvar.erase(cvar_it);
+			}
 		}
-
-		cvar[name] = value_ptr;
-	}
-
-	void Client::del_cvar(std::string name)
-	{
-		using namespace std;
-
-		map<string, void*>::iterator cvar_it;
-		
-		cvar_it = cvar.find(name);
-
-		if(cvar_it != cvar.end())
+		else
 		{
-			delete cvar_it->second;
-			cvar.erase(cvar_it);
+			cvar[name] = value_ptr;
 		}
 	}
 
@@ -343,18 +333,6 @@ namespace FTP
 		if(buffer_data != NULL)
 		{
 			delete buffer_data;
-		}
-
-		{
-			using namespace std;
-
-			map<string, void*>::iterator cvar_it;
-			
-			for(cvar_it = cvar.begin(); cvar_it != cvar.end(); ++cvar_it)
-			{
-				delete cvar_it->second;
-				cvar.erase(cvar_it);
-			}
 		}
 	}
 };
