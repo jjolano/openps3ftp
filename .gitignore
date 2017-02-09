@@ -8,3 +8,4 @@
 *.zip
 *.a
 *.self
+.vscode/*
