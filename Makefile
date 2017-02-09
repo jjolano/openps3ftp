@@ -69,7 +69,7 @@ ELF_MK	:= Makefile.$(SDK_MK).elf.mk
 LIB_MK	:= Makefile.$(SDK_MK).lib.mk
 
 # Make rules
-.PHONY: all clean distclean sdkdist sdkclean sdkdistclean dist pkg lib install PARAM.SFO
+.PHONY: all clean distclean sdkall sdkdist sdkclean sdkdistclean dist pkg lib install
 
 all: lib pkg
 
@@ -82,7 +82,11 @@ clean:
 distclean: clean
 	rm -f $(TARGET).zip
 
-dist: distclean all $(TARGET).zip
+dist: distclean $(TARGET).zip
+
+sdkall:
+	$(MAKE) all SDK=PSL1GHT
+	$(MAKE) all SDK=CELL
 
 sdkdist:
 	$(MAKE) dist SDK=PSL1GHT
@@ -103,11 +107,11 @@ lib: $(LIB_LOC)
 install: lib
 	$(MAKE) -C lib -f $(LIB_MK) install
 
-$(TARGET).zip: $(APPID).pkg
+$(TARGET).zip: all
 	mkdir -p $(BUILDDIR)/cex $(BUILDDIR)/rex
-	cp $< $(BUILDDIR)/cex/
-	cp $< $(BUILDDIR)/rex/
-	-$(PACKAGE_FINALIZE) $(BUILDDIR)/cex/$<
+	cp $(APPID).pkg $(BUILDDIR)/cex/
+	cp $(APPID).pkg $(BUILDDIR)/rex/
+	-$(PACKAGE_FINALIZE) $(BUILDDIR)/cex/$(APPID).pkg
 	zip -r9ql $(CURDIR)/$(TARGET).zip build readme.txt changelog.txt
 
 EBOOT.BIN: $(ELF_LOC)
