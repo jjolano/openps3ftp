@@ -12,8 +12,8 @@ SRCS		:= $(wildcard *.cpp)
 OBJS		:= $(SRCS:.cpp=.o)
 
 # Define compilation options
-CXXFLAGS	= -O2 -g -mregnames -Wall -mcpu=cell $(MACHDEP) $(INCLUDE)
-CFLAGS		= $(CXXFLAGS)
+DEFINES		:= -DPSL1GHT_SDK
+CXXFLAGS	= -O2 -g -mregnames -Wall -mcpu=cell $(MACHDEP) $(INCLUDE) $(DEFINES)
 
 # Make rules
 .PHONY: all clean install
@@ -33,6 +33,3 @@ $(TARGET_LIB): $(OBJS)
 
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@
-
-%.o: %.c
-	$(CC) $(CFLAGS) -c $< -o $@

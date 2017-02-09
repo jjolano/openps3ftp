@@ -1,7 +1,5 @@
 /* command.cpp: FTP commands. */
 
-#pragma once
-
 #include "command.hpp"
 
 namespace FTP
@@ -20,12 +18,12 @@ namespace FTP
 	{
 		using namespace std;
 
-		map<string, command_callback> command_map_it;
+		map<string, command_callback>::iterator command_map_it;
 		command_map_it = command_map.find(command.first);
 
 		if(command_map_it != command_map.end())
 		{
-			(*command.second)(client, command.first, command.second);
+			(command_map_it->second)(client, command.first, command.second);
 			return true;
 		}
 

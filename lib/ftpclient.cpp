@@ -97,13 +97,13 @@ namespace FTP
 				if(cvar_ptr != NULL)
 				{
 					// port
-					active_addr = (struct sockaddr_in) *cvar_ptr;
+					memcpy(&active_addr, cvar_ptr, len);
 					del_cvar("port_addr");
 				}
 				else
 				{
 					// legacy port
-					getpeername(socket_ctrl, (struct sockaddr*) &active_addr, &len);
+					getpeername(socket_control, (struct sockaddr*) &active_addr, &len);
 					active_addr.sin_port = htons(20);
 				}
 
@@ -253,15 +253,20 @@ namespace FTP
 				{
 					using namespace std;
 
-					vector<struct pollfd> pollfds_it;
+					vector<struct pollfd>::iterator pollfds_it;
 					map<int, FTP::Client*>::iterator clients_it;
 
-					pollfds_it = server->pollfds.find(socket_dc);
 					clients_it = server->clients.find(socket_dc);
 
-					if(pollfds_it != server->pollfds.end())
+					for(pollfds_it = server->pollfds.begin(); pollfds_it != server->pollfds.end(); ++pollfds_it)
 					{
-						server->pollfds.erase(pollfds_it);
+						struct pollfd pfd = *pollfds_it;
+
+						if(pfd.fd == socket_dc)
+						{
+							server->pollfds.erase(pollfds_it);
+							break;
+						}
 					}
 
 					if(clients_it != server->clients.end())
@@ -313,7 +318,7 @@ namespace FTP
 				std::pair<std::string, std::string> command;
 				command = FTP::Utilities::parse_command_string(buffer_control);
 
-				if(!server->command.call_command(command, this))
+				if(!server->command->call_command(command, this))
 				{
 					send_code(502, FTP_502);
 				}
