@@ -48,6 +48,8 @@ extern "C" int closesocket(int socket);
 #ifndef PS3
 /* Linux includes */
 #include <poll.h>
+#include <fcntl.h>
+#include <dirent.h>
 #endif
 
 #include "const.hpp"

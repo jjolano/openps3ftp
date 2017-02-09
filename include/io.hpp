@@ -8,8 +8,8 @@ namespace FTP
 {
 	namespace IO
 	{
-		int32_t open(std::string path, int oflags);
-		int32_t opendir(std::string path);
+		int32_t open(std::string path, int oflags, int32_t* fd);
+		int32_t opendir(std::string path, int32_t* fd);
 		int32_t readdir(int32_t fd, dirent* dirent, uint64_t* nread);
 		int32_t read(int32_t fd, char* buf, uint64_t nbytes, uint64_t* nread);
 		int32_t write(int32_t fd, char* buf, uint64_t nbytes, uint64_t* nwrite);
@@ -21,6 +21,6 @@ namespace FTP
 		int32_t mkdir(std::string path, mode_t mode);
 		int32_t rmdir(std::string path);
 		int32_t unlink(std::string path);
-		int32_t stat(std::string path, stat* stat);
+		int32_t stat(std::string path, fstat* stat);
 	};
 };
