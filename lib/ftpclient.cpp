@@ -289,6 +289,7 @@ namespace FTP
 				{
 					socket_disconnect(socket_pasv);
 					data_end();
+					socket_control = -1;
 					return true;
 				}
 			}
