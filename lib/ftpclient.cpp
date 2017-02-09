@@ -26,6 +26,8 @@ namespace FTP
 
 		server->clients.insert(std::make_pair(socket_control, this));
 		server->pollfds.push_back(client_pollfd);
+
+		server->command->call_connect(this);
 	}
 
 	void Client::send_message(std::string message)
@@ -90,7 +92,6 @@ namespace FTP
 			else
 			{
 				void* cvar_ptr = get_cvar("port_addr");
-				struct sockaddr_in* port_addr = (struct sockaddr_in*) cvar_ptr;
 
 				struct sockaddr_in active_addr;
 				socklen_t len = sizeof(struct sockaddr_in);
@@ -98,6 +99,7 @@ namespace FTP
 				if(cvar_ptr != NULL)
 				{
 					// port
+					struct sockaddr_in* port_addr = (struct sockaddr_in*) cvar_ptr;
 					memcpy(&active_addr, port_addr, len);
 
 					delete port_addr;
@@ -157,6 +159,15 @@ namespace FTP
 
 	bool Client::pasv_enter(struct sockaddr_in* pasv_addr)
 	{
+		void* cvar_ptr = get_cvar("port_addr");
+
+		if(cvar_ptr != NULL)
+		{
+			struct sockaddr_in* port_addr = (struct sockaddr_in*) cvar_ptr;
+			delete port_addr;
+			set_cvar("port_addr", NULL);
+		}
+
 		data_end();
 		socket_disconnect(socket_pasv);
 
@@ -292,7 +303,7 @@ namespace FTP
 		{
 			if(socket_ev == socket_data)
 			{
-				bool ended = (*cb_data)(this);
+				bool ended = (*cb_data)(this, socket_data);
 
 				if(ended)
 				{
@@ -334,5 +345,7 @@ namespace FTP
 		{
 			delete buffer_data;
 		}
+
+		server->command->call_disconnect(this);
 	}
 };

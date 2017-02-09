@@ -11,7 +11,6 @@ namespace FTP
 	class Client
 	{
 		friend class FTP::Server;
-		friend class FTP::Command;
 
 		private:
 			FTP::Server* server;
@@ -30,6 +29,10 @@ namespace FTP
 			Client(int client_socket, FTP::Server* ext_server);
 			~Client(void);
 
+			bool socket_disconnect(int socket_dc);
+			void socket_event(int socket_ev);
+
+		public:
 			void send_message(std::string message);
 			void send_code(int code, std::string message);
 			void send_multicode(int code, std::string message);
@@ -41,8 +44,5 @@ namespace FTP
 
 			void* get_cvar(std::string name);
 			void set_cvar(std::string name, void* value_ptr);
-
-			bool socket_disconnect(int socket_dc);
-			void socket_event(int socket_ev);
 	};
 };
