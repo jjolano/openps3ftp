@@ -17,14 +17,13 @@ OBJS		:= $(SRCS:.cpp=.o)
 
 # Define compilation options
 DEFINES		:= -DPSL1GHT_SDK
-CXXFLAGS	= -O2 -g -mregnames -Wall -mcpu=cell $(MACHDEP) $(INCLUDE) $(DEFINES)
+CXXFLAGS	= -O2 -mregnames -Wall -mcpu=cell $(MACHDEP) $(INCLUDE) $(DEFINES)
 LDFLAGS		= -s $(MACHDEP) $(LIBPATHS) $(LIBS)
 
 # Make rules
 .PHONY: all clean
 
 all: $(TARGET)
-	$(info $(OBJS))
 
 clean: 
 	rm -f $(TARGET) $(OBJS)
