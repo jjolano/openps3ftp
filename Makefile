@@ -2,8 +2,8 @@
 
 BUILDDIR ?= build
 
-# SDK can be either PSL1GHT or CELL
-SDK ?= PSL1GHT
+# SDK: LINUX, PSL1GHT, CELL
+SDK ?= LINUX
 SDK_MK = $(shell echo $(SDK) | tr '[:upper:]' '[:lower:]')
 
 ifeq ($(SDK),CELL)
@@ -33,6 +33,7 @@ TITLE		:= CellPS3FTP
 APPID		:= NPXS01337
 endif
 
+ifneq ($(SDK),LINUX)
 CONTENTID	:= UP0001-$(APPID)_00-0000000000000000
 SFOXML		:= $(CURDIR)/pkg/sfo.xml
 ICON0		:= $(CURDIR)/pkg/ICON0.PNG
@@ -58,6 +59,7 @@ MAKE_SELF_NPDRM = scetool $(SCETOOL_FLAGS) -f $(3) -2 $(4) -e $(1) $(2)
 MAKE_PKG = $(PKG) --contentid $(3) $(1) $(2)
 MAKE_FSELF = $(FSELF) $(1) $(2)
 MAKE_SFO = $(SFO) --fromxml --title "$(3)" --appid "$(4)" $(1) $(2)
+endif
 
 ELF_LOC	:= ./bin/$(ELFNAME)
 LIB_LOC	:= ./lib/$(LIBNAME)
@@ -86,20 +88,21 @@ dist: distclean $(TARGET).zip
 endif
 
 sdkall: sdkclean
+	$(MAKE) all SDK=LINUX
 	$(MAKE) all SDK=PSL1GHT
 	$(MAKE) all SDK=CELL
-	$(MAKE) all SDK=LINUX
+
+sdkclean:
+	$(MAKE) clean SDK=LINUX
+	$(MAKE) clean SDK=PSL1GHT
+	$(MAKE) clean SDK=CELL
 
 sdkdist:
 	$(MAKE) dist SDK=PSL1GHT
 	$(MAKE) dist SDK=CELL
 
-sdkclean:
-	$(MAKE) clean SDK=PSL1GHT
-	$(MAKE) clean SDK=CELL
-	$(MAKE) clean SDK=LINUX
-
 sdkdistclean:
+	$(MAKE) clean SDK=LINUX
 	$(MAKE) distclean SDK=PSL1GHT
 	$(MAKE) distclean SDK=CELL
 

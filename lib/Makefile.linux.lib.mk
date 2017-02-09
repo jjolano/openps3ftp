@@ -12,7 +12,7 @@ OBJS		:= $(SRCS:.cpp=.o)
 
 # Define compilation options
 DEFINES		:= -DLINUX
-CXXFLAGS	= -O2 -g -Wall $(INCLUDE) $(DEFINES)
+CXXFLAGS	+= -O2 -g -Wall $(INCLUDE) $(DEFINES)
 
 # Make rules
 .PHONY: all clean install

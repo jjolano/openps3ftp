@@ -16,7 +16,7 @@
 #include "gcmutil.h"
 
 #include "const.hpp"
-#include "ftp.hpp"
+#include "ftphelper.hpp"
 #include "server.hpp"
 
 #define COLOR_BUFFER_NUM	2

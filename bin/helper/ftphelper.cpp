@@ -1,6 +1,6 @@
 /* ftp.cpp: FTP linker helper. */
 
-#include "ftp.hpp"
+#include "ftphelper.hpp"
 #include "server.hpp"
 
 void ftp_server_start(void* server_ptr)

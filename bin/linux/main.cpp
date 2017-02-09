@@ -1,9 +1,10 @@
 #include <iostream>
 
 #include "common.hpp"
-#include "ftp.hpp"
 #include "server.hpp"
 #include "client.hpp"
+
+#include "ftphelper.hpp"
 
 void client_connect(FTP::Client* client)
 {

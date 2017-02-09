@@ -9,7 +9,7 @@
 #include <NoRSX/NoRSXutil.h>
 
 #include "const.hpp"
-#include "ftp.hpp"
+#include "ftphelper.hpp"
 #include "server.hpp"
 
 #define MOUNT_POINT	"/dev_blind"
