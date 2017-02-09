@@ -1,4 +1,4 @@
-/* ftp.h: Include file for linking programs. */
+/* ftp.hpp: Include file for linking programs. */
 
 #pragma once
 

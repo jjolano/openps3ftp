@@ -11,6 +11,11 @@ namespace FTP
 		server_running = false;
 	}
 
+	bool Server::is_running(void)
+	{
+		return server_running;
+	}
+
 	void Server::stop(void)
 	{
 		server_running = false;
