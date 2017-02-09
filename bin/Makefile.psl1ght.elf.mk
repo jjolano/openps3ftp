@@ -13,7 +13,7 @@ INCLUDE		:= -I../include -I./helper -I$(PORTLIBS)/include/freetype2 -I$(PORTLIBS
 
 # Source Files
 SRCS		:= $(wildcard psl1ght/*.cpp) $(wildcard helper/*.cpp) $(wildcard feat/*/*.cpp)
-OBJS		:= $(SRCS:.cpp=.o)
+OBJS		:= $(SRCS:.cpp=.ppu.o)
 
 # Define compilation options
 DEFINES		:= -DPSL1GHT_SDK
@@ -32,5 +32,5 @@ $(TARGET): $(OBJS)
 	$(CXX) $^ $(LDFLAGS) -o $@
 	$(SPRX) $@
 
-%.o: %.cpp
+%.ppu.o: %.cpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@

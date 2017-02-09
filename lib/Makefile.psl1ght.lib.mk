@@ -31,5 +31,5 @@ install: all
 $(TARGET_LIB): $(OBJS)
 	$(AR) rcs $@ $^
 
-%.o: %.cpp
+%.ppu.o: %.cpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@
