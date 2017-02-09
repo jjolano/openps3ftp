@@ -13,8 +13,6 @@ namespace FTP
 		friend class FTP::Server;
 
 		private:
-			FTP::Server* server;
-			
 			std::map<std::string, void*> cvar;
 
 			data_callback cb_data;
@@ -33,6 +31,8 @@ namespace FTP
 			void socket_event(int socket_ev);
 
 		public:
+			FTP::Server* server;
+
 			void send_message(std::string message);
 			void send_code(int code, std::string message);
 			void send_multicode(int code, std::string message);
@@ -44,5 +44,8 @@ namespace FTP
 
 			void* get_cvar(std::string name);
 			void set_cvar(std::string name, void* value_ptr);
+
+			int get_control_socket(void);
+			int get_data_socket(void);
 	};
 };

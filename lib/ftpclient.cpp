@@ -236,6 +236,16 @@ namespace FTP
 		}
 	}
 
+	int Client::get_control_socket(void)
+	{
+		return socket_control;
+	}
+
+	int Client::get_data_socket(void)
+	{
+		return socket_data;
+	}
+
 	bool Client::socket_disconnect(int socket_dc)
 	{
 		if(socket_dc > 0)
@@ -289,7 +299,6 @@ namespace FTP
 				{
 					socket_disconnect(socket_pasv);
 					data_end();
-					socket_control = -1;
 					return true;
 				}
 			}
@@ -333,6 +342,8 @@ namespace FTP
 
 	Client::~Client(void)
 	{
+		server->command->call_disconnect(this);
+		
 		socket_disconnect(socket_pasv);
 		socket_disconnect(socket_data);
 		socket_disconnect(socket_control);
@@ -346,7 +357,5 @@ namespace FTP
 		{
 			delete buffer_data;
 		}
-
-		server->command->call_disconnect(this);
 	}
 };
