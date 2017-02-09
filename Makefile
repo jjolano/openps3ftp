@@ -84,7 +84,7 @@ distclean: clean
 
 dist: distclean $(TARGET).zip
 
-sdkall:
+sdkall: sdkclean
 	$(MAKE) all SDK=PSL1GHT
 	$(MAKE) all SDK=CELL
 
