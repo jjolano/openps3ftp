@@ -201,7 +201,7 @@ namespace FTP
 			return ret;
 		}
 
-		int32_t stat(std::string path, fstat* stat)
+		int32_t stat(std::string path, ftpstat* stat)
 		{
 			int32_t ret = -1;
 

@@ -21,6 +21,6 @@ namespace FTP
 		int32_t mkdir(std::string path, mode_t mode);
 		int32_t rmdir(std::string path);
 		int32_t unlink(std::string path);
-		int32_t stat(std::string path, fstat* stat);
+		int32_t stat(std::string path, ftpstat* stat);
 	};
 };

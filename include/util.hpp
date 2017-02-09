@@ -13,6 +13,7 @@ namespace FTP
 		std::string get_absolute_path(std::string old_path, std::string new_path);
 		std::pair<std::string, std::string> parse_command_string(const char* to_parse);
 		int parse_port_tuple(unsigned short tuple[6], const char* to_parse);
+		bool get_file_mode(ftpstat stat, std::string path);
 		bool get_file_mode(char mode[11], std::string path);
 		std::string string_to_upper(std::string str);
 		bool file_exists(std::string path);
