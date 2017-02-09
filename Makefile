@@ -37,8 +37,8 @@ APPID		:= NPXS01337
 endif
 
 CONTENTID	:= UP0001-$(APPID)_00-0000000000000000
-SFOXML		:= $(CURDIR)/pkg-meta/sfo.xml
-ICON0		:= $(CURDIR)/pkg-meta/ICON0.PNG
+SFOXML		:= $(CURDIR)/pkg/sfo.xml
+ICON0		:= $(CURDIR)/pkg/ICON0.PNG
 
 # Setup commands
 # scetool: github.com/naehrwert/scetool
@@ -74,7 +74,7 @@ LIB_MK	:= Makefile.$(SDK_MK).lib.mk
 all: pkg
 
 clean: 
-	rm $(APPID).pkg $(TARGET).zip
+	rm $(APPID).pkg $(TARGET).zip EBOOT.BIN PARAM.SFO
 	$(MAKE) -C bin -f $(ELF_MK) clean
 	$(MAKE) -C lib -f $(LIB_MK) clean
 
