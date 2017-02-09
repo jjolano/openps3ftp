@@ -10,7 +10,7 @@ namespace FTP
 	{
 		int32_t open(std::string path, int oflags, int32_t* fd);
 		int32_t opendir(std::string path, int32_t* fd);
-		int32_t readdir(int32_t fd, dirent* dirent, uint64_t* nread);
+		int32_t readdir(int32_t fd, ftpdirent* dirent, uint64_t* nread);
 		int32_t read(int32_t fd, char* buf, uint64_t nbytes, uint64_t* nread);
 		int32_t write(int32_t fd, char* buf, uint64_t nbytes, uint64_t* nwrite);
 		int32_t close(int32_t fd);

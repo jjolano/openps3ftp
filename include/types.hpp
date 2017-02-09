@@ -17,17 +17,18 @@ typedef void (*connect_callback)(FTP::Client* /*client*/);
 typedef void (*disconnect_callback)(FTP::Client* /*client*/);
 
 #ifdef CELL_SDK
-#define ftpstat	CellFsStat
-#define dirent	CellFsDirent
-#define mode_t	CellFsMode
+#define ftpstat		CellFsStat
+#define ftpdirent	CellFsDirent
+#define mode_t		CellFsMode
 #endif
 
 #ifdef PSL1GHT_SDK
-#define ftpstat	sysFSStat
-#define dirent	sysFSDirent
-#define mode_t	int32_t
+#define ftpstat		sysFSStat
+#define ftpdirent	sysFSDirent
+#define mode_t		int32_t
 #endif
 
-#ifndef PS3
-#define ftpstat	stat
+#ifdef LINUX
+#define ftpstat		struct stat
+#define ftpdirent	struct dirent
 #endif

@@ -18,6 +18,15 @@ namespace FTP
 			ret = sysFsOpen(path.c_str(), oflags, fd, NULL, 0);
 			#endif
 
+			#ifdef LINUX
+			*fd = ::open(path.c_str(), oflags);
+
+			if(*fd != -1)
+			{
+				ret = 0;
+			}
+			#endif
+
 			return ret;
 		}
 
@@ -33,10 +42,20 @@ namespace FTP
 			ret = sysFsOpendir(path.c_str(), fd);
 			#endif
 
+			#ifdef LINUX
+			DIR* dirp = ::opendir(path.c_str());
+
+			if(dirp != NULL)
+			{
+				*fd = (int32_t) ((intptr_t) dirp);
+				ret = 0;
+			}
+			#endif
+
 			return ret;
 		}
 
-		int32_t readdir(int32_t fd, dirent* dirent, uint64_t* nread)
+		int32_t readdir(int32_t fd, ftpdirent* dirent, uint64_t* nread)
 		{
 			int32_t ret = -1;
 
@@ -46,6 +65,26 @@ namespace FTP
 
 			#ifdef PSL1GHT_SDK
 			ret = sysFsReaddir(fd, dirent, nread);
+			#endif
+
+			#ifdef LINUX
+			errno = 0;
+
+			*dirent = ::readdir((DIR*) ((intptr_t) fd));
+			
+			if(*dirent != NULL)
+			{
+				*nread = 1;
+				ret = 0;
+			}
+			else
+			{
+				if(errno == 0)
+				{
+					*nread = 0;
+					ret = 0;
+				}
+			}
 			#endif
 
 			return ret;
@@ -63,6 +102,16 @@ namespace FTP
 			ret = sysFsRead(fd, buf, nbytes, nread);
 			#endif
 
+			#ifdef LINUX
+			ssize_t nread_bytes = ::read(fd, buf, (size_t) nbytes);
+
+			if(nread_bytes > -1)
+			{
+				*nread = (uint64_t) nread_bytes;
+				ret = 0;
+			}
+			#endif
+
 			return ret;
 		}
 
@@ -76,6 +125,16 @@ namespace FTP
 
 			#ifdef PSL1GHT_SDK
 			ret = sysFsWrite(fd, buf, nbytes, nwrite);
+			#endif
+
+			#ifdef LINUX
+			ssize_t nwrite_bytes = ::write(fd, buf, (size_t) nbytes);
+
+			if(nwrite_bytes > -1)
+			{
+				*nwrite = (uint64_t) nwrite_bytes;
+				ret = 0;
+			}
 			#endif
 
 			return ret;
@@ -93,6 +152,10 @@ namespace FTP
 			ret = sysFsClose(fd);
 			#endif
 
+			#ifdef LINUX
+			ret = ::close(fd);
+			#endif
+
 			return ret;
 		}
 
@@ -106,6 +169,10 @@ namespace FTP
 
 			#ifdef PSL1GHT_SDK
 			ret = sysFsClosedir(fd);
+			#endif
+
+			#ifdef LINUX
+			ret = ::closedir((DIR*) ((intptr_t) fd));
 			#endif
 
 			return ret;
@@ -123,6 +190,10 @@ namespace FTP
 			ret = sysLv2FsRename(old_path.c_str(), new_path.c_str());
 			#endif
 
+			#ifdef LINUX
+			ret = ::rename(old_path.c_str(), new_path.c_str());
+			#endif
+
 			return ret;
 		}
 
@@ -136,6 +207,10 @@ namespace FTP
 
 			#ifdef PSL1GHT_SDK
 			ret = sysFsChmod(path.c_str(), mode);
+			#endif
+
+			#ifdef LINUX
+			ret = ::chmod(path.c_str(), mode);
 			#endif
 
 			return ret;
@@ -153,6 +228,16 @@ namespace FTP
 			ret = sysFsLseek(fd, offset, whence, pos);
 			#endif
 
+			#ifdef LINUX
+			off_t new_pos = ::lseek(fd, (off_t) offset, whence);
+
+			if(new_pos != -1)
+			{
+				*pos = new_pos;
+				ret = 0;
+			}
+			#endif
+
 			return ret;
 		}
 
@@ -166,6 +251,10 @@ namespace FTP
 
 			#ifdef PSL1GHT_SDK
 			ret = sysFsMkdir(path.c_str(), mode);
+			#endif
+
+			#ifdef LINUX
+			ret = ::mkdir(path.c_str(), mode);
 			#endif
 
 			return ret;
@@ -183,6 +272,10 @@ namespace FTP
 			ret = sysFsRmdir(path.c_str());
 			#endif
 
+			#ifdef LINUX
+			ret = ::rmdir(path.c_str());
+			#endif
+
 			return ret;
 		}
 
@@ -198,6 +291,10 @@ namespace FTP
 			ret = sysFsUnlink(path.c_str());
 			#endif
 
+			#ifdef LINUX
+			ret = ::unlink(path.c_str());
+			#endif
+
 			return ret;
 		}
 
@@ -211,6 +308,10 @@ namespace FTP
 
 			#ifdef PSL1GHT_SDK
 			ret = sysFsStat(path.c_str(), stat);
+			#endif
+
+			#ifdef LINUX
+			ret = ::stat(path.c_str(), stat);
 			#endif
 
 			return ret;

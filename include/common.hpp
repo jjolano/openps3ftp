@@ -13,9 +13,12 @@
 #include <cstring>
 #include <ctime>
 #include <ctype.h>
+#include <errno.h>
+#include <unistd.h>
 
 #include <sys/socket.h>
 #include <sys/stat.h>
+#include <sys/types.h>
 #include <netinet/in.h>
 #include <netdb.h>
 
@@ -45,7 +48,10 @@ extern "C" int closesocket(int socket);
 #define poll(a,b,c)		socketpoll(a,b,c)
 #endif
 
-#ifndef PS3
+#if (!defined(PS3) || defined(LINUX))
+#ifndef LINUX
+#define LINUX
+#endif
 /* Linux includes */
 #include <poll.h>
 #include <fcntl.h>
