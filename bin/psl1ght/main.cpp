@@ -8,8 +8,9 @@
 #include <NoRSX.h>
 #include <NoRSX/NoRSXutil.h>
 
-#include "const.h"
-#include "ftp/server.h"
+#include "const.hpp"
+#include "ftp.hpp"
+#include "server.hpp"
 
 #define MOUNT_POINT	"/dev_blind"
 
@@ -114,31 +115,30 @@ int main(void)
 #endif
 
 	// Create the server thread.
-	app_status status;
-	status.is_running = 1;
-	status.num_clients = 0;
-	status.num_connections = 0;
+	FTP::Command command;
+	FTP::Server server(&command, 21);
 
 	sys_ppu_thread_t server_tid;
-	sysThreadCreate(&server_tid, server_start, (void*)&status, 1000, 0x10000, THREAD_JOINABLE, (char*)"ftpd");
+	sysThreadCreate(&server_tid, ftp_server_start, (void*) &server, 1001, 0x10000, THREAD_JOINABLE, (char*)"ftpd");
+	sysThreadYield();
 
 	// Start application loop.
 	gfx->AppStart();
 
 	int flipped = 0;
-	int last_num_clients = 0;
 	int last_num_connections = 0;
 
-	while(gfx->GetAppStatus() && status.is_running)
+	while(gfx->GetAppStatus() && server.is_running())
 	{
+		int num_connections = server.get_num_connections();
+
 		if(gfx->GetXMBStatus() == XMB_CLOSE && flipped < 2)
 		{
 			bg.Mono(COLOR_BLACK);
 
 			text.Printf(100, 100, COLOR_WHITE, "OpenPS3FTP " APP_VERSION);
 			text.Printf(100, 150, COLOR_WHITE, "IP Address: %s", netctl_info.ip_address);
-			text.Printf(100, 200, COLOR_WHITE, "Clients: %d", status.num_clients);
-			text.Printf(100, 250, COLOR_WHITE, "Connections: %d", status.num_connections);
+			text.Printf(100, 200, COLOR_WHITE, "Connections: %d", num_connections);
 
 			flipped++;
 			gfx->Flip();
@@ -151,16 +151,10 @@ int main(void)
 				flipped = -4;
 			}
 
-			if(last_num_clients != status.num_clients)
+			if(last_num_connections != num_connections)
 			{
 				flipped = -2;
-				last_num_clients = status.num_clients;
-			}
-
-			if(last_num_connections != status.num_connections)
-			{
-				flipped = -2;
-				last_num_connections = status.num_connections;
+				last_num_connections = num_connections;
 			}
 
 			waitFlip();
@@ -174,7 +168,7 @@ int main(void)
 	gfx->Flip();
 
 	// Join server thread and wait for exit...
-	status.is_running = 0;
+	server.stop();
 
 	u64 thread_exit;
 	sysThreadJoin(server_tid, &thread_exit);

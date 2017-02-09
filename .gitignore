@@ -1,7 +1,8 @@
-**/
 *.o
 *.SFO
+*.sfo
 *.BIN
+*.bin
 *.pkg
 *.elf
 *.zip

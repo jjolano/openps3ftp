@@ -1,0 +1,16 @@
+{
+	"files.associations": {
+		"*.mk": "makefile",
+		"exception": "cpp",
+		"new": "cpp",
+		"*h*htypeinfo": "cpp",
+		"xstring": "cpp",
+		"vector": "cpp",
+		"xtree": "cpp",
+		"tuple": "cpp",
+		"xlocale": "cpp",
+		"*C*h*h*h*h*h*h*hxlocale": "cpp",
+		"typeinfo": "cpp",
+		"xutility": "cpp"
+	}
+}
