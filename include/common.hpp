@@ -33,6 +33,9 @@
 extern "C" int closesocket(int socket);
 #define close(a)		closesocket(a)
 #define poll(a,b,c)		netPoll(a,b,c)
+
+#define PFD(a)			((a) & ~SOCKET_FD_MASK)
+#define OFD(a)			(a | SOCKET_FD_MASK)
 #endif
 
 #ifdef CELL_SDK
@@ -56,6 +59,11 @@ extern "C" int closesocket(int socket);
 #include <poll.h>
 #include <fcntl.h>
 #include <dirent.h>
+#endif
+
+#ifndef PSL1GHT_SDK
+#define PFD(a) (a)
+#define OFD(a) (a)
 #endif
 
 #include "const.hpp"

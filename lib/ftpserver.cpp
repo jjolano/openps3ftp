@@ -60,7 +60,7 @@ namespace FTP
 		}
 
 		struct pollfd server_pollfd;
-		server_pollfd.fd = socket_server;
+		server_pollfd.fd = PFD(socket_server);
 		server_pollfd.events = POLLIN;
 
 		pollfds.push_back(server_pollfd);
@@ -92,7 +92,7 @@ namespace FTP
 				}
 
 				struct pollfd pfd = *pollfds_it;
-				int sfd = pfd.fd;
+				int sfd = OFD(pfd.fd);
 
 				if(pfd.revents)
 				{

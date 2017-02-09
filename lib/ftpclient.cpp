@@ -21,7 +21,7 @@ namespace FTP
 		setsockopt(socket_control, SOL_SOCKET, SO_LINGER, &optlinger, sizeof(optlinger));
 
 		struct pollfd client_pollfd;
-		client_pollfd.fd = socket_control;
+		client_pollfd.fd = PFD(socket_control);
 		client_pollfd.events = (POLLIN|POLLRDNORM);
 
 		server->clients.insert(std::make_pair(socket_control, this));
@@ -68,7 +68,7 @@ namespace FTP
 				std::vector<struct pollfd> pollfds_pasv;
 
 				struct pollfd pasv_pollfd;
-				pasv_pollfd.fd = socket_pasv;
+				pasv_pollfd.fd = PFD(socket_pasv);
 				pasv_pollfd.events = POLLIN;
 
 				pollfds_pasv.push_back(pasv_pollfd);
@@ -139,7 +139,7 @@ namespace FTP
 		setsockopt(socket_data, SOL_SOCKET, SO_LINGER, &optlinger, sizeof(optlinger));
 
 		struct pollfd data_pollfd;
-		data_pollfd.fd = socket_data;
+		data_pollfd.fd = PFD(socket_data);
 		data_pollfd.events = (pevents | POLLIN);
 
 		server->pollfds.push_back(data_pollfd);
@@ -273,7 +273,7 @@ namespace FTP
 					{
 						struct pollfd pfd = *pollfds_it;
 
-						if(pfd.fd == socket_dc)
+						if(OFD(pfd.fd) == socket_dc)
 						{
 							server->pollfds.erase(pollfds_it);
 							break;

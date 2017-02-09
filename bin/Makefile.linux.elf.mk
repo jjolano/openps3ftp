@@ -7,7 +7,7 @@ LDFLAGS		+= -L../lib
 LDLIBS		+= -lftpxx
 
 # Includes
-INCLUDE		:= -I../include -I./helper
+INCLUDE		:= -I../include -I./helper -I./feat/base
 
 # Source Files
 SRCS		:= $(wildcard linux/*.cpp) $(wildcard helper/*.cpp) $(wildcard feat/*/*.cpp)
