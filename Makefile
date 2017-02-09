@@ -1,25 +1,22 @@
 # OpenPS3FTP Makefile
 
+BUILDDIR ?= build
+
 # SDK can be either PSL1GHT or CELL
 SDK ?= PSL1GHT
 SDK_MK = $(shell echo $(SDK) | tr '[:upper:]' '[:lower:]')
 
-ifeq ($(PSL1GHT),)
-	$(error PSL1GHT not found.)
-endif
-
-include $(PSL1GHT)/ppu_rules
-
-ifeq ($(SDK),CELL)
-ifeq ($(CELL_SDK),)
-	$(error CELL_SDK not found.)
-endif
-endif
-
 ifeq ($(SDK),CELL)
 TARGET		:= cellps3ftp
-else
+endif
+
+ifeq ($(SDK),PSL1GHT)
+include $(PSL1GHT)/ppu_rules
 TARGET		:= openps3ftp
+endif
+
+ifeq ($(SDK),LINUX)
+TARGET		:= ftpxx
 endif
 
 ELFNAME		:= $(TARGET).elf
@@ -69,24 +66,29 @@ ELF_MK	:= Makefile.$(SDK_MK).elf.mk
 LIB_MK	:= Makefile.$(SDK_MK).lib.mk
 
 # Make rules
-.PHONY: all clean distclean sdkall sdkdist sdkclean sdkdistclean dist pkg lib install
+.PHONY: all clean distclean sdkall sdkdist sdkclean sdkdistclean dist pkg elf lib install
 
-all: lib pkg
+all: elf
 
 clean: 
+ifneq ($(SDK),LINUX)
 	rm -rf $(APPID)/ $(BUILDDIR)/
 	rm -f $(APPID).pkg EBOOT.BIN PARAM.SFO
+endif
 	$(MAKE) -C bin -f $(ELF_MK) clean
 	$(MAKE) -C lib -f $(LIB_MK) clean
 
+ifneq ($(SDK),LINUX)
 distclean: clean
 	rm -f $(TARGET).zip
 
 dist: distclean $(TARGET).zip
+endif
 
 sdkall: sdkclean
 	$(MAKE) all SDK=PSL1GHT
 	$(MAKE) all SDK=CELL
+	$(MAKE) all SDK=LINUX
 
 sdkdist:
 	$(MAKE) dist SDK=PSL1GHT
@@ -95,18 +97,24 @@ sdkdist:
 sdkclean:
 	$(MAKE) clean SDK=PSL1GHT
 	$(MAKE) clean SDK=CELL
+	$(MAKE) clean SDK=LINUX
 
 sdkdistclean:
 	$(MAKE) distclean SDK=PSL1GHT
 	$(MAKE) distclean SDK=CELL
 
+ifneq ($(SDK),LINUX)
 pkg: $(APPID).pkg
+endif
 
 lib: $(LIB_LOC)
+
+elf: lib $(ELF_LOC)
 
 install: lib
 	$(MAKE) -C lib -f $(LIB_MK) install
 
+ifneq ($(SDK),LINUX)
 $(TARGET).zip: all
 	mkdir -p $(BUILDDIR)/cex $(BUILDDIR)/rex
 	cp $(APPID).pkg $(BUILDDIR)/cex/
@@ -114,8 +122,8 @@ $(TARGET).zip: all
 	-$(PACKAGE_FINALIZE) $(BUILDDIR)/cex/$(APPID).pkg
 	zip -r9ql $(CURDIR)/$(TARGET).zip build readme.txt changelog.txt
 
-EBOOT.BIN: $(ELF_LOC)
-	$(call MAKE_SELF_NPDRM,$<,$@,$(CONTENTID),04)
+EBOOT.BIN: elf
+	$(call MAKE_SELF_NPDRM,$(ELF_LOC),$@,$(CONTENTID),04)
 
 $(APPID).pkg: EBOOT.BIN PARAM.SFO $(ICON0)
 	mkdir -p $(APPID)/USRDIR
@@ -126,6 +134,7 @@ $(APPID).pkg: EBOOT.BIN PARAM.SFO $(ICON0)
 
 PARAM.SFO: $(SFOXML)
 	$(call MAKE_SFO,$<,$@,$(TITLE),$(APPID))
+endif
 
 $(ELF_LOC):
 	$(MAKE) -C bin -f $(ELF_MK)
