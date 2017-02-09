@@ -3,8 +3,9 @@
 #include "common.hpp"
 #include "server.hpp"
 #include "client.hpp"
+#include "command.hpp"
 
-#include "ftphelper.hpp"
+#include "base/commands.hpp"
 
 void client_connect(FTP::Client* client)
 {

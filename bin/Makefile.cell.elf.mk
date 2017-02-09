@@ -18,7 +18,7 @@ PPU_LDLIBS += -lcellps3ftp -lnetctl_stub -lnet_stub -lgcm_cmd -lgcm_sys_stub -lf
 PPU_LIBS += $(GCM_UTIL)/gcmutil.a
 
 PPU_OPTIMIZE_LV = -O2
-PPU_INCDIRS += -I$(GCM_UTIL) -I../include -I./helper
+PPU_INCDIRS += -I$(GCM_UTIL) -I../include -I./helper -I./feat
 
 GCC_PPU_CXXFLAGS += -fno-exceptions -fno-rtti
 

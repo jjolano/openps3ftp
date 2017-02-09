@@ -9,7 +9,7 @@ LIBPATHS	:= -L../lib -L$(PORTLIBS)/lib $(LIBPSL1GHT_LIB)
 LIBS		:= -lopenps3ftp -lNoRSX -lfreetype -lgcm_sys -lrsx -lnetctl -lnet -lsysutil -lsysmodule -lrt -lsysfs -llv2 -lm -lz
 
 # Includes
-INCLUDE		:= -I../include -I./helper -I$(PORTLIBS)/include/freetype2 -I$(PORTLIBS)/include $(LIBPSL1GHT_INC)
+INCLUDE		:= -I../include -I./helper -I./feat -I$(PORTLIBS)/include/freetype2 -I$(PORTLIBS)/include $(LIBPSL1GHT_INC)
 
 # Source Files
 SRCS		:= $(wildcard psl1ght/*.cpp) $(wildcard helper/*.cpp) $(wildcard feat/*/*.cpp)

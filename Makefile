@@ -11,7 +11,6 @@ TARGET		:= cellps3ftp
 endif
 
 ifeq ($(SDK),PSL1GHT)
-include $(PSL1GHT)/ppu_rules
 TARGET		:= openps3ftp
 endif
 
@@ -34,6 +33,8 @@ APPID		:= NPXS01337
 endif
 
 ifneq ($(SDK),LINUX)
+include $(PSL1GHT)/ppu_rules
+
 CONTENTID	:= UP0001-$(APPID)_00-0000000000000000
 SFOXML		:= $(CURDIR)/pkg/sfo.xml
 ICON0		:= $(CURDIR)/pkg/ICON0.PNG
@@ -68,7 +69,7 @@ ELF_MK	:= Makefile.$(SDK_MK).elf.mk
 LIB_MK	:= Makefile.$(SDK_MK).lib.mk
 
 # Make rules
-.PHONY: all clean distclean sdkall sdkdist sdkclean sdkdistclean dist pkg elf lib install
+.PHONY: all clean distclean sdkall sdkdist sdkclean sdkdistclean dist pkg elf lib install PARAM.SFO
 
 all: elf
 
@@ -118,12 +119,12 @@ install: lib
 	$(MAKE) -C lib -f $(LIB_MK) install
 
 ifneq ($(SDK),LINUX)
-$(TARGET).zip: all
+$(TARGET).zip: $(APPID).pkg
 	mkdir -p $(BUILDDIR)/cex $(BUILDDIR)/rex
-	cp $(APPID).pkg $(BUILDDIR)/cex/
-	cp $(APPID).pkg $(BUILDDIR)/rex/
-	-$(PACKAGE_FINALIZE) $(BUILDDIR)/cex/$(APPID).pkg
-	zip -r9ql $(CURDIR)/$(TARGET).zip build readme.txt changelog.txt
+	cp $< $(BUILDDIR)/cex/
+	cp $< $(BUILDDIR)/rex/
+	-$(PACKAGE_FINALIZE) $(BUILDDIR)/cex/$<
+	zip -r9ql $(CURDIR)/$@ build readme.txt changelog.txt
 
 EBOOT.BIN: elf
 	$(call MAKE_SELF_NPDRM,$(ELF_LOC),$@,$(CONTENTID),04)
