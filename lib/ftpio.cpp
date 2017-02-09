@@ -1,4 +1,4 @@
-/* io.hcp: FTP io class. */
+/* io.cpp: FTP io class. */
 
 #include "io.hpp"
 
