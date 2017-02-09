@@ -69,24 +69,32 @@ ELF_MK	:= Makefile.$(SDK_MK).elf.mk
 LIB_MK	:= Makefile.$(SDK_MK).lib.mk
 
 # Make rules
-.PHONY: all clean distclean sdkdist dist pkg lib install PARAM.SFO
+.PHONY: all clean distclean sdkdist sdkclean sdkdistclean dist pkg lib install PARAM.SFO
 
-all: pkg
+all: lib pkg
 
 clean: 
-	rm $(APPID).pkg $(TARGET).zip EBOOT.BIN PARAM.SFO
+	rm -rf $(APPID)/ $(BUILDDIR)/
+	rm -f $(APPID).pkg EBOOT.BIN PARAM.SFO
 	$(MAKE) -C bin -f $(ELF_MK) clean
 	$(MAKE) -C lib -f $(LIB_MK) clean
 
-distclean:
-	$(MAKE) clean SDK=PSL1GHT
-	$(MAKE) clean SDK=CELL
+distclean: clean
+	rm -f $(TARGET).zip
 
-dist: clean $(TARGET).zip
+dist: distclean all $(TARGET).zip
 
 sdkdist:
 	$(MAKE) dist SDK=PSL1GHT
 	$(MAKE) dist SDK=CELL
+
+sdkclean:
+	$(MAKE) clean SDK=PSL1GHT
+	$(MAKE) clean SDK=CELL
+
+sdkdistclean:
+	$(MAKE) distclean SDK=PSL1GHT
+	$(MAKE) distclean SDK=CELL
 
 pkg: $(APPID).pkg
 
