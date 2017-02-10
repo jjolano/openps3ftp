@@ -21,18 +21,17 @@ namespace FTP
 			int socket_data;
 			int socket_pasv;
 
-			char* buffer_control;
-			char* buffer_data;
-
 			Client(int client_socket, FTP::Server* ext_server);
-			~Client(void);
 
-			bool socket_disconnect(int socket_dc);
+			void socket_disconnect(int socket_dc);
 			void socket_event(int socket_ev);
 
 		public:
 			FTP::Server* server;
 			std::string last_cmd;
+
+			char* buffer_control;
+			char* buffer_data;
 
 			void send_message(std::string message);
 			void send_code(int code, std::string message);
@@ -48,5 +47,7 @@ namespace FTP
 
 			int get_control_socket(void);
 			int get_data_socket(void);
+
+			~Client(void);
 	};
 };

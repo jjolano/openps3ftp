@@ -138,20 +138,27 @@ namespace FTP
 
 						if(clients_it == clients.end())
 						{
-							pollfds.erase(pollfds_it.base());
+							pollfds.erase(--(pollfds_it.base()));
 							continue;
 						}
 
 						FTP::Client* client = clients_it->second;
-						char tempbuf[16];
 
-						if(pfd.revents & (POLLERR|POLLHUP)
-						|| recv(sfd, tempbuf, sizeof(tempbuf), MSG_PEEK) <= 0)
+						if(pfd.revents & (POLLERR|POLLHUP))
 						{
-							if(client->socket_disconnect(sfd))
+							if(sfd == client->get_control_socket())
 							{
+								// client disconnect
 								delete client;
 							}
+							else
+							{
+								// data disconnect
+								client->socket_disconnect(sfd);
+							}
+
+							clients.erase(clients_it);
+							pollfds.erase(--(pollfds_it.base()));
 
 							continue;
 						}

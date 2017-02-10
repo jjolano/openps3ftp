@@ -11,13 +11,13 @@ namespace FTP
 		socket_data = -1;
 		socket_pasv = -1;
 
-		buffer_control = NULL;
-		buffer_data = NULL;
+		buffer_control = new char[BUFFER_CONTROL];
+		buffer_data = new char[BUFFER_DATA];
 		cb_data = NULL;
 
 		struct linger optlinger;
 		optlinger.l_onoff = 1;
-		optlinger.l_linger = 3;
+		optlinger.l_linger = 2;
 		setsockopt(socket_control, SOL_SOCKET, SO_LINGER, &optlinger, sizeof(optlinger));
 
 		struct pollfd client_pollfd;
@@ -127,8 +127,6 @@ namespace FTP
 			}
 		}
 
-		buffer_data = new char[BUFFER_DATA];
-
 		int optval = BUFFER_DATA;
 		setsockopt(socket_data, SOL_SOCKET, SO_RCVBUF, &optval, sizeof(optval));
 		setsockopt(socket_data, SOL_SOCKET, SO_SNDBUF, &optval, sizeof(optval));
@@ -151,10 +149,7 @@ namespace FTP
 
 	void Client::data_end(void)
 	{
-		socket_disconnect(socket_data);
-		delete[] buffer_data;
-		buffer_data = NULL;
-		cb_data = NULL;
+		shutdown(socket_data, SHUT_RDWR);
 	}
 
 	bool Client::pasv_enter(struct sockaddr_in* pasv_addr)
@@ -168,8 +163,10 @@ namespace FTP
 			set_cvar("port_addr", NULL);
 		}
 
-		data_end();
-		socket_disconnect(socket_pasv);
+		if(socket_pasv > 0)
+		{
+			socket_disconnect(socket_pasv);
+		}
 
 		socket_pasv = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 
@@ -246,7 +243,7 @@ namespace FTP
 		return socket_data;
 	}
 
-	bool Client::socket_disconnect(int socket_dc)
+	void Client::socket_disconnect(int socket_dc)
 	{
 		if(socket_dc > 0)
 		{
@@ -258,53 +255,27 @@ namespace FTP
 				socket_pasv = -1;
 			}
 
-			if(socket_dc == socket_data
-			|| socket_dc == socket_control)
+			if(socket_dc == socket_data)
 			{
-				{
-					using namespace std;
+				cb_data = NULL;
+				socket_data = -1;
+			}
 
-					vector<struct pollfd>::iterator pollfds_it;
-					map<int, FTP::Client*>::iterator clients_it;
-
-					clients_it = server->clients.find(socket_dc);
-
-					for(pollfds_it = server->pollfds.begin(); pollfds_it != server->pollfds.end(); ++pollfds_it)
-					{
-						struct pollfd pfd = *pollfds_it;
-
-						if(OFD(pfd.fd) == socket_dc)
-						{
-							server->pollfds.erase(pollfds_it);
-							break;
-						}
-					}
-
-					if(clients_it != server->clients.end())
-					{
-						server->clients.erase(clients_it);
-					}
-				}
-
-				if(socket_dc == socket_data)
-				{
-					if(buffer_data != NULL)
-					{
-						data_end();
-					}
-
-					socket_data = -1;
-				}
-				else
+			if(socket_dc == socket_control)
+			{
+				if(socket_pasv > 0)
 				{
 					socket_disconnect(socket_pasv);
-					data_end();
-					return true;
 				}
+
+				if(socket_data > 0)
+				{
+					shutdown(socket_data, SHUT_RDWR);
+				}
+
+				socket_control = -1;
 			}
 		}
-
-		return false;
 	}
 
 	void Client::socket_event(int socket_ev)
@@ -323,8 +294,20 @@ namespace FTP
 
 			if(socket_ev == socket_control)
 			{
-				buffer_control = new char[BUFFER_CONTROL];
-				recv(socket_ev, buffer_control, BUFFER_CONTROL, 0);
+				ssize_t bytes = recv(socket_ev, buffer_control, BUFFER_CONTROL, 0);
+
+				if(bytes <= 0)
+				{
+					shutdown(socket_ev, SHUT_RDWR);
+					return;
+				}
+
+				if(bytes <= 2)
+				{
+					return;
+				}
+
+				buffer_control[bytes - 2] = '\0';
 
 				std::pair<std::string, std::string> command;
 				command = FTP::Utilities::parse_command_string(buffer_control);
@@ -335,9 +318,6 @@ namespace FTP
 				}
 
 				last_cmd = command.first;
-
-				delete[] buffer_control;
-				buffer_control = NULL;
 			}
 		}
 	}
@@ -345,19 +325,19 @@ namespace FTP
 	Client::~Client(void)
 	{
 		server->command->call_disconnect(this);
-		
-		socket_disconnect(socket_pasv);
-		socket_disconnect(socket_data);
+
 		socket_disconnect(socket_control);
 
 		if(buffer_control != NULL)
 		{
 			delete[] buffer_control;
+			buffer_control = NULL;
 		}
 
 		if(buffer_data != NULL)
 		{
 			delete[] buffer_data;
+			buffer_data = NULL;
 		}
 	}
 };

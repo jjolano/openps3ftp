@@ -19,6 +19,8 @@
 #include "ftphelper.hpp"
 #include "server.hpp"
 
+#include "feat.hpp"
+
 #define COLOR_BUFFER_NUM	2
 #define HOST_SIZE			(1*1024*1024)
 #define CB_SIZE				(0x10000)
@@ -348,6 +350,9 @@ int userMain(void)
 	initDbgFont();
 
 	FTP::Command command;
+	FTP::Command base_command = feat::base::get_commands();
+
+	command.import(&base_command);
 	FTP::Server server(&command, 21);
 
 	ret = cellSysutilRegisterCallback(0, sysutil_exit_callback, (void*)&server);

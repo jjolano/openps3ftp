@@ -12,6 +12,8 @@
 #include "ftphelper.hpp"
 #include "server.hpp"
 
+#include "feat.hpp"
+
 #define MOUNT_POINT	"/dev_blind"
 
 using namespace std;
@@ -116,6 +118,9 @@ int main(void)
 
 	// Create the server thread.
 	FTP::Command command;
+	FTP::Command base_command = feat::base::get_commands();
+
+	command.import(&base_command);
 	FTP::Server server(&command, 21);
 
 	sys_ppu_thread_t server_tid;

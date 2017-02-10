@@ -47,7 +47,7 @@ namespace FTP
 
 			if(dirp != NULL)
 			{
-				*fd = (int32_t) ((intptr_t) dirp);
+				*fd = ((intptr_t) ((void*) dirp));
 				ret = 0;
 			}
 			#endif
@@ -70,10 +70,14 @@ namespace FTP
 			#ifdef LINUX
 			errno = 0;
 
-			dirent = ::readdir((DIR*) ((intptr_t) fd));
+			DIR* dirp = (DIR*) ((void*) ((intptr_t) fd));
+
+			ftpdirent* dirent_temp = ::readdir(dirp);
 			
-			if(dirent != NULL)
+			if(dirent_temp != NULL)
 			{
+				memcpy(dirent, dirent_temp, sizeof(ftpdirent));
+				
 				*nread = 1;
 				ret = 0;
 			}

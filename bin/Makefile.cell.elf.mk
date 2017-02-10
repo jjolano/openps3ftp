@@ -20,6 +20,4 @@ PPU_LIBS += $(GCM_UTIL)/gcmutil.a
 PPU_OPTIMIZE_LV = -O2
 PPU_INCDIRS += -I$(GCM_UTIL) -I../include -I./helper -I./feat
 
-GCC_PPU_CXXFLAGS += -fno-exceptions -fno-rtti
-
 include $(CELL_MK_DIR)/sdk.target.mk
