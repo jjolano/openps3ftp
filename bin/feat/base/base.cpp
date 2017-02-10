@@ -6,6 +6,7 @@
 #include "command.hpp"
 
 #include "feat.hpp"
+#include "site.hpp"
 
 namespace feat
 {
@@ -682,6 +683,7 @@ namespace feat
 
 			void stor(FTP::Client* client, std::string cmd, std::string params)
 			{
+				std::vector<std::string>* cwd_vector = (std::vector<std::string>*) client->get_cvar("cwd_vector");
 				bool* auth = (bool*) client->get_cvar("auth");
 
 				if(!*auth)

@@ -1,4 +1,4 @@
-/* commands.hpp: FTP command helper functions. */
+/* feat.hpp: FTP command helper functions. */
 
 #include "command.hpp"
 
@@ -13,4 +13,6 @@ namespace feat
 	{
 		FTP::Command get_commands(void);
 	};
+
+	FTP::Command get_commands(void);
 };
