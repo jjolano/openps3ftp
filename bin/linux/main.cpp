@@ -5,7 +5,7 @@
 #include "client.hpp"
 #include "command.hpp"
 
-#include "base/commands.hpp"
+#include "feat.hpp"
 
 void client_connect(FTP::Client* client)
 {
@@ -20,7 +20,9 @@ void client_disconnect(FTP::Client* client)
 int main(void)
 {
 	FTP::Command command;
+	FTP::Command base_command = feat::base::get_commands();
 
+	command.import(&base_command);
 	command.register_connect_callback(client_connect);
 	command.register_disconnect_callback(client_disconnect);
 

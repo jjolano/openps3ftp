@@ -69,7 +69,7 @@ ELF_MK	:= Makefile.$(SDK_MK).elf.mk
 LIB_MK	:= Makefile.$(SDK_MK).lib.mk
 
 # Make rules
-.PHONY: all clean distclean sdkall sdkdist sdkclean sdkdistclean dist pkg elf lib install PARAM.SFO
+.PHONY: all clean distclean sdkall sdkdist sdkclean sdkdistclean dist pkg elf lib install PARAM.SFO $(ELF_LOC) $(LIB_LOC)
 
 all: elf
 
@@ -88,7 +88,7 @@ distclean: clean
 dist: distclean $(TARGET).zip
 endif
 
-sdkall: sdkclean
+sdkall:
 	$(MAKE) all SDK=LINUX
 	$(MAKE) all SDK=PSL1GHT
 	$(MAKE) all SDK=CELL

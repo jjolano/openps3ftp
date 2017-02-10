@@ -152,7 +152,7 @@ namespace FTP
 	void Client::data_end(void)
 	{
 		socket_disconnect(socket_data);
-		delete buffer_data;
+		delete[] buffer_data;
 		buffer_data = NULL;
 		cb_data = NULL;
 	}
@@ -334,7 +334,9 @@ namespace FTP
 					send_code(502, FTP_502);
 				}
 
-				delete buffer_control;
+				last_cmd = command.first;
+
+				delete[] buffer_control;
 				buffer_control = NULL;
 			}
 		}
@@ -350,12 +352,12 @@ namespace FTP
 
 		if(buffer_control != NULL)
 		{
-			delete buffer_control;
+			delete[] buffer_control;
 		}
 
 		if(buffer_data != NULL)
 		{
-			delete buffer_data;
+			delete[] buffer_data;
 		}
 	}
 };

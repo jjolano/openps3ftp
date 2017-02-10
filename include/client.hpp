@@ -32,6 +32,7 @@ namespace FTP
 
 		public:
 			FTP::Server* server;
+			std::string last_cmd;
 
 			void send_message(std::string message);
 			void send_code(int code, std::string message);

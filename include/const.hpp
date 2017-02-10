@@ -3,7 +3,7 @@
 #pragma once
 
 #define APP_VERSION		"4.2"
-#define WELCOME_MSG		"OpenPS3FTP version " APP_VERSION
+#define WELCOME_MSG		"ftp server v" APP_VERSION " by jjolano"
 
 #define FTP_502			"Command not implemented."
 
