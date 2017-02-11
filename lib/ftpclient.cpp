@@ -122,7 +122,7 @@ namespace FTP
 
 		int optval = BUFFER_DATA;
 		setsockopt(socket_data, SOL_SOCKET, SO_RCVBUF, &optval, sizeof(optval));
-		setsockopt(socket_data, SOL_SOCKET, SO_SNDBUF, &optval, sizeof(optval));
+		//setsockopt(socket_data, SOL_SOCKET, SO_SNDBUF, &optval, sizeof(optval));
 
 		struct linger optlinger;
 		optlinger.l_onoff = 1;
