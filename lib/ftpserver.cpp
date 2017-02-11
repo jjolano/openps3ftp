@@ -50,8 +50,14 @@ namespace FTP
 		server_addr.sin_port = htons(server_port);
 		server_addr.sin_addr.s_addr = INADDR_ANY;
 
+		#ifdef PS3
+		int backlog = 1;
+		#else
+		int backlog = 10;
+		#endif
+
 		if(bind(socket_server, (struct sockaddr*) &server_addr, sizeof(server_addr)) != 0
-		|| listen(socket_server, 10) != 0)
+		|| listen(socket_server, backlog) != 0)
 		{
 			server_running = false;
 

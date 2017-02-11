@@ -154,6 +154,15 @@ namespace feat
 					return true;
 				}
 
+				if(read == 0)
+				{
+					FTP::IO::close(*fd);
+					*fd = -1;
+
+					client->send_code(226, "Transfer complete.");
+					return true;
+				}
+
 				ssize_t write = send(socket_data, client->buffer_data, (size_t) read, 0);
 
 				if(write == -1 || (uint64_t) write < read)
@@ -162,15 +171,6 @@ namespace feat
 					*fd = -1;
 
 					client->send_code(451, "Error in data transmission");
-					return true;
-				}
-				
-				if(write == 0)
-				{
-					FTP::IO::close(*fd);
-					*fd = -1;
-
-					client->send_code(226, "Transfer complete.");
 					return true;
 				}
 
@@ -183,6 +183,15 @@ namespace feat
 				int32_t* fd = (int32_t*) client->get_cvar("fd");
 
 				ssize_t read = recv(socket_data, client->buffer_data, BUFFER_DATA, 0);
+
+				if(read == 0)
+				{
+					FTP::IO::close(*fd);
+					*fd = -1;
+
+					client->send_code(226, "Transfer complete.");
+					return true;
+				}
 
 				if(read == -1)
 				{
@@ -202,15 +211,6 @@ namespace feat
 					*fd = -1;
 
 					client->send_code(452, "Failed to write data to file.");
-					return true;
-				}
-
-				if(write == 0)
-				{
-					FTP::IO::close(*fd);
-					*fd = -1;
-
-					client->send_code(226, "Transfer complete.");
 					return true;
 				}
 
