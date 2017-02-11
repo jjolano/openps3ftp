@@ -1,33 +1,25 @@
 # OpenPS3FTP Makefile
 
-# SDK can be either PSL1GHT or CELL
-SDK			?= PSL1GHT
+BUILDDIR ?= build
 
-ifeq ($(PSL1GHT),)
-	$(error PSL1GHT not found.)
-endif
-
-include $(PSL1GHT)/ppu_rules
+# SDK: LINUX, PSL1GHT, CELL
+SDK ?= LINUX
+SDK_MK = $(shell echo $(SDK) | tr '[:upper:]' '[:lower:]')
 
 ifeq ($(SDK),CELL)
-ifeq ($(CELL_SDK),)
-	$(error CELL_SDK not found.)
-endif
+TARGET		:= cellps3ftp
 endif
 
 ifeq ($(SDK),PSL1GHT)
 TARGET		:= openps3ftp
-else
-TARGET		:= cellps3ftp
 endif
 
-LIBNAME		:= lib$(TARGET)
+ifeq ($(SDK),LINUX)
+TARGET		:= ftpxx
+endif
 
-# Applies to both SDK compilations.
-EXTRAOPTS	?= -D_USE_LINGER_
-
-# Applies to PSL1GHT SDK compilations.
-OPTS		?= -D_USE_SYSFS_ -D_USE_FASTPOLL_ -D_USE_IOBUFFERS_ $(EXTRAOPTS)
+ELFNAME		:= $(TARGET).elf
+LIBNAME		:= lib$(TARGET).a
 
 # Define pkg file and application information
 ifeq ($(SDK),PSL1GHT)
@@ -40,9 +32,12 @@ TITLE		:= CellPS3FTP
 APPID		:= NPXS01337
 endif
 
+ifneq ($(SDK),LINUX)
+include $(PSL1GHT)/ppu_rules
+
 CONTENTID	:= UP0001-$(APPID)_00-0000000000000000
-SFOXML		:= $(CURDIR)/pkg-meta/sfo.xml
-ICON0		:= $(CURDIR)/pkg-meta/ICON0.PNG
+SFOXML		:= $(CURDIR)/pkg/sfo.xml
+ICON0		:= $(CURDIR)/pkg/ICON0.PNG
 
 # Setup commands
 # scetool: github.com/naehrwert/scetool
@@ -65,82 +60,74 @@ MAKE_SELF_NPDRM = scetool $(SCETOOL_FLAGS) -f $(3) -2 $(4) -e $(1) $(2)
 MAKE_PKG = $(PKG) --contentid $(3) $(1) $(2)
 MAKE_FSELF = $(FSELF) $(1) $(2)
 MAKE_SFO = $(SFO) --fromxml --title "$(3)" --appid "$(4)" $(1) $(2)
-
-ifeq ($(SDK),PSL1GHT)
-
-# Libraries
-LIBPATHS	:= -L. -L$(PORTLIBS)/lib $(LIBPSL1GHT_LIB)
-LIBS		:= -l$(TARGET) -lNoRSX -lfreetype -lpixman-1 -lgcm_sys -lrsx -lnetctl -lnet -lsysutil -lsysmodule -lrt -lsysfs -llv2 -lm -lz
-
-# Includes
-INCLUDE		:= -I. -I$(CURDIR)/ftp -I$(PORTLIBS)/include/freetype2 -I$(PORTLIBS)/include $(LIBPSL1GHT_INC)
-
-# Source Files
-SRC			:= client.cpp command.cpp server.cpp util.cpp main.cpp
-OBJ			:= $(SRC:.cpp=.o)
-LIBOBJ		:= $(filter-out main.o, $(OBJ))
-
-# Define compilation options
-CXXFLAGS	= -O2 -g -mregnames -Wall -mcpu=cell $(MACHDEP) $(INCLUDE)
-LDFLAGS		= -s $(MACHDEP) $(LIBPATHS) $(LIBS)
-
 endif
 
-# Make rules
-.PHONY: all clean distclean sdkdist dist pkg lib install PARAM.SFO
+ELF_LOC	:= ./bin/$(ELFNAME)
+LIB_LOC	:= ./lib/$(LIBNAME)
 
-all: $(TARGET).elf
+ELF_MK	:= Makefile.$(SDK_MK).elf.mk
+LIB_MK	:= Makefile.$(SDK_MK).lib.mk
+
+# Make rules
+.PHONY: all clean distclean sdkall sdkdist sdkclean sdkdistclean dist pkg elf lib install PARAM.SFO $(ELF_LOC) $(LIB_LOC)
+
+all: elf
 
 clean: 
-	rm -f $(OBJ) $(LIBNAME).a $(TARGET).zip $(TARGET).self $(TARGET).elf $(APPID).pkg EBOOT.BIN PARAM.SFO
-	rm -rf $(APPID) $(BUILDDIR) objs
+ifneq ($(SDK),LINUX)
+	rm -rf $(APPID)/ $(BUILDDIR)/
+	rm -f $(APPID).pkg EBOOT.BIN PARAM.SFO
+endif
+	$(MAKE) -C bin -f $(ELF_MK) clean
+	$(MAKE) -C lib -f $(LIB_MK) clean
 
-distclean:
+ifneq ($(SDK),LINUX)
+distclean: clean
+	rm -f $(TARGET).zip
+
+dist: distclean $(TARGET).zip
+endif
+
+sdkall:
+	$(MAKE) all SDK=LINUX
+	$(MAKE) all SDK=PSL1GHT
+	$(MAKE) all SDK=CELL
+
+sdkclean:
+	$(MAKE) clean SDK=LINUX
 	$(MAKE) clean SDK=PSL1GHT
 	$(MAKE) clean SDK=CELL
 
-dist: clean $(TARGET).zip
+sdkdist:
+	$(MAKE) dist SDK=PSL1GHT
+	$(MAKE) dist SDK=CELL
 
-sdkdist: distclean
-	$(MAKE) dist EXTRAOPTS=$(EXTRAOPTS)
-	$(MAKE) dist SDK=CELL EXTRAOPTS=$(EXTRAOPTS)
+sdkdistclean:
+	$(MAKE) clean SDK=LINUX
+	$(MAKE) distclean SDK=PSL1GHT
+	$(MAKE) distclean SDK=CELL
 
+ifneq ($(SDK),LINUX)
 pkg: $(APPID).pkg
+endif
 
-lib: $(LIBNAME).a
+lib: $(LIB_LOC)
 
-ifeq ($(SDK),PSL1GHT)
+elf: lib $(ELF_LOC)
+
 install: lib
-	cp -fr $(CURDIR)/ftp $(PORTLIBS)/include/
-	cp -f $(LIBNAME).a $(PORTLIBS)/lib/
-endif
+	$(MAKE) -C lib -f $(LIB_MK) install
 
-ifeq ($(SDK),CELL)
-install: lib
-	cp -fr $(CURDIR)/ftp $(CELL_SDK)/target/ppu/include/
-	cp -f $(LIBNAME).a $(CELL_SDK)/target/ppu/lib/
-endif
-
-ifeq ($(SDK),PSL1GHT)
-$(LIBNAME).a: $(LIBOBJ)
-	$(AR) -rc $@ $^
-	$(PREFIX)ranlib $@
-endif
-
-ifeq ($(SDK),CELL)
-$(LIBNAME).a:
-	$(MAKE) -f Makefile.cell.lib.mk NAME=$(TARGET) EXTRAOPTS=$(EXTRAOPTS)
-endif
-
+ifneq ($(SDK),LINUX)
 $(TARGET).zip: $(APPID).pkg
 	mkdir -p $(BUILDDIR)/cex $(BUILDDIR)/rex
 	cp $< $(BUILDDIR)/cex/
 	cp $< $(BUILDDIR)/rex/
 	-$(PACKAGE_FINALIZE) $(BUILDDIR)/cex/$<
-	zip -r9ql $(CURDIR)/$(TARGET).zip build readme.txt changelog.txt
+	zip -r9ql $(CURDIR)/$@ build readme.txt changelog.txt
 
-EBOOT.BIN: $(TARGET).elf
-	$(call MAKE_SELF_NPDRM,$<,$@,$(CONTENTID),04)
+EBOOT.BIN: elf
+	$(call MAKE_SELF_NPDRM,$(ELF_LOC),$@,$(CONTENTID),04)
 
 $(APPID).pkg: EBOOT.BIN PARAM.SFO $(ICON0)
 	mkdir -p $(APPID)/USRDIR
@@ -151,22 +138,10 @@ $(APPID).pkg: EBOOT.BIN PARAM.SFO $(ICON0)
 
 PARAM.SFO: $(SFOXML)
 	$(call MAKE_SFO,$<,$@,$(TITLE),$(APPID))
-
-$(TARGET).self: $(TARGET).elf
-ifeq ($(SDK),PSL1GHT)
-	$(call MAKE_FSELF,$<,$@)
 endif
 
-ifeq ($(SDK),PSL1GHT)
-$(TARGET).elf: main.o $(LIBNAME).a
-	$(CXX) $< $(LDFLAGS) -o $@
-	$(SPRX) $@
-endif
+$(ELF_LOC):
+	$(MAKE) -C bin -f $(ELF_MK)
 
-ifeq ($(SDK),CELL)
-$(TARGET).elf: $(LIBNAME).a
-	$(MAKE) -f Makefile.cell.elf.mk NAME=$(TARGET)
-endif
-
-%.o: %.cpp
-	$(CXX) $(CXXFLAGS) $(OPTS) -c $< -o $@
+$(LIB_LOC):
+	$(MAKE) -C lib -f $(LIB_MK)

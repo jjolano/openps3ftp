@@ -15,8 +15,11 @@
 
 #include "gcmutil.h"
 
-#include "const.h"
-#include "server.h"
+#include "const.hpp"
+#include "ftphelper.hpp"
+#include "server.hpp"
+
+#include "feat.hpp"
 
 #define COLOR_BUFFER_NUM	2
 #define HOST_SIZE			(1*1024*1024)
@@ -270,8 +273,8 @@ void sysutil_exit_callback(uint64_t status, uint64_t param, void* userdata)
 
 	if(status == CELL_SYSUTIL_REQUEST_EXITGAME)
 	{
-		app_status* appstatus = (app_status*)userdata;
-		appstatus->is_running = 0;
+		FTP::Server* server = (FTP::Server*) userdata;
+		server->stop();
 	}
 }
 
@@ -346,12 +349,21 @@ int userMain(void)
 
 	initDbgFont();
 
-	app_status status;
-	status.is_running = 1;
-	status.num_clients = 0;
-	status.num_connections = 0;
+	FTP::Command command;
+	
+	FTP::Command base_command = feat::base::get_commands();
+	FTP::Command app_command = feat::app::get_commands();
+	FTP::Command ext_command = feat::ext::get_commands();
+	FTP::Command feat_command = feat::get_commands();
 
-	ret = cellSysutilRegisterCallback(0, sysutil_exit_callback, (void*)&status);  
+	command.import(&base_command);
+	command.import(&app_command);
+	command.import(&ext_command);
+	command.import(&feat_command);
+
+	FTP::Server server(&command, 21);
+
+	ret = cellSysutilRegisterCallback(0, sysutil_exit_callback, (void*)&server);
 
 	if(ret != CELL_OK)
 	{
@@ -393,10 +405,10 @@ int userMain(void)
 
 	// Create server thread.
 	sys_ppu_thread_t server_tid;
-	sys_ppu_thread_create(&server_tid, server_start_ex, (uint64_t)&status, 1000, 0x10000, SYS_PPU_THREAD_CREATE_JOINABLE, (char*)"ftpd");
+	sys_ppu_thread_create(&server_tid, ftp_server_start_ex, (uint64_t)&server, 1000, 0x10000, SYS_PPU_THREAD_CREATE_JOINABLE, (char*)"ftpd");
 
 	// Application loop
-	while(status.is_running)
+	while(server.is_running())
 	{
 		ret = cellSysutilCheckCallback();
 
@@ -410,17 +422,12 @@ int userMain(void)
 		// draw text
 		cellDbgFontPrintf(0.1f, 0.1f, 1.0f, 0xffffffff, "CellPS3FTP (OpenPS3FTP) " APP_VERSION);
 		cellDbgFontPrintf(0.1f, 0.2f, 1.0f, 0xffffffff, "IP Address: %s", netctl_info.ip_address);
-		cellDbgFontPrintf(0.1f, 0.3f, 1.0f, 0xffffffff, "Clients: %d", status.num_clients);
-		cellDbgFontPrintf(0.1f, 0.4f, 1.0f, 0xffffffff, "Connections: %d", status.num_connections);
+		cellDbgFontPrintf(0.1f, 0.3f, 1.0f, 0xffffffff, "Connections: %d", server.get_num_connections());
 		
 		cellDbgFontDrawGcm();
 
 		flip();
 	}
-
-	status.is_running = 0;
-	status.num_clients = 0;
-	status.num_connections = 0;
 
 	// Join server thread and wait for exit...
 	uint64_t thread_exit;
