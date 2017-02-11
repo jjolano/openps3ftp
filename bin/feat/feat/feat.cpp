@@ -26,7 +26,7 @@ namespace feat
 	{
 		FTP::Command command;
 
-		command.register_command("FEAT", feat::app::cmd::feat);
+		command.register_command("FEAT", feat::cmd::feat);
 
 		return command;
 	}

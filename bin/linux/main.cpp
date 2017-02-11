@@ -20,13 +20,16 @@ void client_disconnect(FTP::Client* client)
 int main(void)
 {
 	FTP::Command command;
+	
 	FTP::Command base_command = feat::base::get_commands();
 	FTP::Command app_command = feat::app::get_commands();
 	FTP::Command ext_command = feat::ext::get_commands();
+	FTP::Command feat_command = feat::get_commands();
 
 	command.import(&base_command);
 	command.import(&app_command);
 	command.import(&ext_command);
+	command.import(&feat_command);
 
 	command.register_connect_callback(client_connect);
 	command.register_disconnect_callback(client_disconnect);
