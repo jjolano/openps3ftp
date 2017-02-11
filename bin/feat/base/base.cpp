@@ -149,7 +149,7 @@ namespace feat
 
 				uint64_t read;
 
-				if(FTP::IO::read(*fd, client->buffer_data, BUFFER_DATA, &read) != 0)
+				if(FTP::IO::read(*fd, client->buffer_data, BUFFER_DATA - 1, &read) != 0)
 				{
 					FTP::IO::close(*fd);
 					*fd = -1;
@@ -186,7 +186,7 @@ namespace feat
 			{
 				int32_t* fd = (int32_t*) client->get_cvar("fd");
 
-				ssize_t read = recv(socket_data, client->buffer_data, BUFFER_DATA, 0);
+				ssize_t read = recv(socket_data, client->buffer_data, BUFFER_DATA - 1, 0);
 
 				if(read == 0)
 				{
@@ -372,11 +372,6 @@ namespace feat
 
 				if(client->data_start(feat::base::data::list, (POLLOUT|POLLWRNORM)))
 				{
-					struct linger optlinger;
-					optlinger.l_onoff = 1;
-					optlinger.l_linger = 0;
-					setsockopt(client->get_data_socket(), SOL_SOCKET, SO_LINGER, &optlinger, sizeof(optlinger));
-
 					client->send_code(150, "Accepted data connection");
 				}
 				else
@@ -463,11 +458,6 @@ namespace feat
 
 				if(client->data_start(feat::base::data::nlst, (POLLOUT|POLLWRNORM)))
 				{
-					struct linger optlinger;
-					optlinger.l_onoff = 1;
-					optlinger.l_linger = 0;
-					setsockopt(client->get_data_socket(), SOL_SOCKET, SO_LINGER, &optlinger, sizeof(optlinger));
-
 					client->send_code(150, "Accepted data connection");
 				}
 				else
@@ -909,11 +899,6 @@ namespace feat
 
 				if(client->data_start(feat::base::data::recvfile, POLLIN|POLLRDNORM))
 				{
-					struct linger optlinger;
-					optlinger.l_onoff = 1;
-					optlinger.l_linger = 0;
-					setsockopt(client->get_data_socket(), SOL_SOCKET, SO_LINGER, &optlinger, sizeof(optlinger));
-					
 					client->send_code(150, "Accepted data connection.");
 				}
 				else
