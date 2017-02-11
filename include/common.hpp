@@ -31,6 +31,7 @@
 #include <net/net.h>
 #include <sys/thread.h>
 #include <sys/file.h>
+#include <sys/memory.h>
 
 /* PSL1GHT defines */
 extern "C" int closesocket(int socket);
@@ -50,6 +51,7 @@ extern "C" int closesocket(int socket);
 #include <sys/ppu_thread.h>
 #include <sys/syscall.h>
 #include <sys/poll.h>
+#include <sys/memory.h>
 
 /* CELL SDK defines */
 #define close(a)		socketclose(a)

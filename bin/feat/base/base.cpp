@@ -40,6 +40,7 @@ namespace feat
 					return true;
 				}
 
+				#ifdef PS3
 				if(FTP::Utilities::get_working_directory(*cwd_vector) == "/")
 				{
 					if(strcmp(dirent.d_name, "app_home") == 0
@@ -50,6 +51,7 @@ namespace feat
 						return false;
 					}
 				}
+				#endif
 
 				std::string path = FTP::Utilities::get_absolute_path(FTP::Utilities::get_working_directory(*cwd_vector), dirent.d_name);
 				char mode[11];
@@ -106,6 +108,7 @@ namespace feat
 					return true;
 				}
 
+				#ifdef PS3
 				if(FTP::Utilities::get_working_directory(*cwd_vector) == "/")
 				{
 					if(strcmp(dirent.d_name, "app_home") == 0
@@ -116,6 +119,7 @@ namespace feat
 						return false;
 					}
 				}
+				#endif
 
 				std::string path = FTP::Utilities::get_absolute_path(FTP::Utilities::get_working_directory(*cwd_vector), dirent.d_name);
 
@@ -668,6 +672,16 @@ namespace feat
 
 				if(client->data_start(feat::base::data::sendfile, POLLOUT|POLLWRNORM))
 				{
+					#ifdef PSL1GHT_SDK
+					sys_mem_container_t* read_iobuffer = (sys_mem_container_t*) client->get_cvar("read_iobuffer");
+					sysFsSetIoBuffer(*fd, BUFFER_DATA, SYS_FS_IO_BUFFER_PAGE_SIZE_64KB, *read_iobuffer);
+					#endif
+
+					#ifdef CELL_SDK
+					sys_memory_container_t* read_iobuffer = (sys_memory_container_t*) client->get_cvar("read_iobuffer");
+					cellFsSetIoBuffer(*fd, BUFFER_DATA, CELL_FS_IO_BUFFER_PAGE_SIZE_64KB, *read_iobuffer);
+					#endif
+
 					client->send_code(150, "Accepted data connection");
 				}
 				else
@@ -985,6 +999,18 @@ namespace feat
 			client->set_cvar("auth", (void*) auth);
 			client->set_cvar("fd", (void*) fd);
 			client->set_cvar("rest", (void*) rest);
+
+			#ifdef PSL1GHT_SDK
+			sys_mem_container_t* read_iobuffer = new (std::nothrow) sys_mem_container_t;
+			sysMemContainerCreate(read_iobuffer, BUFFER_DATA * 2);
+			client->set_cvar("read_iobuffer", (void*) read_iobuffer);
+			#endif
+
+			#ifdef CELL_SDK
+			sys_memory_container_t* read_iobuffer = new (std::nothrow) sys_memory_container_t;
+			sys_memory_container_create(read_iobuffer, BUFFER_DATA * 2);
+			client->set_cvar("read_iobuffer", (void*) read_iobuffer);
+			#endif
 		}
 
 		void unregister_cvars(FTP::Client* client)
@@ -1010,6 +1036,18 @@ namespace feat
 			delete auth;
 			delete fd;
 			delete rest;
+
+			#ifdef PSL1GHT_SDK
+			sys_mem_container_t* read_iobuffer = (sys_mem_container_t*) client->get_cvar("read_iobuffer");
+			sysMemContainerDestroy(*read_iobuffer);
+			delete read_iobuffer;
+			#endif
+
+			#ifdef CELL_SDK
+			sys_memory_container_t* read_iobuffer = (sys_memory_container_t*) client->get_cvar("read_iobuffer");
+			sys_memory_container_destroy(*read_iobuffer);
+			delete read_iobuffer;
+			#endif
 		}
 
 		FTP::Command get_commands(void)
