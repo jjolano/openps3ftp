@@ -17,6 +17,8 @@ namespace feat
 
 			client->send_multimessage("REST STREAM");
 			client->send_multimessage("SIZE");
+			client->send_multimessage("MDTM");
+			client->send_multimessage("TVFS");
 
 			client->send_code(211, "End");
 		}
