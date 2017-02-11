@@ -118,9 +118,15 @@ int main(void)
 
 	// Create the server thread.
 	FTP::Command command;
+	
 	FTP::Command base_command = feat::base::get_commands();
+	FTP::Command app_command = feat::app::get_commands();
+	FTP::Command ext_command = feat::ext::get_commands();
 
 	command.import(&base_command);
+	command.import(&app_command);
+	command.import(&ext_command);
+
 	FTP::Server server(&command, 21);
 
 	sys_ppu_thread_t server_tid;

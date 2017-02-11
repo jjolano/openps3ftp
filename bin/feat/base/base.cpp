@@ -664,6 +664,7 @@ namespace feat
 
 				uint64_t pos;
 				FTP::IO::lseek(*fd, *rest, SEEK_SET, &pos);
+				*rest = 0;
 
 				if(client->data_start(feat::base::data::sendfile, POLLOUT|POLLWRNORM))
 				{
@@ -773,6 +774,22 @@ namespace feat
 					client->send_code(530, "Not logged in");
 					return;
 				}
+
+				if(params.empty())
+				{
+					client->send_code(501, "No SITE command specified.");
+					return;
+				}
+
+				FTP::Command site_command = site::get_commands();
+				
+				std::pair<std::string, std::string> site_cmd;
+				site_cmd = FTP::Utilities::parse_command_string(params.c_str());
+
+				if(!site_command.call_command(site_cmd, client))
+				{
+					client->send_code(500, "SITE command not implemented.");
+				}
 			}
 
 			void stat(FTP::Client* client, std::string cmd, std::string params)
@@ -874,6 +891,7 @@ namespace feat
 
 				uint64_t pos;
 				FTP::IO::lseek(*fd, *rest, SEEK_SET, &pos);
+				*rest = 0;
 
 				if(client->data_start(feat::base::data::recvfile, POLLIN|POLLRDNORM))
 				{
