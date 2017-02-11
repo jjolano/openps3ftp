@@ -112,6 +112,10 @@ namespace FTP
 					return false;
 				}
 
+				int optval = BUFFER_DATA;
+				setsockopt(socket_data, SOL_SOCKET, SO_RCVBUF, &optval, sizeof(optval));
+				setsockopt(socket_data, SOL_SOCKET, SO_SNDBUF, &optval, sizeof(optval));
+
 				if(connect(socket_data, (struct sockaddr*) &active_addr, len) != 0)
 				{
 					socket_disconnect(socket_data);
@@ -122,7 +126,13 @@ namespace FTP
 
 		struct linger optlinger;
 		optlinger.l_onoff = 1;
+
+		#ifdef PS3
 		optlinger.l_linger = 0;
+		#else
+		optlinger.l_linger = 2;
+		#endif
+
 		setsockopt(socket_data, SOL_SOCKET, SO_LINGER, &optlinger, sizeof(optlinger));
 
 		int optval = BUFFER_DATA;
@@ -131,7 +141,7 @@ namespace FTP
 
 		struct pollfd data_pollfd;
 		data_pollfd.fd = PFD(socket_data);
-		data_pollfd.events = (pevents | POLLIN);
+		data_pollfd.events = (pevents|POLLIN);
 
 		server->clients.insert(std::make_pair(socket_data, this));
 		server->pollfds.push_back(data_pollfd);

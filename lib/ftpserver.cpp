@@ -50,14 +50,8 @@ namespace FTP
 		server_addr.sin_port = htons(server_port);
 		server_addr.sin_addr.s_addr = INADDR_ANY;
 
-		#ifdef PS3
-		int backlog = 1;
-		#else
-		int backlog = 10;
-		#endif
-
 		if(bind(socket_server, (struct sockaddr*) &server_addr, sizeof(server_addr)) != 0
-		|| listen(socket_server, backlog) != 0)
+		|| listen(socket_server, 10) != 0)
 		{
 			server_running = false;
 
@@ -158,8 +152,10 @@ namespace FTP
 						}
 
 						FTP::Client* client = clients_it->second;
+						char temp[16];
 
-						if(pfd.revents & (POLLERR|POLLHUP))
+						if(pfd.revents & (POLLERR|POLLHUP)
+						|| (pfd.events & POLLOUT && pfd.revents & POLLIN && recv(sfd, temp, sizeof(temp), MSG_PEEK) <= 0))
 						{
 							if(sfd == client->get_control_socket())
 							{
@@ -174,7 +170,6 @@ namespace FTP
 
 							clients.erase(clients_it);
 							pollfds.erase(--pollfds_it.base());
-
 							continue;
 						}
 
