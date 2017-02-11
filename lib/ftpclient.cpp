@@ -11,13 +11,13 @@ namespace FTP
 		socket_data = -1;
 		socket_pasv = -1;
 
-		buffer_control = new char[BUFFER_CONTROL];
-		buffer_data = new char[BUFFER_DATA];
+		buffer_control = new (std::nothrow) char[BUFFER_CONTROL];
+		buffer_data = new (std::nothrow) char[BUFFER_DATA];
 		cb_data = NULL;
 
 		struct linger optlinger;
 		optlinger.l_onoff = 1;
-		optlinger.l_linger = 2;
+		optlinger.l_linger = 1;
 		setsockopt(socket_control, SOL_SOCKET, SO_LINGER, &optlinger, sizeof(optlinger));
 
 		server->command->call_connect(this);
@@ -126,7 +126,7 @@ namespace FTP
 
 		struct linger optlinger;
 		optlinger.l_onoff = 1;
-		optlinger.l_linger = 3;
+		optlinger.l_linger = 1;
 		setsockopt(socket_data, SOL_SOCKET, SO_LINGER, &optlinger, sizeof(optlinger));
 
 		struct pollfd data_pollfd;
@@ -142,7 +142,33 @@ namespace FTP
 
 	void Client::data_end(void)
 	{
-		shutdown(socket_data, SHUT_RDWR);
+		if(socket_data > 0)
+		{
+			shutdown(socket_data, SHUT_RDWR);
+			cb_data = NULL;
+
+			#ifdef PS3
+			{
+				using namespace std;
+
+				vector<struct pollfd>::iterator pollfds_it;
+				
+				for(pollfds_it = server->pollfds.begin(); pollfds_it != server->pollfds.end(); ++pollfds_it)
+				{
+					if(OFD(pollfds_it->fd) == socket_data)
+					{
+						server->pollfds.erase(pollfds_it);
+						break;
+					}
+				}
+
+				server->clients.erase(server->clients.find(socket_data));
+			}
+
+			close(socket_data);
+			socket_data = -1;
+			#endif
+		}
 	}
 
 	bool Client::pasv_enter(struct sockaddr_in* pasv_addr)
@@ -240,7 +266,6 @@ namespace FTP
 	{
 		if(socket_dc > 0)
 		{
-			shutdown(socket_dc, SHUT_RDWR);
 			close(socket_dc);
 
 			if(socket_dc == socket_pasv)
@@ -250,7 +275,7 @@ namespace FTP
 
 			if(socket_dc == socket_data)
 			{
-				cb_data = NULL;
+				data_end();
 				socket_data = -1;
 			}
 
@@ -258,12 +283,12 @@ namespace FTP
 			{
 				if(socket_pasv > 0)
 				{
-					socket_disconnect(socket_pasv);
+					close(socket_pasv);
 				}
 
 				if(socket_data > 0)
 				{
-					shutdown(socket_data, SHUT_RDWR);
+					data_end();
 				}
 
 				socket_control = -1;
@@ -292,6 +317,28 @@ namespace FTP
 				if(bytes <= 0)
 				{
 					shutdown(socket_ev, SHUT_RDWR);
+
+					#ifdef PS3
+					{
+						using namespace std;
+
+						vector<struct pollfd>::iterator pollfds_it;
+						
+						for(pollfds_it = server->pollfds.begin(); pollfds_it != server->pollfds.end(); ++pollfds_it)
+						{
+							if(OFD(pollfds_it->fd) == socket_ev)
+							{
+								server->pollfds.erase(pollfds_it);
+								break;
+							}
+						}
+
+						server->clients.erase(server->clients.find(socket_ev));
+					}
+
+					delete this;
+					#endif
+
 					return;
 				}
 
