@@ -1,3 +1,4 @@
+
 [Version 4.2 - February 13, 2017]
 - Reverted removal of APPE command.
 - Added some additional standard FTP commands.
@@ -27,6 +28,7 @@
 - Fixed a long-standing bug that caused the network stack to crash when
   performing a large number of data operations in a short amount of time.
   * This bug apparently exists on all current FTP homebrew servers.
+
 
 [Version 4.0b - January 22, 2017]
 - Implemented libsysfs and experimental async IO writing support
