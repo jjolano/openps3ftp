@@ -1,4 +1,18 @@
-[Version 4.1]
+[Version 4.2 - February 13, 2017]
+- Reverted removal of APPE command.
+- Added some additional standard FTP commands.
+- Rewrote server engine to be able to compile on Linux, CELL, and PSL1GHT.
+  * This makes for easier debugging, so this release should be expected to
+    perform much better (and hopefully bug-free) than earlier versions.
+  * With the new codebase, developers can now easily add their own commands
+    without having to worry about affecting the server engine. The command
+    system is now designed to be "plugin-based".
+- Removed asynchronous IO. No real benefits were found after thorough testing.
+- Vastly improved stability of multiple connections.
+  * 10 simultaneous connections in FileZilla is tested to be stable!
+- Fixed a bad bug in 4.1 causing connections to drop when downloading files.
+
+[Version 4.1 - February 4, 2017]
 - Removed support for APPE command.
 - Implemented a new simple UI.
 - Source can now be compiled as a PSL1GHT static library.
