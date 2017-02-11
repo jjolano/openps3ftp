@@ -15,6 +15,7 @@
 #include <ctype.h>
 #include <errno.h>
 #include <unistd.h>
+#include <inttypes.h>
 
 #include <sys/socket.h>
 #include <sys/stat.h>

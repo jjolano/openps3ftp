@@ -61,7 +61,7 @@ namespace feat
 					strftime(tstr, 15, "%b %e %H:%M", localtime(&stat.st_mtime));
 
 					ssize_t len = sprintf(client->buffer_data,
-						"%s %3d %-10d %-10d %10llu %s %s\r\n",
+						"%s %3d %-10d %-10d %10" PRIu64 " %s %s\r\n",
 						mode, 1, stat.st_uid, stat.st_gid, stat.st_size, tstr, dirent.d_name
 					);
 
@@ -138,16 +138,83 @@ namespace feat
 				return false;
 			}
 
+			// retr
 			bool sendfile(FTP::Client* client, int socket_data)
 			{
 				int32_t* fd = (int32_t*) client->get_cvar("fd");
 
+				uint64_t read;
+
+				if(FTP::IO::read(*fd, client->buffer_data, BUFFER_DATA, &read) != 0)
+				{
+					FTP::IO::close(*fd);
+					*fd = -1;
+
+					client->send_code(452, "Failed to read file");
+					return true;
+				}
+
+				ssize_t write = send(socket_data, client->buffer_data, (size_t) read, 0);
+
+				if(write == -1 || (uint64_t) write < read)
+				{
+					FTP::IO::close(*fd);
+					*fd = -1;
+
+					client->send_code(451, "Error in data transmission");
+					return true;
+				}
+				
+				if(write == 0)
+				{
+					FTP::IO::close(*fd);
+					*fd = -1;
+
+					client->send_code(226, "Transfer complete.");
+					return true;
+				}
+
+				return false;
 			}
 
+			// stor, appe, stou
 			bool recvfile(FTP::Client* client, int socket_data)
 			{
 				int32_t* fd = (int32_t*) client->get_cvar("fd");
 
+				ssize_t read = recv(socket_data, client->buffer_data, BUFFER_DATA, 0);
+
+				if(read == -1)
+				{
+					FTP::IO::close(*fd);
+					*fd = -1;
+
+					client->send_code(451, "Error in data transmission.");
+					return true;
+				}
+
+				uint64_t write;
+
+				if(FTP::IO::write(*fd, client->buffer_data, read, &write) != 0
+				|| write < (uint64_t) read)
+				{
+					FTP::IO::close(*fd);
+					*fd = -1;
+
+					client->send_code(452, "Failed to write data to file.");
+					return true;
+				}
+
+				if(write == 0)
+				{
+					FTP::IO::close(*fd);
+					*fd = -1;
+
+					client->send_code(226, "Transfer complete.");
+					return true;
+				}
+
+				return false;
 			}
 		};
 
@@ -558,12 +625,56 @@ namespace feat
 
 			void retr(FTP::Client* client, std::string cmd, std::string params)
 			{
+				std::vector<std::string>* cwd_vector = (std::vector<std::string>*) client->get_cvar("cwd_vector");
 				bool* auth = (bool*) client->get_cvar("auth");
+				int32_t* fd = (int32_t*) client->get_cvar("fd");
+				uint64_t* rest = (uint64_t*) client->get_cvar("rest");
 
 				if(!*auth)
 				{
 					client->send_code(530, "Not logged in");
 					return;
+				}
+
+				if(*fd != -1)
+				{
+					client->send_code(450, "Another data transfer is already in progress.");
+					return;
+				}
+
+				if(params.empty())
+				{
+					client->send_code(501, "No filename specified");
+					return;
+				}
+
+				std::string path = FTP::Utilities::get_absolute_path(FTP::Utilities::get_working_directory(*cwd_vector), params);
+
+				if(!FTP::Utilities::file_exists(path))
+				{
+					client->send_code(550, "File does not exist");
+					return;
+				}
+
+				if(FTP::IO::open(path, O_RDONLY, fd) != 0)
+				{
+					client->send_code(550, "Cannot open file");
+					return;
+				}
+
+				uint64_t pos;
+				FTP::IO::lseek(*fd, *rest, SEEK_SET, &pos);
+
+				if(client->data_start(feat::base::data::sendfile, POLLOUT|POLLWRNORM))
+				{
+					client->send_code(150, "Accepted data connection");
+				}
+				else
+				{
+					FTP::IO::close(*fd);
+					*fd = -1;
+
+					client->send_code(425, "Cannot open data connection");
 				}
 			}
 
@@ -685,11 +796,95 @@ namespace feat
 			{
 				std::vector<std::string>* cwd_vector = (std::vector<std::string>*) client->get_cvar("cwd_vector");
 				bool* auth = (bool*) client->get_cvar("auth");
+				int32_t* fd = (int32_t*) client->get_cvar("fd");
+				uint64_t* rest = (uint64_t*) client->get_cvar("rest");
 
 				if(!*auth)
 				{
 					client->send_code(530, "Not logged in");
 					return;
+				}
+
+				if(*fd != -1)
+				{
+					client->send_code(450, "Another data transfer is already in progress.");
+					return;
+				}
+
+				if(cmd == "STOU")
+				{
+					int i = 0;
+					do
+					{
+						if(i > 0 || params.empty())
+						{
+							std::stringstream u_ss;
+
+							if(!params.empty())
+							{
+								u_ss << '.';
+							}
+
+							u_ss << i;
+
+							params = params + u_ss.str();
+						}
+						
+						i++;
+					} while(FTP::Utilities::file_exists(FTP::Utilities::get_absolute_path(FTP::Utilities::get_working_directory(*cwd_vector), params)));
+				}
+
+				if(params.empty())
+				{
+					client->send_code(501, "No filename specified");
+					return;
+				}
+
+				std::string path = FTP::Utilities::get_absolute_path(FTP::Utilities::get_working_directory(*cwd_vector), params);
+
+				uint32_t oflags = O_WRONLY;
+
+				if(!FTP::Utilities::file_exists(path))
+				{
+					oflags |= O_CREAT;
+				}
+
+				if(cmd == "APPE")
+				{
+					oflags |= O_APPEND;
+				}
+				else
+				{
+					if(*rest == 0)
+					{
+						oflags |= O_TRUNC;
+					}
+				}
+
+				if(FTP::IO::open(path, oflags, fd) != 0)
+				{
+					client->send_code(550, "Cannot access file");
+					return;
+				}
+
+				if(oflags & O_CREAT)
+				{
+					FTP::IO::chmod(path, 0777);
+				}
+
+				uint64_t pos;
+				FTP::IO::lseek(*fd, *rest, SEEK_SET, &pos);
+
+				if(client->data_start(feat::base::data::recvfile, POLLIN|POLLRDNORM))
+				{
+					client->send_code(150, "Accepted data connection.");
+				}
+				else
+				{
+					FTP::IO::close(*fd);
+					*fd = -1;
+
+					client->send_code(425, "Cannot open data connection.");
 				}
 			}
 
