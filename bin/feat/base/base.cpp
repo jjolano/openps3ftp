@@ -372,6 +372,11 @@ namespace feat
 
 				if(client->data_start(feat::base::data::list, (POLLOUT|POLLWRNORM)))
 				{
+					struct linger optlinger;
+					optlinger.l_onoff = 1;
+					optlinger.l_linger = 0;
+					setsockopt(client->get_data_socket(), SOL_SOCKET, SO_LINGER, &optlinger, sizeof(optlinger));
+
 					client->send_code(150, "Accepted data connection");
 				}
 				else
@@ -458,6 +463,11 @@ namespace feat
 
 				if(client->data_start(feat::base::data::nlst, (POLLOUT|POLLWRNORM)))
 				{
+					struct linger optlinger;
+					optlinger.l_onoff = 1;
+					optlinger.l_linger = 0;
+					setsockopt(client->get_data_socket(), SOL_SOCKET, SO_LINGER, &optlinger, sizeof(optlinger));
+
 					client->send_code(150, "Accepted data connection");
 				}
 				else
@@ -899,6 +909,11 @@ namespace feat
 
 				if(client->data_start(feat::base::data::recvfile, POLLIN|POLLRDNORM))
 				{
+					struct linger optlinger;
+					optlinger.l_onoff = 1;
+					optlinger.l_linger = 0;
+					setsockopt(client->get_data_socket(), SOL_SOCKET, SO_LINGER, &optlinger, sizeof(optlinger));
+					
 					client->send_code(150, "Accepted data connection.");
 				}
 				else

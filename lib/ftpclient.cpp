@@ -15,11 +15,6 @@ namespace FTP
 		buffer_data = new (std::nothrow) char[BUFFER_DATA];
 		cb_data = NULL;
 
-		struct linger optlinger;
-		optlinger.l_onoff = 1;
-		optlinger.l_linger = 1;
-		setsockopt(socket_control, SOL_SOCKET, SO_LINGER, &optlinger, sizeof(optlinger));
-
 		server->command->call_connect(this);
 	}
 
@@ -123,11 +118,6 @@ namespace FTP
 		int optval = BUFFER_DATA;
 		setsockopt(socket_data, SOL_SOCKET, SO_RCVBUF, &optval, sizeof(optval));
 		//setsockopt(socket_data, SOL_SOCKET, SO_SNDBUF, &optval, sizeof(optval));
-
-		struct linger optlinger;
-		optlinger.l_onoff = 1;
-		optlinger.l_linger = 2;
-		setsockopt(socket_data, SOL_SOCKET, SO_LINGER, &optlinger, sizeof(optlinger));
 
 		struct pollfd data_pollfd;
 		data_pollfd.fd = PFD(socket_data);
