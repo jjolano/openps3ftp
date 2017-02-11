@@ -102,7 +102,7 @@ namespace FTP
 
 					if(pfd.revents & POLLNVAL)
 					{
-						pollfds.erase(--(pollfds_it.base()));
+						pollfds.erase(--pollfds_it.base());
 						continue;
 					}
 
@@ -147,7 +147,7 @@ namespace FTP
 
 						if(clients_it == clients.end())
 						{
-							pollfds.erase(--(pollfds_it.base()));
+							pollfds.erase(--pollfds_it.base());
 							continue;
 						}
 
@@ -167,7 +167,7 @@ namespace FTP
 							}
 
 							clients.erase(clients_it);
-							pollfds.erase(--(pollfds_it.base()));
+							pollfds.erase(--pollfds_it.base());
 
 							continue;
 						}
