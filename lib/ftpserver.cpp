@@ -10,7 +10,7 @@ namespace FTP
 		server_port = port;
 		server_running = false;
 
-		pollfds.reserve(20);
+		pollfds.reserve(22);
 	}
 
 	bool Server::is_running(void)
@@ -51,7 +51,7 @@ namespace FTP
 		server_addr.sin_addr.s_addr = INADDR_ANY;
 
 		if(bind(socket_server, (struct sockaddr*) &server_addr, sizeof(server_addr)) != 0
-		|| listen(socket_server, 5) != 0)
+		|| listen(socket_server, 10) != 0)
 		{
 			server_running = false;
 
