@@ -9,6 +9,8 @@ namespace FTP
 		command = ext_command;
 		server_port = port;
 		server_running = false;
+
+		pollfds.reserve(20);
 	}
 
 	bool Server::is_running(void)
@@ -128,6 +130,13 @@ namespace FTP
 							close(socket_client);
 							continue;
 						}
+
+						struct pollfd client_pollfd;
+						client_pollfd.fd = PFD(socket_client);
+						client_pollfd.events = (POLLIN|POLLRDNORM);
+
+						clients.insert(make_pair(socket_client, client));
+						pollfds.push_back(client_pollfd);
 
 						client->send_multicode(220, WELCOME_MSG);
 						client->send_code(220, "Ready.");

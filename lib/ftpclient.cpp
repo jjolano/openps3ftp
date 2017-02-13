@@ -20,13 +20,6 @@ namespace FTP
 		optlinger.l_linger = 2;
 		setsockopt(socket_control, SOL_SOCKET, SO_LINGER, &optlinger, sizeof(optlinger));
 
-		struct pollfd client_pollfd;
-		client_pollfd.fd = PFD(socket_control);
-		client_pollfd.events = (POLLIN|POLLRDNORM);
-
-		server->clients.insert(std::make_pair(socket_control, this));
-		server->pollfds.push_back(client_pollfd);
-
 		server->command->call_connect(this);
 	}
 
@@ -140,8 +133,8 @@ namespace FTP
 		data_pollfd.fd = PFD(socket_data);
 		data_pollfd.events = (pevents | POLLIN);
 
-		server->pollfds.push_back(data_pollfd);
 		server->clients.insert(std::make_pair(socket_data, this));
+		server->pollfds.push_back(data_pollfd);
 
 		cb_data = callback;
 		return true;
