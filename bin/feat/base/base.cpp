@@ -61,8 +61,8 @@ namespace feat
 					strftime(tstr, 15, "%b %e %H:%M", localtime(&stat.st_mtime));
 
 					ssize_t len = sprintf(client->buffer_data,
-						"%s %3d %-10d %-10d %10" PRIu64 " %s %s\r\n",
-						mode, 1, stat.st_uid, stat.st_gid, stat.st_size, tstr, dirent.d_name
+						"%s %3" PRIuMAX " %-10d %-10d %10" PRIu64 " %s %s\r\n",
+						mode, (uintmax_t) d_ino, stat.st_uid, stat.st_gid, (uint64_t) stat.st_size, tstr, dirent.d_name
 					);
 
 					ssize_t nwrite = send(socket_data, client->buffer_data, (size_t)len, 0);

@@ -2,6 +2,8 @@
 
 #pragma once
 
+#define __USE_FILE_OFFSET64
+
 #include <sstream>
 #include <string>
 #include <vector>
@@ -37,6 +39,8 @@ extern "C" int closesocket(int socket);
 
 #define PFD(a)			((a) & ~SOCKET_FD_MASK)
 #define OFD(a)			(a | SOCKET_FD_MASK)
+
+#define d_ino			1
 #endif
 
 #ifdef CELL_SDK
@@ -50,6 +54,7 @@ extern "C" int closesocket(int socket);
 /* CELL SDK defines */
 #define close(a)		socketclose(a)
 #define poll(a,b,c)		socketpoll(a,b,c)
+#define d_ino			1
 #endif
 
 #if (!defined(PS3) || defined(LINUX))
@@ -60,6 +65,8 @@ extern "C" int closesocket(int socket);
 #include <poll.h>
 #include <fcntl.h>
 #include <dirent.h>
+
+#define d_ino			dirent.d_ino
 #endif
 
 #ifndef PSL1GHT_SDK
