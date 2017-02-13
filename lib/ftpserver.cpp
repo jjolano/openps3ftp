@@ -48,7 +48,7 @@ namespace FTP
 		server_addr.sin_port = htons(server_port);
 		server_addr.sin_addr.s_addr = INADDR_ANY;
 
-		if(bind(socket_server, (sockaddr*)&server_addr, sizeof(server_addr)) != 0
+		if(bind(socket_server, (struct sockaddr*) &server_addr, sizeof(server_addr)) != 0
 		|| listen(socket_server, 5) != 0)
 		{
 			server_running = false;
@@ -100,7 +100,7 @@ namespace FTP
 
 					if(pfd.revents & POLLNVAL)
 					{
-						pollfds.erase(pollfds_it.base());
+						pollfds.erase(--(pollfds_it.base()));
 						continue;
 					}
 
