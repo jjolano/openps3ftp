@@ -170,6 +170,10 @@ namespace FTP
 				{
 					ret += (char) (s[c] - 32);
 				}
+				else
+				{
+					ret += (char) (s[c]);
+				}
 
 				c++;
 			}
