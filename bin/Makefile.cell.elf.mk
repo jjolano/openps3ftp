@@ -4,6 +4,8 @@ CELL_SDK ?= /usr/local/cell
 CELL_MK_DIR ?= $(CELL_SDK)/samples/mk
 include $(CELL_MK_DIR)/sdk.makedef.mk
 
+OBJS_DIR = objs/elf
+
 GCM_UTIL = $(CELL_COMMON_DIR)/gcmutil
 
 PPU_SRCS = $(GCM_UTIL)/EntryPoint.c $(wildcard cell/*.cpp) $(wildcard helper/*.cpp) $(wildcard feat/*/*.cpp)

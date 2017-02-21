@@ -14,6 +14,8 @@ CELL_SDK ?= /usr/local/cell
 CELL_MK_DIR ?= $(CELL_SDK)/samples/mk
 include $(CELL_MK_DIR)/sdk.makedef.mk
 
+OBJS_DIR = objs/prx
+
 PEXPORTPICKUP = ppu-lv2-prx-exportpickup$(EXE_SUFFIX)
 
 CRT_HEAD += $(shell $(CC) -print-file-name'='ecrti.o)
@@ -23,13 +25,14 @@ CRT_HEAD += $(shell $(CC) -print-file-name'='ecrtn.o)
 
 PPU_SRCS = $(wildcard prx/*.c) $(wildcard prx/*.cpp) $(wildcard helper/*.cpp) $(wildcard feat/*/*.cpp)
 PPU_PRX_TARGET = openps3ftp.prx
-PPU_CPPFLAGS += -DCELL_SDK -fno-exceptions -fno-rtti
+PPU_CPPFLAGS += -DCELL_SDK -fno-exceptions -fno-rtti -ffunction-sections -fdata-sections -fno-builtin-printf -Wno-shadow -Wno-unused-parameter
 
-PPU_PRX_LDFLAGS += -Wl,--strip-unused-data -fno-exceptions -fno-rtti
+PPU_PRX_LDFLAGS += -Wl,--strip-unused-data -fno-exceptions -fno-rtti -ffunction-sections -fdata-sections -fno-builtin-printf -Wno-shadow -Wno-unused-parameter
 PPU_PRX_LDLIBDIR += -L../lib -L./prx/lib
 
-PPU_PRX_LDLIBS += -lcellps3ftp -lnetctl_stub -lnet_stub -lfs_stub -lsysutil_stub -lsysmodule_stub
-PPU_PRX_LDLIBS += -lstdc_export_stub -lsys_net_export_stub -lsysPrxForUser_export_stub -lallocator_export_stub
+PPU_PRX_LDLIBS += -lcellps3ftp -lnetctl_stub -lnet_stub -lfs_stub -lio_stub -lrtc_stub -lsysutil_stub -lsysmodule_stub
+PPU_PRX_LDLIBS += -lstdc_export_stub -lsys_net_export_stub -lsysPrxForUser_export_stub -lallocator_export_stub -lvshtask_export_stub -lvsh_export_stub -lvshmain_export_stub
+PPU_PRX_LDLIBS += -lvshcommon_export_stub -lvshnet_export_stub -lpaf_export_stub -lsdk_export_stub -lsys_io_export_stub
 PPU_PRX_LDLIBS += -lc_stub -lstdc++_stub -lm_stub
 
 PPU_OPTIMIZE_LV = -Os

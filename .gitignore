@@ -10,3 +10,6 @@
 *.self
 .vscode/
 objs/
+*.sprx
+*.prx
+*.sym

@@ -18,12 +18,31 @@ SYS_MODULE_INFO("OpenPS3FTP", 0, 4, 2);
 static sys_ppu_thread_t prx_tid;
 static bool prx_running;
 
-static inline void _sys_ppu_thread_exit(uint64_t val)
+extern "C" static inline void _sys_ppu_thread_exit(uint64_t val)
 {
 	system_call_1(41, val);
 }
 
-static void prx_main(uint64_t ptr)
+extern "C" static inline sys_prx_id_t prx_get_module_id_by_address(void (*addr)())
+{
+	system_call_1(461, (uint64_t)(uint32_t)addr);
+	return (int)p1;
+}
+
+extern "C" static void finalize_module(void)
+{
+	uint64_t meminfo[5];
+
+	sys_prx_id_t prx = prx_get_module_id_by_address(finalize_module);
+
+	meminfo[0] = 0x28;
+	meminfo[1] = 2;
+	meminfo[3] = 0;
+
+	system_call_3(482, prx, 0, (uint64_t)(uint32_t)meminfo);
+}
+
+void prx_main(uint64_t ptr)
 {
 	prx_running = true;
 	
@@ -77,6 +96,7 @@ extern "C" int UnloadModule(void)
 		sys_ppu_thread_join(prx_tid, &prx_exit);
 	}
 
+	finalize_module();
 	_sys_ppu_thread_exit(0);
 	return SYS_PRX_STOP_OK;
 }
