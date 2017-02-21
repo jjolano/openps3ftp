@@ -10,10 +10,9 @@
 
 #include "feat.hpp"
 
-SYS_MODULE_START(EntryPoint);
-SYS_MODULE_STOP(UnloadModule);
-SYS_MODULE_EXIT(UnloadModule);
-SYS_MODULE_INFO("OpenPS3FTP", 0, 4, 2);
+#ifdef PRX
+#include "prx/vsh_exports.h"
+#endif
 
 static sys_ppu_thread_t prx_tid;
 static bool prx_running;
@@ -42,6 +41,21 @@ extern "C" static void finalize_module(void)
 	system_call_3(482, prx, 0, (uint64_t)(uint32_t)meminfo);
 }
 
+extern "C" int prx_unload(void)
+{
+	if(prx_running)
+	{
+		prx_running = false;
+
+		uint64_t prx_exit;
+		sys_ppu_thread_join(prx_tid, &prx_exit);
+	}
+
+	finalize_module();
+	_sys_ppu_thread_exit(0);
+	return SYS_PRX_STOP_OK;
+}
+
 void prx_main(uint64_t ptr)
 {
 	prx_running = true;
@@ -63,6 +77,7 @@ void prx_main(uint64_t ptr)
 	sys_ppu_thread_t server_tid;
 	if(sys_ppu_thread_create(&server_tid, ftp_server_start_ex, (uint64_t)&server, 1000, 0x10000, SYS_PPU_THREAD_CREATE_JOINABLE, (char*) "ftpd") != CELL_OK)
 	{
+		prx_unload();
 		sys_ppu_thread_exit(0);
 	}
 
@@ -79,24 +94,14 @@ void prx_main(uint64_t ptr)
 	sys_ppu_thread_exit(thread_exit);
 }
 
-extern "C" int EntryPoint(size_t args, void* argv)
+extern "C" int prx_start(size_t args, void* argv)
 {
-	sys_ppu_thread_create(&prx_tid, prx_main, 0, 1000, 0x10000, SYS_PPU_THREAD_CREATE_JOINABLE, (char*) "OpenPS3FTP-PRX");
+	sys_ppu_thread_create(&prx_tid, prx_main, 0, 1000, 0x10000, SYS_PPU_THREAD_CREATE_JOINABLE, (char*) "OpenPS3FTP");
 	_sys_ppu_thread_exit(0);
 	return SYS_PRX_RESIDENT;
 }
 
-extern "C" int UnloadModule(void)
-{
-	if(prx_running)
-	{
-		prx_running = false;
-
-		uint64_t prx_exit;
-		sys_ppu_thread_join(prx_tid, &prx_exit);
-	}
-
-	finalize_module();
-	_sys_ppu_thread_exit(0);
-	return SYS_PRX_STOP_OK;
-}
+SYS_MODULE_START(prx_start);
+SYS_MODULE_STOP(prx_unload);
+SYS_MODULE_EXIT(prx_unload);
+SYS_MODULE_INFO(FTP, 0, 4, 2);

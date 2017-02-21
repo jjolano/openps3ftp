@@ -89,7 +89,6 @@ dist: distclean $(TARGET).zip
 endif
 
 prx:
-	$(MAKE) lib SDK=CELL
 	$(MAKE) -C bin -f Makefile.cell.prx.mk
 
 prxclean:

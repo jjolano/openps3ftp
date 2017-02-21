@@ -10,7 +10,9 @@ namespace FTP
 		server_port = port;
 		server_running = false;
 
+		#ifndef PRX
 		pollfds.reserve(22);
+		#endif
 	}
 
 	bool Server::is_running(void)

@@ -14,26 +14,20 @@ CELL_SDK ?= /usr/local/cell
 CELL_MK_DIR ?= $(CELL_SDK)/samples/mk
 include $(CELL_MK_DIR)/sdk.makedef.mk
 
+PPU_PRX_CCLD = $(PPU_PREFIX)gcc$(EXE_SUFFIX) -mprx-with-runtime
+PPU_PRX_CXXLD = $(PPU_PREFIX)g++$(EXE_SUFFIX) -mprx-with-runtime
+
 OBJS_DIR = objs/prx
 
-PEXPORTPICKUP = ppu-lv2-prx-exportpickup$(EXE_SUFFIX)
-
-CRT_HEAD += $(shell $(CC) -print-file-name'='ecrti.o)
-CRT_HEAD += $(shell $(CC) -print-file-name'='crtbegin.o)
-CRT_TAIL += $(shell $(CC) -print-file-name'='crtend.o)
-CRT_HEAD += $(shell $(CC) -print-file-name'='ecrtn.o)
-
-PPU_SRCS = $(wildcard prx/*.c) $(wildcard prx/*.cpp) $(wildcard helper/*.cpp) $(wildcard feat/*/*.cpp)
+PPU_SRCS = $(wildcard prx/*.c) $(wildcard prx/*.cpp) $(wildcard helper/*.cpp) $(wildcard feat/*/*.cpp) $(wildcard ../lib/*.cpp)
 PPU_PRX_TARGET = openps3ftp.prx
-PPU_CPPFLAGS += -DCELL_SDK -fno-exceptions -fno-rtti -ffunction-sections -fdata-sections -fno-builtin-printf -Wno-shadow -Wno-unused-parameter
+PPU_CPPFLAGS += -DCELL_SDK -DPRX -fno-exceptions -fno-rtti -ffunction-sections -fdata-sections -fno-builtin-printf -nodefaultlibs -Wno-shadow -Wno-unused-parameter
 
-PPU_PRX_LDFLAGS += -Wl,--strip-unused-data -fno-exceptions -fno-rtti -ffunction-sections -fdata-sections -fno-builtin-printf -Wno-shadow -Wno-unused-parameter
+PPU_PRX_LDFLAGS += -Wl,--strip-unused-data -fno-exceptions -fno-rtti -ffunction-sections -fdata-sections -fno-builtin-printf -nodefaultlibs -Wno-shadow -Wno-unused-parameter
 PPU_PRX_LDLIBDIR += -L../lib -L./prx/lib
 
-PPU_PRX_LDLIBS += -lcellps3ftp -lnetctl_stub -lnet_stub -lfs_stub -lio_stub -lrtc_stub -lsysutil_stub -lsysmodule_stub
-PPU_PRX_LDLIBS += -lstdc_export_stub -lsys_net_export_stub -lsysPrxForUser_export_stub -lallocator_export_stub -lvshtask_export_stub -lvsh_export_stub -lvshmain_export_stub
-PPU_PRX_LDLIBS += -lvshcommon_export_stub -lvshnet_export_stub -lpaf_export_stub -lsdk_export_stub -lsys_io_export_stub
-PPU_PRX_LDLIBS += -lc_stub -lstdc++_stub -lm_stub
+PPU_PRX_LDLIBS += -lnet_stub -lfs_stub -lsysmodule_stub -lc_stub -lstdc++_stub
+PPU_PRX_LDLIBS += -lsys_net_export_stub -lallocator_export_stub -lstdc_export_stub -lsysPrxForUser_export_stub
 
 PPU_OPTIMIZE_LV = -Os
 PPU_INCDIRS += -I../include -I./helper -I./feat
