@@ -8,11 +8,11 @@ GCM_UTIL = $(CELL_COMMON_DIR)/gcmutil
 
 PPU_SRCS = $(GCM_UTIL)/EntryPoint.c $(wildcard cell/*.cpp) $(wildcard helper/*.cpp) $(wildcard feat/*/*.cpp)
 PPU_TARGET = cellps3ftp.elf
-PPU_CPPFLAGS += -DCELL_SDK
+PPU_CPPFLAGS += -DCELL_SDK -fno-exceptions -fno-rtti
 
 SUBDIRS = $(GCM_UTIL)
 
-PPU_LDFLAGS += -Wl,--strip-unused
+PPU_LDFLAGS += -Wl,--strip-unused -fno-exceptions -fno-rtti
 PPU_LDLIBDIR += -L../lib
 PPU_LDLIBS += -lcellps3ftp -lnetctl_stub -lnet_stub -lgcm_cmd -lgcm_sys_stub -lfs_stub -lsysutil_stub -lsysmodule_stub -llv2_stub -ldbgfont_gcm
 PPU_LIBS += $(GCM_UTIL)/gcmutil.a

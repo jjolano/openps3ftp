@@ -82,11 +82,18 @@ endif
 	$(MAKE) -C lib -f $(LIB_MK) clean
 
 ifneq ($(SDK),LINUX)
-distclean: clean
+distclean: clean prxclean
 	rm -f $(TARGET).zip
 
 dist: distclean $(TARGET).zip
 endif
+
+prx:
+	$(MAKE) lib SDK=CELL
+	$(MAKE) -C bin -f Makefile.cell.prx.mk
+
+prxclean:
+	$(MAKE) -C bin -f Makefile.cell.prx.mk clean
 
 sdkall:
 	$(MAKE) all SDK=LINUX

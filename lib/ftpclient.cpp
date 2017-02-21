@@ -11,8 +11,8 @@ namespace FTP
 		socket_data = -1;
 		socket_pasv = -1;
 
-		buffer_control = new (std::nothrow) char[BUFFER_CONTROL];
-		buffer_data = new (std::nothrow) char[BUFFER_DATA];
+		buffer_control = new char[BUFFER_CONTROL];
+		buffer_data = new char[BUFFER_DATA];
 		cb_data = NULL;
 
 		struct linger optlinger;

@@ -13,7 +13,7 @@ OBJS		:= $(SRCS:.cpp=.ppu.o)
 
 # Define compilation options
 DEFINES		:= -DPSL1GHT_SDK
-CXXFLAGS	= -O2 -g -mregnames -Wall -mcpu=cell $(MACHDEP) $(INCLUDE) $(DEFINES)
+CXXFLAGS	= -O2 -g -mregnames -Wall -mcpu=cell -fno-exceptions -fno-rtti $(MACHDEP) $(INCLUDE) $(DEFINES)
 
 # Make rules
 .PHONY: all clean install

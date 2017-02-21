@@ -122,7 +122,7 @@ namespace FTP
 							continue;
 						}
 
-						FTP::Client* client = new (nothrow) FTP::Client(socket_client, this);
+						FTP::Client* client = new FTP::Client(socket_client, this);
 
 						if(!client)
 						{
