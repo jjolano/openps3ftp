@@ -2,6 +2,7 @@
 #include <sys/prx.h>
 #include <sys/ppu_thread.h>
 #include <sys/timer.h>
+#include <sys/syscall.h>
 
 #include "const.hpp"
 #include "ftphelper.hpp"
@@ -9,11 +10,23 @@
 
 #include "feat.hpp"
 
-sys_ppu_thread_t prx_tid;
-bool prx_running;
+SYS_MODULE_START(EntryPoint);
+SYS_MODULE_STOP(UnloadModule);
+SYS_MODULE_EXIT(UnloadModule);
+SYS_MODULE_INFO("OpenPS3FTP", 0, 4, 2);
 
-void prx_main(uint64_t ptr)
+static sys_ppu_thread_t prx_tid;
+static bool prx_running;
+
+static inline void _sys_ppu_thread_exit(uint64_t val)
 {
+	system_call_1(41, val);
+}
+
+static void prx_main(uint64_t ptr)
+{
+	prx_running = true;
+	
 	FTP::Command command;
 	
 	FTP::Command base_command = feat::base::get_commands();
@@ -29,7 +42,10 @@ void prx_main(uint64_t ptr)
 	FTP::Server server(&command, 21);
 
 	sys_ppu_thread_t server_tid;
-	sys_ppu_thread_create(&server_tid, ftp_server_start_ex, (uint64_t)&server, 1000, 0x10000, SYS_PPU_THREAD_CREATE_JOINABLE, (char*)"ftpd");
+	if(sys_ppu_thread_create(&server_tid, ftp_server_start_ex, (uint64_t)&server, 1000, 0x10000, SYS_PPU_THREAD_CREATE_JOINABLE, (char*) "ftpd") != CELL_OK)
+	{
+		sys_ppu_thread_exit(0);
+	}
 
 	while(server.is_running() && prx_running)
 	{
@@ -46,13 +62,9 @@ void prx_main(uint64_t ptr)
 
 extern "C" int EntryPoint(size_t args, void* argv)
 {
-	if(sys_ppu_thread_create(&prx_tid, prx_main, 0, 1000, 2048, SYS_PPU_THREAD_CREATE_JOINABLE, (char*) "OpenPS3FTP-PRX") == CELL_OK)
-	{
-		prx_running = true;
-		return SYS_PRX_RESIDENT;
-	}
-
-	return SYS_PRX_NO_RESIDENT;
+	sys_ppu_thread_create(&prx_tid, prx_main, 0, 1000, 0x10000, SYS_PPU_THREAD_CREATE_JOINABLE, (char*) "OpenPS3FTP-PRX");
+	_sys_ppu_thread_exit(0);
+	return SYS_PRX_RESIDENT;
 }
 
 extern "C" int UnloadModule(void)
@@ -65,10 +77,6 @@ extern "C" int UnloadModule(void)
 		sys_ppu_thread_join(prx_tid, &prx_exit);
 	}
 
+	_sys_ppu_thread_exit(0);
 	return SYS_PRX_STOP_OK;
 }
-
-SYS_MODULE_START(EntryPoint);
-SYS_MODULE_STOP(UnloadModule);
-SYS_MODULE_EXIT(UnloadModule);
-SYS_MODULE_INFO("OpenPS3FTP", 0, 4, 2);

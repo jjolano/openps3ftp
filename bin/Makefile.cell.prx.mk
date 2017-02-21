@@ -14,6 +14,13 @@ CELL_SDK ?= /usr/local/cell
 CELL_MK_DIR ?= $(CELL_SDK)/samples/mk
 include $(CELL_MK_DIR)/sdk.makedef.mk
 
+PEXPORTPICKUP = ppu-lv2-prx-exportpickup$(EXE_SUFFIX)
+
+CRT_HEAD += $(shell $(CC) -print-file-name'='ecrti.o)
+CRT_HEAD += $(shell $(CC) -print-file-name'='crtbegin.o)
+CRT_TAIL += $(shell $(CC) -print-file-name'='crtend.o)
+CRT_HEAD += $(shell $(CC) -print-file-name'='ecrtn.o)
+
 PPU_SRCS = $(wildcard prx/*.c) $(wildcard prx/*.cpp) $(wildcard helper/*.cpp) $(wildcard feat/*/*.cpp)
 PPU_PRX_TARGET = openps3ftp.prx
 PPU_CPPFLAGS += -DCELL_SDK -fno-exceptions -fno-rtti
