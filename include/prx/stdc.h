@@ -407,7 +407,7 @@ extern int stdc_3BD9CE0A(int fd);                                               
 #define fsync stdc_3BD9CE0A
 
 extern int stdc_F356418C(const char *, int, ...);                                     // open()
-#define open stdc_F356418C
+//#define open stdc_F356418C
 
 extern FILE *stdc_69C27C12(const char *filename, const char *mode);                   // fopen()
 #define fopen stdc_69C27C12
@@ -431,16 +431,16 @@ extern int stdc_69FF1B9B(FILE *stream, long int offset, int whence);            
 #define fseek stdc_69FF1B9B
 
 extern off_t stdc_AEC7C970(int fd, off_t offset, int whence);                         // lseek()
-#define lseek stdc_AEC7C970
+//#define lseek stdc_AEC7C970
 
 extern size_t stdc_FA00D211(int fd, void *buf, size_t nbytes);                        // read()
-#define read stdc_FA00D211
+//#define read stdc_FA00D211
 
 extern size_t stdc_D40723D6(void *ptr, size_t size, size_t count, FILE *stream);      // fread()
 #define fread stdc_D40723D6
 
 extern size_t stdc_526A496A(int fildes, const void *buf, size_t nbytes);              // write()
-#define write stdc_526A496A
+//#define write stdc_526A496A
 
 extern size_t stdc_F88F26C4(const void *ptr, size_t size, size_t count, FILE *stream);  // fwrite()
 #define fwrite stdc_F88F26C4
@@ -448,23 +448,23 @@ extern size_t stdc_F88F26C4(const void *ptr, size_t size, size_t count, FILE *st
 extern int stdc_814D8CB0(FILE * stream);                                              // fflush()
 #define fflush stdc_814D8CB0
 
-//extern int stdc_B120F6CA(int fd);                                                     // close()
+extern int stdc_B120F6CA(int fd);                                                     // close()
 //#define close stdc_B120F6CA
 
-extern int stdc_E1BD3587(FILE *stream);                                               // fclose()
-#define fclose stdc_E1BD3587
+//extern int stdc_E1BD3587(FILE *stream);                                               // fclose()
+//#define fclose stdc_E1BD3587
 
-extern int stdc_153B364A(const char *path, mode_t mode);                              // mkdir()
-#define mkdir stdc_153B364A
+//extern int stdc_153B364A(const char *path, mode_t mode);                              // mkdir()
+//#define mkdir stdc_153B364A
 
-extern int stdc_7E7017B1(const char *path);                                           // rmdir()
-#define rmdir stdc_7E7017B1
+//extern int stdc_7E7017B1(const char *path);                                           // rmdir()
+//#define rmdir stdc_7E7017B1
 
-extern int stdc_75D4485C(const char *old_filename, const char *new_filename);         // rename()
-#define rename stdc_75D4485C
+//extern int stdc_75D4485C(const char *old_filename, const char *new_filename);         // rename()
+//#define rename stdc_75D4485C
 
 extern int stdc_EF110B6B(const char *path);                                           // unlink()
-#define unlink stdc_EF110B6B
+//#define unlink stdc_EF110B6B
 
 //extern int stdc_717B2502(const char *restrict path, struct stat *restrict buf);       // stat()
 //#define stat stdc_717B2502

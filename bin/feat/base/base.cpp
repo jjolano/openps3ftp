@@ -151,7 +151,7 @@ namespace feat
 
 				if(FTP::IO::read(*fd, client->buffer_data, BUFFER_DATA - 1, &read) != 0)
 				{
-					FTP::IO::close(*fd);
+					FTP::IO::fdclose(*fd);
 					*fd = -1;
 
 					client->send_code(452, "Failed to read file");
@@ -160,7 +160,7 @@ namespace feat
 
 				if(read == 0)
 				{
-					FTP::IO::close(*fd);
+					FTP::IO::fdclose(*fd);
 					*fd = -1;
 
 					client->send_code(226, "Transfer complete.");
@@ -171,7 +171,7 @@ namespace feat
 
 				if(write == -1 || (uint64_t) write < read)
 				{
-					FTP::IO::close(*fd);
+					FTP::IO::fdclose(*fd);
 					*fd = -1;
 
 					client->send_code(451, "Error in data transmission");
@@ -190,7 +190,7 @@ namespace feat
 
 				if(read == 0)
 				{
-					FTP::IO::close(*fd);
+					FTP::IO::fdclose(*fd);
 					*fd = -1;
 
 					client->send_code(226, "Transfer complete.");
@@ -199,7 +199,7 @@ namespace feat
 
 				if(read == -1)
 				{
-					FTP::IO::close(*fd);
+					FTP::IO::fdclose(*fd);
 					*fd = -1;
 
 					client->send_code(451, "Error in data transmission.");
@@ -211,7 +211,7 @@ namespace feat
 				if(FTP::IO::write(*fd, client->buffer_data, read, &write) != 0
 				|| write < (uint64_t) read)
 				{
-					FTP::IO::close(*fd);
+					FTP::IO::fdclose(*fd);
 					*fd = -1;
 
 					client->send_code(452, "Failed to write data to file.");
@@ -676,7 +676,7 @@ namespace feat
 				}
 				else
 				{
-					FTP::IO::close(*fd);
+					FTP::IO::fdclose(*fd);
 					*fd = -1;
 
 					client->send_code(425, "Cannot open data connection");
@@ -903,7 +903,7 @@ namespace feat
 				}
 				else
 				{
-					FTP::IO::close(*fd);
+					FTP::IO::fdclose(*fd);
 					*fd = -1;
 
 					client->send_code(425, "Cannot open data connection.");

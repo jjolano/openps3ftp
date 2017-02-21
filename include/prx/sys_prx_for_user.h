@@ -1,9 +1,6 @@
 #ifndef __SYS_PRX_FOR_USER_H__
 #define __SYS_PRX_FOR_USER_H__
 
-#include <sys/mempool.h>
-#include <sys/interrupt.h>
-#include <sys/raw_spu.h>
 
 // sysPrxForUser_02E20EC1  // Returns the address of the null byte terminator of the given string. 	const char* sysPrxForUser_2E20EC1(const char* s) 
 

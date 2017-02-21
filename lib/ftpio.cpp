@@ -144,7 +144,7 @@ namespace FTP
 			return ret;
 		}
 
-		int32_t close(int32_t fd)
+		int32_t fdclose(int32_t fd)
 		{
 			int32_t ret = -1;
 

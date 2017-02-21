@@ -14,25 +14,25 @@
 #include "prx/vsh_exports.h"
 #endif
 
-static sys_ppu_thread_t prx_tid;
-static bool prx_running;
+sys_ppu_thread_t prx_tid;
+bool prx_running = false;
 
-extern "C" static inline void _sys_ppu_thread_exit(uint64_t val)
+extern "C" inline void _sys_ppu_thread_exit(uint64_t val)
 {
 	system_call_1(41, val);
 }
 
-extern "C" static inline sys_prx_id_t prx_get_module_id_by_address(void (*addr)())
+extern "C" inline sys_prx_id_t prx_get_module_id_by_address(void* addr)
 {
 	system_call_1(461, (uint64_t)(uint32_t)addr);
 	return (int)p1;
 }
 
-extern "C" static void finalize_module(void)
+extern "C" void finalize_module(void)
 {
 	uint64_t meminfo[5];
 
-	sys_prx_id_t prx = prx_get_module_id_by_address(finalize_module);
+	sys_prx_id_t prx = prx_get_module_id_by_address((void*) finalize_module);
 
 	meminfo[0] = 0x28;
 	meminfo[1] = 2;
@@ -45,8 +45,6 @@ extern "C" int prx_unload(void)
 {
 	if(prx_running)
 	{
-		prx_running = false;
-
 		uint64_t prx_exit;
 		sys_ppu_thread_join(prx_tid, &prx_exit);
 	}
@@ -75,7 +73,7 @@ void prx_main(uint64_t ptr)
 	FTP::Server server(&command, 21);
 
 	sys_ppu_thread_t server_tid;
-	if(sys_ppu_thread_create(&server_tid, ftp_server_start_ex, (uint64_t)&server, 1000, 0x10000, SYS_PPU_THREAD_CREATE_JOINABLE, (char*) "ftpd") != CELL_OK)
+	if(sys_ppu_thread_create(&server_tid, ftp_server_start_ex, (uint64_t)&server, 1000, 0x1000, SYS_PPU_THREAD_CREATE_JOINABLE, (char*) "ftpd") != CELL_OK)
 	{
 		prx_unload();
 		sys_ppu_thread_exit(0);
@@ -96,7 +94,7 @@ void prx_main(uint64_t ptr)
 
 extern "C" int prx_start(size_t args, void* argv)
 {
-	sys_ppu_thread_create(&prx_tid, prx_main, 0, 1000, 0x10000, SYS_PPU_THREAD_CREATE_JOINABLE, (char*) "OpenPS3FTP");
+	sys_ppu_thread_create(&prx_tid, prx_main, 0, 1000, 0x1000, SYS_PPU_THREAD_CREATE_JOINABLE, (char*) "OpenPS3FTP");
 	_sys_ppu_thread_exit(0);
 	return SYS_PRX_RESIDENT;
 }

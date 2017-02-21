@@ -13,7 +13,7 @@ namespace FTP
 		int32_t readdir(int32_t fd, ftpdirent* dirent, uint64_t* nread);
 		int32_t read(int32_t fd, char* buf, uint64_t nbytes, uint64_t* nread);
 		int32_t write(int32_t fd, char* buf, uint64_t nbytes, uint64_t* nwrite);
-		int32_t close(int32_t fd);
+		int32_t fdclose(int32_t fd);
 		int32_t closedir(int32_t fd);
 		int32_t rename(std::string old_path, std::string new_path);
 		int32_t chmod(std::string path, mode_t mode);

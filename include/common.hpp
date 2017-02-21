@@ -81,3 +81,7 @@ extern "C" int closesocket(int socket);
 #include "types.hpp"
 #include "util.hpp"
 #include "io.hpp"
+
+#ifdef PRX
+#include "prx/vsh_exports.h"
+#endif

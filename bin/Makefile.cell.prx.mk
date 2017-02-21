@@ -14,9 +14,6 @@ CELL_SDK ?= /usr/local/cell
 CELL_MK_DIR ?= $(CELL_SDK)/samples/mk
 include $(CELL_MK_DIR)/sdk.makedef.mk
 
-PPU_PRX_CCLD = $(PPU_PREFIX)gcc$(EXE_SUFFIX) -mprx-with-runtime
-PPU_PRX_CXXLD = $(PPU_PREFIX)g++$(EXE_SUFFIX) -mprx-with-runtime
-
 OBJS_DIR = objs/prx
 
 PPU_SRCS = $(wildcard prx/*.c) $(wildcard prx/*.cpp) $(wildcard helper/*.cpp) $(wildcard feat/*/*.cpp) $(wildcard ../lib/*.cpp)
@@ -26,7 +23,7 @@ PPU_CPPFLAGS += -DCELL_SDK -DPRX -fno-exceptions -fno-rtti -ffunction-sections -
 PPU_PRX_LDFLAGS += -Wl,--strip-unused-data -fno-exceptions -fno-rtti -ffunction-sections -fdata-sections -fno-builtin-printf -nodefaultlibs -Wno-shadow -Wno-unused-parameter
 PPU_PRX_LDLIBDIR += -L../lib -L./prx/lib
 
-PPU_PRX_LDLIBS += -lnet_stub -lfs_stub -lsysmodule_stub -lc_stub -lstdc++_stub
+PPU_PRX_LDLIBS += -lnet_stub -lfs_stub -lsysmodule_stub
 PPU_PRX_LDLIBS += -lsys_net_export_stub -lallocator_export_stub -lstdc_export_stub -lsysPrxForUser_export_stub
 
 PPU_OPTIMIZE_LV = -Os
