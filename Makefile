@@ -93,6 +93,8 @@ prx:
 
 prxclean:
 	$(MAKE) -C bin -f Makefile.cell.prx.mk clean
+	-rmdir ./bin/objs/lib
+	-rmdir ./bin/objs
 
 sdkall:
 	$(MAKE) all SDK=LINUX

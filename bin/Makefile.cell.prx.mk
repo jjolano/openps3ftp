@@ -20,10 +20,10 @@ PPU_SRCS = $(wildcard prx/*.c) $(wildcard prx/*.cpp) $(wildcard helper/*.cpp) $(
 PPU_PRX_TARGET = openps3ftp.prx
 PPU_CPPFLAGS += -DCELL_SDK -DPRX -fno-exceptions -fno-rtti -ffunction-sections -fdata-sections -fno-builtin-printf -nodefaultlibs -Wno-shadow -Wno-unused-parameter
 
-PPU_PRX_LDFLAGS += -Wl,--strip-unused-data -fno-exceptions -fno-rtti -ffunction-sections -fdata-sections -fno-builtin-printf -nodefaultlibs -Wno-shadow -Wno-unused-parameter
+PPU_PRX_LDFLAGS += -Wl,--strip-unused-data $(PPU_CPPFLAGS)
 PPU_PRX_LDLIBDIR += -L../lib -L./prx/lib
 
-PPU_PRX_LDLIBS += -lnet_stub -lfs_stub -lsysmodule_stub
+PPU_PRX_LDLIBS += -lnet_stub -lfs_stub -lsysutil_stub -lsysmodule_stub -llv2_stub -lc_stub -lstdc++_stub
 PPU_PRX_LDLIBS += -lsys_net_export_stub -lallocator_export_stub -lstdc_export_stub -lsysPrxForUser_export_stub
 
 PPU_OPTIMIZE_LV = -Os

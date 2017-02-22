@@ -8,14 +8,12 @@ void * operator new (std::size_t sz)
 {
 	void *p;
 
-	/* malloc (0) is unpredictable; avoid it. */
 	if (sz == 0)
-		sz = 1;
+		return NULL;
 
 	p = malloc (sz);
 	return p;
 }
-
 
 void operator delete (void *ptr)
 {
