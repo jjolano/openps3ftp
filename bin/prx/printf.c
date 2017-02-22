@@ -100,8 +100,7 @@
 #include <stdlib.h>
 #include <limits.h>
 #include <stdarg.h>
-
-//#include "printf.h"
+#include "prx/printf.h"
 
 #define HAVE_UNSIGNED_LONG_LONG_INT
 #define HAVE_STDINT_H
@@ -800,7 +799,7 @@ int vsprintf(char *buf, const char *fmt, va_list args)
 }
 
 int sprintf(char *buffer, const char *fmt, ...)
-{//__attribute__ ((format (printf, 2, 3)))
+{
 	va_list args;
 	int i;
 
@@ -827,8 +826,7 @@ int snprintf(char *buffer, size_t len, const char *fmt, ...)
 
 static int debug_fd=-1;
 
-int printf(const char *fmt, ...) __attribute__ ((format (printf, 1, 2)));
-int printf(const char *fmt, ...) __attribute__ ((format (printf, 1, 2)));
+int printf(const char *fmt, ...)
 {
 	char strBuf[PRINTF_MAX];
 	va_list args;
@@ -843,7 +841,7 @@ int printf(const char *fmt, ...) __attribute__ ((format (printf, 1, 2)));
 	{
 		int fd;
 
-		if (cellFsOpen("/dev_usb000/debug_log.txt", CELL_FS_O_WRONLY|CELL_FS_O_CREAT|CELL_FS_O_TRUNC, &fd, NULL, 0) == CELL_FS_SUCCEEDED)
+		if (cellFsOpen("/dev_usb000/debug_log.txt", CELL_FS_O_WRONLY|CELL_FS_O_CREAT|CELL_FS_O_TRUNC, &fd, NULL, 0) == 0)
 		{
 			debug_fd = fd;
 		}
@@ -874,3 +872,4 @@ int printf(const char *fmt, ...)
 #endif /* DEBUG_FILE */
 
 //#endif /* DEBUG */
+

@@ -9,7 +9,7 @@ void * operator new (std::size_t sz)
 	void *p;
 
 	if (sz == 0)
-		return NULL;
+		sz = 1;
 
 	p = malloc (sz);
 	return p;
