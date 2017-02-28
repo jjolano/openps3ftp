@@ -52,7 +52,7 @@ void prx_main(uint64_t ptr)
 	prx_running = true;
 
 	// add ftp commands using api
-	ext_command_register("TEST", cmd_test);
+	prx_command_register("TEST", cmd_test);
 	
 	if(prx_running)
 	{

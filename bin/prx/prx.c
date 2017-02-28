@@ -8,9 +8,10 @@ SYS_MODULE_INFO(FTPD, 0, 4, 2);
 
 SYS_LIB_DECLARE_WITH_STUB(FTPD, SYS_LIB_AUTO_EXPORT, libopenps3ftp_prx);
 
-SYS_LIB_EXPORT(ext_command_register_connect, FTPD);
-SYS_LIB_EXPORT(ext_command_register_disconnect, FTPD);
-SYS_LIB_EXPORT(ext_command_register, FTPD);
+SYS_LIB_EXPORT(prx_command_register_connect, FTPD);
+SYS_LIB_EXPORT(prx_command_register_disconnect, FTPD);
+SYS_LIB_EXPORT(prx_command_register, FTPD);
+SYS_LIB_EXPORT(prx_command_import, FTPD);
 
 SYS_LIB_EXPORT(client_get_cvar, FTPD);
 SYS_LIB_EXPORT(client_set_cvar, FTPD);
@@ -20,25 +21,47 @@ SYS_LIB_EXPORT(client_send_code, FTPD);
 SYS_LIB_EXPORT(client_send_multicode, FTPD);
 SYS_LIB_EXPORT(client_send_multimessage, FTPD);
 
+SYS_LIB_EXPORT(command_call, FTPD);
+SYS_LIB_EXPORT(command_register, FTPD);
+SYS_LIB_EXPORT(command_import, FTPD);
+
+SYS_LIB_EXPORT(command_init, FTPD);
+SYS_LIB_EXPORT(command_free, FTPD);
+
+SYS_LIB_EXPORT(get_working_directory, FTPD);
+SYS_LIB_EXPORT(set_working_directory, FTPD);
+SYS_LIB_EXPORT(get_absolute_path, FTPD);
+
+SYS_LIB_EXPORT(parse_command_string, FTPD);
+SYS_LIB_EXPORT(get_file_mode, FTPD);
+
+SYS_LIB_EXPORT(str_toupper, FTPD);
+SYS_LIB_EXPORT(file_exists, FTPD);
+
 struct Server* ftp_server;
 struct Command* ftp_command;
 
 sys_ppu_thread_t prx_tid;
 bool prx_running = false;
 
-void ext_command_register_connect(connect_callback callback)
+void prx_command_register_connect(connect_callback callback)
 {
 	command_register_connect(ftp_command, callback);
 }
 
-void ext_command_register_disconnect(disconnect_callback callback)
+void prx_command_register_disconnect(disconnect_callback callback)
 {
 	command_register_disconnect(ftp_command, callback);
 }
 
-void ext_command_register(const char name[32], command_callback callback)
+void prx_command_register(const char name[32], command_callback callback)
 {
 	command_register(ftp_command, name, callback);
+}
+
+void prx_command_import(struct Command* ext_command)
+{
+	command_import(ftp_command, ext_command);
 }
 
 inline void _sys_ppu_thread_exit(uint64_t val)
