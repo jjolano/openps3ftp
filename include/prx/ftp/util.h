@@ -4,19 +4,23 @@
 
 struct Directory
 {
-	char name[256];
+	char name[CELL_FS_MAX_FS_FILE_NAME_LENGTH + 1];
 };
 
 struct Path
 {
-	struct Directory* dirname;
+	struct Directory* dir;
 	size_t num_levels;
 };
 
-void get_absolute_path(char* abs_path, const char* old_path, const char* new_path);
+void get_working_directory(char path_str[MAX_PATH], struct Path* path);
+void set_working_directory(struct Path* path, char new_path[MAX_PATH]);
+void get_absolute_path(char abs_path[MAX_PATH], const char old_path[MAX_PATH], const char new_path[MAX_PATH]);
 
-void parse_command_string(char command_name[32], char* command_param, const char* to_parse);
+void parse_command_string(char command_name[32], char* command_param, char* to_parse);
 int parse_port_tuple(unsigned short tuple[6], const char* to_parse);
 
-void str_toupper(char* dst, const char* src, size_t len);
+void get_file_mode(char mode[11], CellFsStat stat);
+
+void str_toupper(char* dst, const char* src);
 bool file_exists(const char* path);
