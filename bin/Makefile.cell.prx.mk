@@ -27,7 +27,7 @@ PPU_PRX_LDLIBS += -lprxftp -lfs_stub
 PPU_PRX_LDLIBS += -lsys_net_export_stub -lallocator_export_stub -lstdc_export_stub -lsysPrxForUser_export_stub
 
 PPU_OPTIMIZE_LV = -Os
-PPU_INCDIRS += -I../include/prx -I../include/prx/ftp -I./feat
+PPU_INCDIRS += -I./prx/include -I../include/prx -I../include/prx/ftp -I./feat
 
 all: $(PPU_PRX_TARGET)
 	$(PPU_PRX_STRIP) --strip-debug --strip-section-header $<

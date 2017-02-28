@@ -45,6 +45,11 @@ void set_working_directory(struct Path* path, char new_path[MAX_PATH])
 		dirname = strtok(NULL, "/");
 	}
 
+	if(i > 0)
+	{
+		path->num_levels = i;
+	}
+
 	if(path->num_levels < o)
 	{
 		// reallocate memory to fit
@@ -92,8 +97,10 @@ void parse_command_string(char command_name[32], char* command_param, char* to_p
 
 	if(token != NULL)
 	{
-		strcpy(command_name, token);
+		str_toupper(command_name, token);
 	}
+
+	token = strtok(NULL, " ");
 
 	while(token != NULL)
 	{
@@ -120,34 +127,34 @@ int parse_port_tuple(unsigned short tuple[6], const char* to_parse)
 	);
 }
 
-void get_file_mode(char mode[11], CellFsStat st)
+void get_file_mode(char mode[11], CellFsStat* st)
 {
 	mode[0] = '?';
 
-	if((st.st_mode & S_IFMT) == S_IFDIR)
+	if((st->st_mode & S_IFMT) == S_IFDIR)
 	{
 		mode[0] = 'd';
 	}
 
-	if((st.st_mode & S_IFMT) == S_IFREG)
+	if((st->st_mode & S_IFMT) == S_IFREG)
 	{
 		mode[0] = '-';
 	}
 	
-	if((st.st_mode & S_IFMT) == S_IFLNK)
+	if((st->st_mode & S_IFMT) == S_IFLNK)
 	{
 		mode[0] = 'l';
 	}
 
-	mode[1] = ((st.st_mode & S_IRUSR) ? 'r' : '-');
-	mode[2] = ((st.st_mode & S_IWUSR) ? 'w' : '-');
-	mode[3] = ((st.st_mode & S_IXUSR) ? 'x' : '-');
-	mode[4] = ((st.st_mode & S_IRGRP) ? 'r' : '-');
-	mode[5] = ((st.st_mode & S_IWGRP) ? 'w' : '-');
-	mode[6] = ((st.st_mode & S_IXGRP) ? 'x' : '-');
-	mode[7] = ((st.st_mode & S_IROTH) ? 'r' : '-');
-	mode[8] = ((st.st_mode & S_IWOTH) ? 'w' : '-');
-	mode[9] = ((st.st_mode & S_IXOTH) ? 'x' : '-');
+	mode[1] = ((st->st_mode & S_IRUSR) ? 'r' : '-');
+	mode[2] = ((st->st_mode & S_IWUSR) ? 'w' : '-');
+	mode[3] = ((st->st_mode & S_IXUSR) ? 'x' : '-');
+	mode[4] = ((st->st_mode & S_IRGRP) ? 'r' : '-');
+	mode[5] = ((st->st_mode & S_IWGRP) ? 'w' : '-');
+	mode[6] = ((st->st_mode & S_IXGRP) ? 'x' : '-');
+	mode[7] = ((st->st_mode & S_IROTH) ? 'r' : '-');
+	mode[8] = ((st->st_mode & S_IWOTH) ? 'w' : '-');
+	mode[9] = ((st->st_mode & S_IXOTH) ? 'x' : '-');
 	mode[10] = '\0';
 }
 

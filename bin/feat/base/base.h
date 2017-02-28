@@ -5,6 +5,8 @@
 #include "client.h"
 #include "command.h"
 
+#define MAX_USERNAME_LEN	32
+
 bool data_list(struct Client* client);
 bool data_nlst(struct Client* client);
 bool data_retr(struct Client* client);

@@ -1,32 +1,13 @@
-#include <stdbool.h>
-#include <inttypes.h>
-
-#include <cellstatus.h>
-#include <sys/prx.h>
-#include <sys/ppu_thread.h>
-
-#include "server.h"
-#include "command.h"
-
-#include "feat/feat.h"
-
-#include "vsh_exports.h"
-
-inline void _sys_ppu_thread_exit(uint64_t val);
-inline sys_prx_id_t prx_get_module_id_by_address(void* addr);
-void finalize_module(void);
-int prx_stop(void);
-void prx_main(uint64_t ptr);
-int prx_start(size_t args, void* argv);
-
-struct Server* ftp_server;
-sys_ppu_thread_t prx_tid;
-bool prx_running = false;
+#include "prx.h"
 
 SYS_MODULE_START(prx_start);
 SYS_MODULE_STOP(prx_stop);
 SYS_MODULE_EXIT(prx_stop);
 SYS_MODULE_INFO(FTPD, 0, 4, 2);
+
+struct Server* ftp_server;
+sys_ppu_thread_t prx_tid;
+bool prx_running = false;
 
 inline void _sys_ppu_thread_exit(uint64_t val)
 {
@@ -78,6 +59,7 @@ void prx_main(uint64_t ptr)
 
 	// import commands...
 	feat_command_import(ftp_command);
+	base_command_import(ftp_command);
 	ext_command_import(ftp_command);
 
 	ftp_server = (struct Server*) malloc(sizeof(struct Server));
@@ -89,9 +71,15 @@ void prx_main(uint64_t ptr)
 	// server stopped, free resources
 	server_free(ftp_server);
 	command_free(ftp_command);
-	
+
 	free(ftp_server);
 	free(ftp_command);
+
+	// exited by server error or command
+	if(prx_running)
+	{
+		finalize_module();
+	}
 	
 	sys_ppu_thread_exit(ret);
 }

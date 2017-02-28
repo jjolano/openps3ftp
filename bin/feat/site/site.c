@@ -2,11 +2,8 @@
 
 void cmd_chmod(struct Client* client, const char command_name[32], const char* command_params)
 {
-	void* cvar_cwd_ptr = client_get_cvar(client, "cwd");
-	void* cvar_auth_ptr = client_get_cvar(client, "auth");
-
-	struct Path* cwd = (struct Path*) cvar_cwd_ptr;
-	bool* auth = (bool*) cvar_auth_ptr;
+	struct Path* cwd = (struct Path*) client_get_cvar(client, "cwd");
+	bool* auth = (bool*) client_get_cvar(client, "auth");
 
 	if(!*auth)
 	{

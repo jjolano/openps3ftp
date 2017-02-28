@@ -171,6 +171,27 @@ void client_data_end(struct Client* client)
 		server_pollfds_remove(client->server_ptr, client->socket_data);
 		server_client_remove(client->server_ptr, client->socket_data);
 
+		void* cvar_fd_ptr = client_get_cvar(client, "fd");
+
+		if(cvar_fd_ptr != NULL)
+		{
+			int* fd = (int*) cvar_fd_ptr;
+			
+			if(strcmp(client->lastcmd, "RETR") == 0
+			|| strcmp(client->lastcmd, "STOR") == 0
+			|| strcmp(client->lastcmd, "STOU") == 0
+			|| strcmp(client->lastcmd, "APPE") == 0)
+			{
+				cellFsClose(*fd);
+			}
+			else
+			{
+				cellFsClosedir(*fd);
+			}
+
+			*fd = -1;
+		}
+
 		if(client->socket_data != client->socket_control)
 		{
 			shutdown(client->socket_data, SHUT_RDWR);
