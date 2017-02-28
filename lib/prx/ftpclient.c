@@ -176,20 +176,23 @@ void client_data_end(struct Client* client)
 		if(cvar_fd_ptr != NULL)
 		{
 			int* fd = (int*) cvar_fd_ptr;
-			
-			if(strcmp(client->lastcmd, "RETR") == 0
-			|| strcmp(client->lastcmd, "STOR") == 0
-			|| strcmp(client->lastcmd, "STOU") == 0
-			|| strcmp(client->lastcmd, "APPE") == 0)
-			{
-				cellFsClose(*fd);
-			}
-			else
-			{
-				cellFsClosedir(*fd);
-			}
 
-			*fd = -1;
+			if(*fd != -1)
+			{
+				if(strcmp(client->lastcmd, "RETR") == 0
+				|| strcmp(client->lastcmd, "STOR") == 0
+				|| strcmp(client->lastcmd, "STOU") == 0
+				|| strcmp(client->lastcmd, "APPE") == 0)
+				{
+					cellFsClose(*fd);
+				}
+				else
+				{
+					cellFsClosedir(*fd);
+				}
+
+				*fd = -1;
+			}
 		}
 
 		if(client->socket_data != client->socket_control)

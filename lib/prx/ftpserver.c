@@ -7,6 +7,7 @@ void server_pollfds_add(struct Server* server, int fd, short events)
 	
 	// set pollfd parameters
 	struct pollfd* pfd = &server->pollfds[server->nfds - 1];
+	
 	pfd->fd = fd;
 	pfd->events = events;
 }
@@ -31,10 +32,7 @@ void server_pollfds_remove(struct Server* server, int fd)
 	}
 
 	// shift memory
-	if((i + 1) < server->nfds)
-	{
-		memmove(&server->pollfds[i], &server->pollfds[i + 1], (server->nfds - i - 1) * sizeof(struct pollfd));
-	}
+	memmove(&server->pollfds[i], &server->pollfds[i + 1], (server->nfds - i - 1) * sizeof(struct pollfd));
 
 	// reallocate memory
 	server->pollfds = (struct pollfd*) realloc(server->pollfds, --server->nfds * sizeof(struct pollfd));
@@ -123,10 +121,7 @@ void server_client_remove(struct Server* server, int fd)
 	}
 
 	// shift memory
-	if((i + 1) < server->num_clients)
-	{
-		memmove(&server->clients[i], &server->clients[i + 1], (server->num_clients - i - 1) * sizeof(struct ServerClients));
-	}
+	memmove(&server->clients[i], &server->clients[i + 1], (server->num_clients - i - 1) * sizeof(struct ServerClients));
 
 	// reallocate memory
 	server->clients = (struct ServerClients*) realloc(server->clients, --server->num_clients * sizeof(struct ServerClients));

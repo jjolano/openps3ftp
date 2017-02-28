@@ -28,7 +28,7 @@ void set_working_directory(struct Path* path, char new_path[MAX_PATH])
 	{
 		// root
 		path->num_levels = 0;
-		path->dir = (struct Directory*) realloc(path->dir, 0);
+		path->dir = NULL;
 		return;
 	}
 
