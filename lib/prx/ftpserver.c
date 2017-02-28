@@ -104,6 +104,9 @@ void server_client_remove(struct Server* server, int fd)
 				// free client if control socket
 				struct Client* client = server->clients[i].client;
 
+				// make sure client is disconnected
+				client_socket_disconnect(client, fd);
+
 				client_free(client);
 				free(client);
 			}
