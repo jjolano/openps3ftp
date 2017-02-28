@@ -77,7 +77,7 @@ void server_client_add(struct Server* server, int fd, struct Client** client_ptr
 void server_client_find(struct Server* server, int fd, struct Client** client_ptr)
 {
 	size_t i;
-	
+
 	*client_ptr = NULL;
 
 	for(i = 0; i < server->num_clients; ++i)
@@ -259,8 +259,8 @@ uint32_t server_run(struct Server* server)
 					if(client == NULL)
 					{
 						// remove orphan socket
-						socketclose(pfd->fd);
 						server_pollfds_remove(server, pfd->fd);
+						socketclose(pfd->fd);
 						continue;
 					}
 
@@ -282,6 +282,7 @@ uint32_t server_run(struct Server* server)
 
 						// remove from pollfds
 						server_pollfds_remove(server, pfd->fd);
+						socketclose(pfd->fd);
 					}
 
 					// let client handle socket events

@@ -256,6 +256,7 @@ void client_socket_event(struct Client* client, int socket_ev)
 
 			server_pollfds_remove(client->server_ptr, socket_ev);
 			server_client_remove(client->server_ptr, socket_ev);
+			return;
 		}
 
 		if(bytes <= 2)
