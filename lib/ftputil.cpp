@@ -157,28 +157,8 @@ namespace FTP
 
 		std::string string_to_upper(std::string str)
 		{
-			//std::transform(str.begin(), str.end(), str.begin(), ::toupper);
-			
-			std::string ret;
-			const char* s = str.c_str();
-
-			int c = 0;
- 
-			while(s[c] != '\0')
-			{
-				if (s[c] >= 'a' && s[c] <= 'z')
-				{
-					ret += (char) (s[c] - 32);
-				}
-				else
-				{
-					ret += (char) (s[c]);
-				}
-
-				c++;
-			}
-
-			return ret;
+			std::transform(str.begin(), str.end(), str.begin(), ::toupper);
+			return str;
 		}
 
 		bool file_exists(std::string path)
