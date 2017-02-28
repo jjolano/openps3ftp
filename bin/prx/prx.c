@@ -207,6 +207,7 @@ int prx_start(size_t args, void* argv)
 	if(sys_ppu_thread_create(&prx_tid, prx_main, 0, 1000, 0x2000, SYS_PPU_THREAD_CREATE_JOINABLE, (char*) "OpenPS3FTP") != 0)
 	{
 		free(ftp_command);
+		finalize_module();
 		_sys_ppu_thread_exit(0);
 		return SYS_PRX_NO_RESIDENT;
 	}
