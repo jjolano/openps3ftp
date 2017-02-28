@@ -12,7 +12,7 @@
 #include <netinet/in.h>
 
 #include <math.h>
-//#include <dirent.h>
+#include <dirent.h>
 #include <wchar.h>
 #include <cell/codec/pngdec.h>
 #include <cell/gcm.h>
@@ -45,8 +45,6 @@
 #include <sys/spinlock.h>
 #include <sys/random_number.h>
 
-extern "C"
-{
 #include "stdc.h"
 #include "allocator.h"
 #include "sys_prx_for_user.h"
@@ -63,6 +61,5 @@ extern "C"
 //#include "xregistry.h"
 //#include "game_plugin.h"
 //#include "rec_plugin.h"
-};
 
 #endif // __VSH_EXPORTS_H__

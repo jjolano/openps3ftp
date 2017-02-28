@@ -89,10 +89,13 @@ dist: distclean $(TARGET).zip
 endif
 
 prx:
+	$(MAKE) -C lib/prx
 	$(MAKE) -C bin -f Makefile.cell.prx.mk
 
 prxclean:
+	$(MAKE) -C lib/prx clean
 	$(MAKE) -C bin -f Makefile.cell.prx.mk clean
+	-rmdir ./bin/objs/lib/prx
 	-rmdir ./bin/objs/lib
 	-rmdir ./bin/objs
 

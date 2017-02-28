@@ -9,10 +9,8 @@ namespace FTP
 		command = ext_command;
 		server_port = port;
 		server_running = false;
-
-		#ifndef PRX
+		
 		pollfds.reserve(22);
-		#endif
 	}
 
 	bool Server::is_running(void)

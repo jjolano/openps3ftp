@@ -240,7 +240,7 @@ extern int sysPrxForUser_893305FA(sys_raw_spu_t id,                       // sys
 // sysPrxForUser_8A561D92  // _sys_heap_free
 // sysPrxForUser_8BB03AB8  // sys_game_board_storage_write
 
-extern void sysPrxForUser_8C2BB498(int *lock);                // sys_spinlock_initialize()
+extern CDECL_BEGIN void sysPrxForUser_8C2BB498(int *lock);                // sys_spinlock_initialize()
 #define sys_spinlock_initialize sysPrxForUser_8C2BB498
 
 // sysPrxForUser_8CFEF376  // ?

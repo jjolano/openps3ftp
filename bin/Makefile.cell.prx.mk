@@ -14,30 +14,22 @@ CELL_SDK ?= /usr/local/cell
 CELL_MK_DIR ?= $(CELL_SDK)/samples/mk
 include $(CELL_MK_DIR)/sdk.makedef.mk
 
-PEXPORTPICKUP = ppu-lv2-prx-exportpickup$(EXE_SUFFIX)
-
-CRT_HEAD += $(shell $(CC) -print-file-name'='ecrti.o)
-CRT_HEAD += $(shell $(CC) -print-file-name'='crtbegin.o)
-CRT_TAIL += $(shell $(CC) -print-file-name'='crtend.o)
-CRT_HEAD += $(shell $(CC) -print-file-name'='ecrtn.o)
-
 OBJS_DIR = objs/prx
 
-PPU_SRCS = $(wildcard prx/*.c) $(wildcard prx/*.cpp) $(wildcard helper/*.cpp) $(wildcard feat/*/*.cpp) $(wildcard ../lib/*.cpp)
+PPU_SRCS = $(wildcard prx/*.c)
 PPU_PRX_TARGET = openps3ftp.prx
-PPU_CPPFLAGS += -DCELL_SDK -DPRX -fno-exceptions -fno-rtti -ffunction-sections -fdata-sections -fno-builtin-printf -Wno-shadow -Wno-unused-parameter
+PPU_CFLAGS += -fno-builtin-printf -nodefaultlibs
 
-PPU_PRX_LDFLAGS += -Wl,--strip-unused-data $(PPU_CPPFLAGS)
-PPU_PRX_LDLIBDIR += -L../lib -L./prx/lib
+PPU_PRX_LDFLAGS += -Wl,--strip-unused-data $(PPU_CFLAGS)
+PPU_PRX_LDLIBDIR += -L../lib/prx -L./prx/lib
 
-PPU_PRX_LDLIBS += -lfs_stub -lstdc++_stub -lc_stub
+PPU_PRX_LDLIBS += -lprxftp -lfs_stub
 PPU_PRX_LDLIBS += -lsys_net_export_stub -lallocator_export_stub -lstdc_export_stub -lsysPrxForUser_export_stub
 
 PPU_OPTIMIZE_LV = -Os
-PPU_INCDIRS += -I../include -I./helper -I./feat
+PPU_INCDIRS += -I../include/prx -I../include/prx/ftp
 
-all:
-	$(MAKE) $(PPU_OBJS_DEPENDS)
+all: $(PPU_PRX_TARGET)
 	$(PPU_PRX_STRIP) --strip-debug --strip-section-header $(PPU_PRX_TARGET)
 	scetool $(SCETOOL_FLAGS) -e $(PPU_PRX_TARGET) $(PPU_SPRX_TARGET)
 
