@@ -8,9 +8,17 @@ SYS_MODULE_INFO(FTPD, 0, 4, 2);
 
 SYS_LIB_DECLARE_WITH_STUB(FTPD, SYS_LIB_AUTO_EXPORT, libopenps3ftp_prx);
 
-SYS_LIB_EXPORT(ftp_command_register_connect, FTPD);
-SYS_LIB_EXPORT(ftp_command_register_disconnect, FTPD);
-SYS_LIB_EXPORT(ftp_command_register, FTPD);
+SYS_LIB_EXPORT(ext_command_register_connect, FTPD);
+SYS_LIB_EXPORT(ext_command_register_disconnect, FTPD);
+SYS_LIB_EXPORT(ext_command_register, FTPD);
+
+SYS_LIB_EXPORT(client_get_cvar, FTPD);
+SYS_LIB_EXPORT(client_set_cvar, FTPD);
+
+SYS_LIB_EXPORT(client_send_message, FTPD);
+SYS_LIB_EXPORT(client_send_code, FTPD);
+SYS_LIB_EXPORT(client_send_multicode, FTPD);
+SYS_LIB_EXPORT(client_send_multimessage, FTPD);
 
 struct Server* ftp_server;
 struct Command* ftp_command;
@@ -18,17 +26,17 @@ struct Command* ftp_command;
 sys_ppu_thread_t prx_tid;
 bool prx_running = false;
 
-void ftp_command_register_connect(connect_callback callback)
+void ext_command_register_connect(connect_callback callback)
 {
 	command_register_connect(ftp_command, callback);
 }
 
-void ftp_command_register_disconnect(disconnect_callback callback)
+void ext_command_register_disconnect(disconnect_callback callback)
 {
 	command_register_disconnect(ftp_command, callback);
 }
 
-void ftp_command_register(const char name[32], command_callback callback)
+void ext_command_register(const char name[32], command_callback callback)
 {
 	command_register(ftp_command, name, callback);
 }

@@ -4,6 +4,9 @@
 #define _OPENPS3FTP_H_
 
 #ifndef _OPENPS3FTP_STRUCTS_
+#include <stdbool.h>
+#include <sys/poll.h>
+
 struct Client;
 
 typedef bool (*data_callback)(struct Client*);
@@ -87,10 +90,20 @@ struct Client
 	data_callback cb_data;
 	char lastcmd[32];
 };
+
+/* cvar functions */
+void* client_get_cvar(struct Client* client, const char name[32]);
+void client_set_cvar(struct Client* client, const char name[32], void* ptr);
+
+/* control socket functions */
+void client_send_message(struct Client* client, const char* message);
+void client_send_code(struct Client* client, int code, const char* message);
+void client_send_multicode(struct Client* client, int code, const char* message);
+void client_send_multimessage(struct Client* client, const char* message);
 #endif
 
-void ftp_command_register_connect(connect_callback callback);
-void ftp_command_register_disconnect(disconnect_callback callback);
-void ftp_command_register(const char name[32], command_callback callback);
+void ext_command_register_connect(connect_callback callback);
+void ext_command_register_disconnect(disconnect_callback callback);
+void ext_command_register(const char name[32], command_callback callback);
 
 #endif
