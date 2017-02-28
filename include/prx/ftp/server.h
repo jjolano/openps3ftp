@@ -41,6 +41,6 @@ void server_client_remove(struct Server* server, int fd);
 
 /* user application functions */
 void server_init(struct Server* server, struct Command* command_ptr, unsigned short port);
-int server_run(struct Server* server);
+uint32_t server_run(struct Server* server);
 void server_stop(struct Server* server);
 void server_free(struct Server* server);

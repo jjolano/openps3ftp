@@ -149,7 +149,7 @@ void server_init(struct Server* server, struct Command* command_ptr, unsigned sh
 	server->socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 }
 
-int server_run(struct Server* server)
+uint32_t server_run(struct Server* server)
 {
 	// assuming server is initialized using server_init
 	if(server->socket == -1)
