@@ -13,6 +13,8 @@ SYS_LIB_EXPORT(prx_command_register_disconnect, FTPD);
 SYS_LIB_EXPORT(prx_command_register, FTPD);
 SYS_LIB_EXPORT(prx_command_import, FTPD);
 
+SYS_LIB_EXPORT(prx_command_override, FTPD);
+
 SYS_LIB_EXPORT(client_get_cvar, FTPD);
 SYS_LIB_EXPORT(client_set_cvar, FTPD);
 
@@ -64,6 +66,14 @@ void prx_command_import(struct Command* ext_command)
 	command_import(ftp_command, ext_command);
 }
 
+void prx_command_override(struct Command* ext_command)
+{
+	command_free(ftp_command);
+	free(ftp_command);
+
+	ftp_command = ext_command;
+}
+
 inline void _sys_ppu_thread_exit(uint64_t val)
 {
 	system_call_1(41, val);
@@ -107,8 +117,6 @@ void prx_main(uint64_t ptr)
 {
 	prx_running = true;
 
-	ftp_command = (struct Command*) malloc(sizeof(struct Command));
-
 	// initialize command struct
 	command_init(ftp_command);
 
@@ -117,7 +125,7 @@ void prx_main(uint64_t ptr)
 	base_command_import(ftp_command);
 	ext_command_import(ftp_command);
 
-	ftp_server = (struct Server*) malloc(sizeof(struct Server));
+	// initialize server struct
 	server_init(ftp_server, ftp_command, 21);
 
 	// let ftp library take over thread
@@ -141,7 +149,18 @@ void prx_main(uint64_t ptr)
 
 int prx_start(size_t args, void* argv)
 {
-	sys_ppu_thread_create(&prx_tid, prx_main, 0, 1000, 0x2000, SYS_PPU_THREAD_CREATE_JOINABLE, (char*) "OpenPS3FTP");
+	ftp_command = (struct Command*) malloc(sizeof(struct Command));
+	ftp_server = (struct Server*) malloc(sizeof(struct Server));
+
 	_sys_ppu_thread_exit(0);
+
+	if(sys_ppu_thread_create(&prx_tid, prx_main, 0, 1000, 0x2000, SYS_PPU_THREAD_CREATE_JOINABLE, (char*) "OpenPS3FTP") != 0)
+	{
+		free(ftp_command);
+		free(ftp_server);
+
+		return SYS_PRX_NO_RESIDENT;
+	}
+
 	return SYS_PRX_RESIDENT;
 }

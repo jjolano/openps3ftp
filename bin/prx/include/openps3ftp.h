@@ -146,4 +146,9 @@ void prx_command_register_disconnect(disconnect_callback callback);
 void prx_command_register(const char name[32], command_callback callback);
 void prx_command_import(struct Command* ext_command);
 
+/* This function lets you override the whole command struct. */
+/* If you use this, it is assumed that your command struct has base ftp commands. */
+/* This should not be used while there are clients connected, or memory will leak. */
+void prx_command_override(struct Command* ext_command);
+
 #endif
