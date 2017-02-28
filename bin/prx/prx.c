@@ -35,10 +35,8 @@ SYS_LIB_EXPORT(set_working_directory, FTPD);
 SYS_LIB_EXPORT(get_absolute_path, FTPD);
 
 SYS_LIB_EXPORT(parse_command_string, FTPD);
-SYS_LIB_EXPORT(get_file_mode, FTPD);
 
-SYS_LIB_EXPORT(str_toupper, FTPD);
-SYS_LIB_EXPORT(file_exists, FTPD);
+int (*vshtask_notify)(int, const char *) = NULL;
 
 struct Server* ftp_server;
 struct Command* ftp_command;
@@ -72,6 +70,50 @@ void prx_command_override(struct Command* ext_command)
 	free(ftp_command);
 
 	ftp_command = ext_command;
+}
+
+void* getNIDfunc(const char* vsh_module, uint32_t fnid, int32_t offset)
+{
+	// 0x10000 = ELF
+	// 0x10080 = segment 2 start
+	// 0x10200 = code start
+
+	uint32_t table = (*(uint32_t*)0x1008C) + 0x984; // vsh table address
+
+	while(((uint32_t)*(uint32_t*)table) != 0)
+	{
+		uint32_t* export_stru_ptr = (uint32_t*)*(uint32_t*)table; // ptr to export stub, size 2C, "sys_io" usually... Exports:0000000000635BC0 stru_635BC0:    ExportStub_s <0x1C00, 1, 9, 0x39, 0, 0x2000000, aSys_io, ExportFNIDTable_sys_io, ExportStubTable_sys_io>
+
+		const char* lib_name_ptr =  (const char*)*(uint32_t*)((char*)export_stru_ptr + 0x10);
+
+		if(strncmp(vsh_module, lib_name_ptr, strlen(lib_name_ptr)) == 0)
+		{
+			// we got the proper export struct
+			uint32_t lib_fnid_ptr = *(uint32_t*)((char*)export_stru_ptr + 0x14);
+			uint32_t lib_func_ptr = *(uint32_t*)((char*)export_stru_ptr + 0x18);
+			uint16_t count = *(uint16_t*)((char*)export_stru_ptr + 6); // number of exports
+			for(int i = 0; i < count; i++)
+			{
+				if(fnid == *(uint32_t*)((char*)lib_fnid_ptr + i*4))
+				{
+					// take address from OPD
+					return (void**)*((uint32_t*)(lib_func_ptr) + i) + offset;
+				}
+			}
+		}
+		table += 4;
+	}
+
+	return 0;
+}
+
+void show_msg(const char* msg)
+{
+	if(!vshtask_notify)
+		vshtask_notify = getNIDfunc("vshtask", 0xA02D46E7, 0);
+
+	if(vshtask_notify)
+		vshtask_notify(0, msg);
 }
 
 inline void _sys_ppu_thread_exit(uint64_t val)
@@ -117,19 +159,22 @@ void prx_main(uint64_t ptr)
 {
 	prx_running = true;
 
-	// initialize command struct
-	command_init(ftp_command);
+	// wait for a bit...
+	sys_timer_sleep(15);
 
-	// import commands...
-	feat_command_import(ftp_command);
-	base_command_import(ftp_command);
-	ext_command_import(ftp_command);
+	ftp_server = (struct Server*) malloc(sizeof(struct Server));
 
 	// initialize server struct
 	server_init(ftp_server, ftp_command, 21);
 
+	// show startup msg
+	show_msg("FTP server (v" APP_VERSION ") started.");
+
 	// let ftp library take over thread
 	uint32_t ret = server_run(ftp_server);
+
+	// show shutdown msg
+	show_msg("FTP server stopped.");
 
 	// server stopped, free resources
 	server_free(ftp_server);
@@ -150,7 +195,14 @@ void prx_main(uint64_t ptr)
 int prx_start(size_t args, void* argv)
 {
 	ftp_command = (struct Command*) malloc(sizeof(struct Command));
-	ftp_server = (struct Server*) malloc(sizeof(struct Server));
+
+	// initialize command struct
+	command_init(ftp_command);
+
+	// import commands...
+	feat_command_import(ftp_command);
+	base_command_import(ftp_command);
+	ext_command_import(ftp_command);
 
 	_sys_ppu_thread_exit(0);
 

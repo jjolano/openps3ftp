@@ -8,6 +8,7 @@
 #include <cellstatus.h>
 #include <sys/prx.h>
 #include <sys/ppu_thread.h>
+#include <sys/timer.h>
 
 #include "server.h"
 #include "command.h"
@@ -18,6 +19,8 @@
 
 #include "vsh_exports.h"
 
+void* getNIDfunc(const char* vsh_module, uint32_t fnid, int32_t offset);
+void show_msg(const char* msg);
 inline void _sys_ppu_thread_exit(uint64_t val);
 inline sys_prx_id_t prx_get_module_id_by_address(void* addr);
 void finalize_module(void);

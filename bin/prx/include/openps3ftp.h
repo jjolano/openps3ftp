@@ -135,10 +135,6 @@ void set_working_directory(struct Path* path, char new_path[MAX_PATH]);
 void get_absolute_path(char abs_path[MAX_PATH], const char old_path[MAX_PATH], const char new_path[MAX_PATH]);
 
 void parse_command_string(char command_name[32], char* command_param, char* to_parse);
-void get_file_mode(char mode[11], CellFsStat* stat);
-
-void str_toupper(char* dst, const char* src);
-bool file_exists(const char* path);
 #endif
 
 void prx_command_register_connect(connect_callback callback);
