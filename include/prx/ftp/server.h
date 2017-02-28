@@ -29,6 +29,7 @@ struct Server
 
 	char* buffer_control;
 	char* buffer_data;
+	char* buffer_command;
 };
 
 /* internal server functions */

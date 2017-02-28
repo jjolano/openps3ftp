@@ -3,10 +3,6 @@
 #include "common.h"
 #include "client.h"
 
-typedef void (*command_callback)(struct Client*, const char[32], const char*);
-typedef void (*connect_callback)(struct Client*);
-typedef void (*disconnect_callback)(struct Client*);
-
 struct CommandCallback
 {
 	char name[32];
@@ -35,3 +31,6 @@ void command_call_connect(struct Command* command, struct Client* client);
 void command_call_disconnect(struct Command* command, struct Client* client);
 void command_register_connect(struct Command* command, connect_callback callback);
 void command_register_disconnect(struct Command* command, disconnect_callback callback);
+
+/* internal functions */
+void command_free(struct Command* command);

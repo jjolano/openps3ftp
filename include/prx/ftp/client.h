@@ -3,10 +3,6 @@
 #include "common.h"
 #include "server.h"
 
-struct Client;
-
-typedef bool (*data_callback)(struct Client*);
-
 struct ClientVariable
 {
 	char name[32];
@@ -25,6 +21,7 @@ struct Client
 	int socket_pasv;
 
 	data_callback cb_data;
+	char lastcmd[32];
 };
 
 /* cvar functions */
@@ -45,3 +42,6 @@ bool client_pasv_enter(struct Client* client, struct sockaddr_in* pasv_addr);
 /* event functions */
 void client_socket_event(struct Client* client, int socket_ev);
 void client_socket_disconnect(struct Client* client, int socket_dc);
+
+/* internal functions */
+void client_free(struct Client* client);

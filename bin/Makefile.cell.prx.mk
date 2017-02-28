@@ -20,7 +20,7 @@ PPU_SRCS = $(wildcard prx/*.c)
 PPU_PRX_TARGET = openps3ftp.prx
 PPU_CFLAGS += -fno-builtin-printf -nodefaultlibs
 
-PPU_PRX_LDFLAGS += -Wl,--strip-unused-data $(PPU_CFLAGS)
+PPU_PRX_LDFLAGS += $(PPU_CFLAGS)
 PPU_PRX_LDLIBDIR += -L../lib/prx -L./prx/lib
 
 PPU_PRX_LDLIBS += -lprxftp -lfs_stub

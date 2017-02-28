@@ -15,5 +15,7 @@
 
 #include <cell.h>
 
+#include "types.h"
 #include "const.h"
+#include "util.h"
 #include "vsh_exports.h"

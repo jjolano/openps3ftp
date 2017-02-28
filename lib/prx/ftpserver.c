@@ -69,6 +69,7 @@ void server_client_add(struct Server* server, int fd, struct Client** client_ptr
 	server_client->client->socket_pasv = -1;
 
 	server_client->client->cb_data = NULL;
+	strcpy(server_client->client->lastcmd, "");
 
 	*client_ptr = server_client->client;
 }
@@ -101,7 +102,10 @@ void server_client_remove(struct Server* server, int fd)
 			if(server->clients[i].client->socket_control == fd)
 			{
 				// free client if control socket
-				free(server->clients[i].client);
+				struct Client* client = server->clients[i].client;
+
+				client_free(client);
+				free(client);
 			}
 
 			break;
@@ -135,6 +139,7 @@ void server_init(struct Server* server, struct Command* command_ptr, unsigned sh
 
 	server->buffer_control = (char*) malloc(BUFFER_CONTROL * sizeof(char));
 	server->buffer_data = (char*) malloc(BUFFER_DATA * sizeof(char));
+	server->buffer_command = (char*) malloc(BUFFER_COMMAND * sizeof(char));
 	server->pollfds = NULL;
 	server->clients = NULL;
 
@@ -231,11 +236,19 @@ int server_run(struct Server* server)
 						continue;
 					}
 
+					struct linger optlinger;
+					optlinger.l_onoff = 1;
+					optlinger.l_linger = 1;
+					setsockopt(socket_client, SOL_SOCKET, SO_LINGER, &optlinger, sizeof(optlinger));
+
 					struct Client* client = NULL;
 					server_client_add(server, socket_client, &client);
 					server_pollfds_add(server, socket_client, POLLIN|POLLRDNORM);
 
 					client_send_multicode(client, 220, WELCOME_MSG);
+
+					command_call_connect(server->command_ptr, client);
+
 					client_send_code(client, 220, "Ready.");
 				}
 				else
@@ -305,7 +318,7 @@ void server_stop(struct Server* server)
 void server_free(struct Server* server)
 {
 	// assuming server->running = false
-	
+
 	// free memory
 	if(server->pollfds != NULL)
 	{
@@ -325,5 +338,10 @@ void server_free(struct Server* server)
 	if(server->buffer_data != NULL)
 	{
 		free(server->buffer_data);
+	}
+
+	if(server->buffer_command != NULL)
+	{
+		free(server->buffer_command);
 	}
 }
