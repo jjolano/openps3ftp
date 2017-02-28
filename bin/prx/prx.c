@@ -15,6 +15,8 @@ SYS_LIB_EXPORT(prx_command_import, FTPD);
 
 SYS_LIB_EXPORT(prx_command_override, FTPD);
 
+SYS_LIB_EXPORT(prx_server_stop, FTPD);
+
 SYS_LIB_EXPORT(client_get_cvar, FTPD);
 SYS_LIB_EXPORT(client_set_cvar, FTPD);
 
@@ -70,6 +72,14 @@ void prx_command_override(struct Command* ext_command)
 	free(ftp_command);
 
 	ftp_command = ext_command;
+}
+
+void prx_server_stop(void)
+{
+	server_stop(ftp_server);
+
+	uint64_t prx_exit;
+	sys_ppu_thread_join(prx_tid, &prx_exit);
 }
 
 void* getNIDfunc(const char* vsh_module, uint32_t fnid, int32_t offset)

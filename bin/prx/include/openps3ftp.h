@@ -147,4 +147,6 @@ void prx_command_import(struct Command* ext_command);
 /* This should not be used while there are clients connected, or memory will leak. */
 void prx_command_override(struct Command* ext_command);
 
+void prx_server_stop(void);
+
 #endif
