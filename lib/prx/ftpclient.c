@@ -179,16 +179,18 @@ void client_data_end(struct Client* client)
 
 			if(*fd != -1)
 			{
-				if(strcmp(client->lastcmd, "RETR") == 0
-				|| strcmp(client->lastcmd, "STOR") == 0
-				|| strcmp(client->lastcmd, "STOU") == 0
-				|| strcmp(client->lastcmd, "APPE") == 0)
+				CellFsStat st;
+				
+				if(cellFsFstat(*fd, &st) == 0)
 				{
-					cellFsClose(*fd);
-				}
-				else
-				{
-					cellFsClosedir(*fd);
+					if((st.st_mode & S_IFMT) == S_IFDIR)
+					{
+						cellFsClosedir(*fd);
+					}
+					else
+					{
+						cellFsClose(*fd);
+					}
 				}
 
 				*fd = -1;
