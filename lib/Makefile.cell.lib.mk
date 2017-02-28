@@ -6,7 +6,7 @@ include $(CELL_MK_DIR)/sdk.makedef.mk
 
 PPU_SRCS = $(wildcard *.cpp)
 PPU_LIB_TARGET = libcellps3ftp.a
-PPU_CPPFLAGS += -DCELL_SDK -fno-exceptions -fno-rtti
+PPU_CPPFLAGS += -DCELL_SDK -fno-exceptions -fno-rtti -Wno-unused-parameter
 
 PPU_OPTIMIZE_LV = -O2
 PPU_INCDIRS += -I../include

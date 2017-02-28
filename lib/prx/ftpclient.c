@@ -166,13 +166,17 @@ void client_data_end(struct Client* client)
 {
 	if(client->socket_data != -1)
 	{
-		shutdown(client->socket_data, SHUT_RDWR);
 		client->cb_data = NULL;
 
 		server_pollfds_remove(client->server_ptr, client->socket_data);
 		server_client_remove(client->server_ptr, client->socket_data);
 
-		socketclose(client->socket_data);
+		if(client->socket_data != client->socket_control)
+		{
+			shutdown(client->socket_data, SHUT_RDWR);
+			socketclose(client->socket_data);
+		}
+
 		client->socket_data = -1;
 	}
 }

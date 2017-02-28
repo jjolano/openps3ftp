@@ -9,11 +9,6 @@ namespace feat
 		FTP::Command get_commands(void);
 	};
 
-	namespace app
-	{
-		FTP::Command get_commands(void);
-	};
-
 	namespace ext
 	{
 		FTP::Command get_commands(void);

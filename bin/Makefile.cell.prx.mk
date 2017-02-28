@@ -16,9 +16,9 @@ include $(CELL_MK_DIR)/sdk.makedef.mk
 
 OBJS_DIR = objs/prx
 
-PPU_SRCS = $(wildcard prx/*.c)
+PPU_SRCS = $(wildcard prx/*.c) $(wildcard feat/*/*.c)
 PPU_PRX_TARGET = openps3ftp.prx
-PPU_CFLAGS += -fno-builtin-printf -nodefaultlibs
+PPU_CFLAGS += -Wno-unused-parameter -fno-builtin-printf -nodefaultlibs
 
 PPU_PRX_LDFLAGS += $(PPU_CFLAGS)
 PPU_PRX_LDLIBDIR += -L../lib/prx -L./prx/lib
@@ -30,7 +30,7 @@ PPU_OPTIMIZE_LV = -Os
 PPU_INCDIRS += -I../include/prx -I../include/prx/ftp -I./feat
 
 all: $(PPU_PRX_TARGET)
-	$(PPU_PRX_STRIP) --strip-debug --strip-section-header $(PPU_PRX_TARGET)
-	scetool $(SCETOOL_FLAGS) -e $(PPU_PRX_TARGET) $(PPU_SPRX_TARGET)
+	$(PPU_PRX_STRIP) --strip-debug --strip-section-header $<
+	scetool $(SCETOOL_FLAGS) -e $< $(PPU_SPRX_TARGET)
 
 include $(CELL_MK_DIR)/sdk.target.mk

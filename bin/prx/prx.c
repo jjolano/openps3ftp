@@ -7,6 +7,9 @@
 
 #include "server.h"
 #include "command.h"
+
+#include "feat/feat.h"
+
 #include "vsh_exports.h"
 
 inline void _sys_ppu_thread_exit(uint64_t val);
@@ -74,6 +77,8 @@ void prx_main(uint64_t ptr)
 	command_init(ftp_command);
 
 	// import commands...
+	feat_command_import(ftp_command);
+	ext_command_import(ftp_command);
 
 	ftp_server = (struct Server*) malloc(sizeof(struct Server));
 	server_init(ftp_server, ftp_command, 21);
@@ -85,12 +90,15 @@ void prx_main(uint64_t ptr)
 	server_free(ftp_server);
 	command_free(ftp_command);
 	
+	free(ftp_server);
+	free(ftp_command);
+	
 	sys_ppu_thread_exit(ret);
 }
 
 int prx_start(size_t args, void* argv)
 {
-	sys_ppu_thread_create(&prx_tid, prx_main, 0, 1000, 0x1000, SYS_PPU_THREAD_CREATE_JOINABLE, (char*) "OpenPS3FTP");
+	sys_ppu_thread_create(&prx_tid, prx_main, 0, 1000, 0x2000, SYS_PPU_THREAD_CREATE_JOINABLE, (char*) "OpenPS3FTP");
 	_sys_ppu_thread_exit(0);
 	return SYS_PRX_RESIDENT;
 }

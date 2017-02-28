@@ -12,6 +12,12 @@ namespace site
 {
 	namespace cmd
 	{
+		void exit(FTP::Client* client, std::string cmd, std::string params)
+		{
+			client->send_code(421, "Shutting down...");
+			client->server->stop();
+		}
+
 		void chmod(FTP::Client* client, std::string cmd, std::string params)
 		{
 			std::vector<std::string>* cwd_vector = (std::vector<std::string>*) client->get_cvar("cwd_vector");
@@ -58,6 +64,7 @@ namespace site
 		FTP::Command command;
 
 		command.register_command("CHMOD", site::cmd::chmod);
+		command.register_command("EXIT", site::cmd::exit);
 
 		return command;
 	}

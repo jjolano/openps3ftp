@@ -99,7 +99,8 @@ void server_client_remove(struct Server* server, int fd)
 	{
 		if(server->clients[i].socket == fd)
 		{
-			if(server->clients[i].client->socket_control == fd)
+			if(server->clients[i].client->socket_control == fd
+			&& server->clients[i].client->socket_data != fd)
 			{
 				// free client if control socket
 				struct Client* client = server->clients[i].client;
