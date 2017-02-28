@@ -5,6 +5,8 @@
 #include <sys/prx.h>
 #include <sys/ppu_thread.h>
 
+#include "server.h"
+#include "command.h"
 #include "vsh_exports.h"
 
 inline void _sys_ppu_thread_exit(uint64_t val);
@@ -14,13 +16,14 @@ int prx_stop(void);
 void prx_main(uint64_t ptr);
 int prx_start(size_t args, void* argv);
 
+struct Server* ftp_server;
 sys_ppu_thread_t prx_tid;
 bool prx_running = false;
 
 SYS_MODULE_START(prx_start);
 SYS_MODULE_STOP(prx_stop);
 SYS_MODULE_EXIT(prx_stop);
-SYS_MODULE_INFO(FTP, 0, 4, 2);
+SYS_MODULE_INFO(FTPD, 0, 4, 2);
 
 inline void _sys_ppu_thread_exit(uint64_t val)
 {
@@ -50,6 +53,8 @@ int prx_stop(void)
 {
 	if(prx_running)
 	{
+		server_stop(ftp_server);
+
 		uint64_t prx_exit;
 		sys_ppu_thread_join(prx_tid, &prx_exit);
 	}
@@ -62,8 +67,25 @@ int prx_stop(void)
 void prx_main(uint64_t ptr)
 {
 	prx_running = true;
+
+	struct Command* ftp_command = (struct Command*) malloc(sizeof(struct Command));
+
+	// initialize command struct
+	command_init(ftp_command);
+
+	// import commands...
+
+	ftp_server = (struct Server*) malloc(sizeof(struct Server));
+	server_init(ftp_server, ftp_command, 21);
+
+	// let ftp library take over thread
+	uint32_t ret = server_run(ftp_server);
+
+	// server stopped, free resources
+	server_free(ftp_server);
+	command_free(ftp_command);
 	
-	sys_ppu_thread_exit(0);
+	sys_ppu_thread_exit(ret);
 }
 
 int prx_start(size_t args, void* argv)

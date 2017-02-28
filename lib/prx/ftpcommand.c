@@ -94,6 +94,16 @@ void command_import(struct Command* command, struct Command* ext_command)
 	}
 }
 
+void command_init(struct Command* command)
+{
+	command->command_callbacks = NULL;
+	command->num_command_callbacks = 0;
+	command->connect_callbacks = NULL;
+	command->num_connect_callbacks = 0;
+	command->disconnect_callbacks = NULL;
+	command->num_disconnect_callbacks = 0;
+}
+
 void command_free(struct Command* command)
 {
 	if(command->command_callbacks != NULL)

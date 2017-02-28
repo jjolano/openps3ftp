@@ -69,7 +69,7 @@ void server_client_add(struct Server* server, int fd, struct Client** client_ptr
 	server_client->client->socket_pasv = -1;
 
 	server_client->client->cb_data = NULL;
-	strcpy(server_client->client->lastcmd, "");
+	server_client->client->lastcmd[0] = '\0';
 
 	*client_ptr = server_client->client;
 }
@@ -77,6 +77,8 @@ void server_client_add(struct Server* server, int fd, struct Client** client_ptr
 void server_client_find(struct Server* server, int fd, struct Client** client_ptr)
 {
 	size_t i;
+	
+	*client_ptr = NULL;
 
 	for(i = 0; i < server->num_clients; ++i)
 	{
@@ -86,8 +88,6 @@ void server_client_find(struct Server* server, int fd, struct Client** client_pt
 			break;
 		}
 	}
-
-	*client_ptr = NULL;
 }
 
 void server_client_remove(struct Server* server, int fd)
@@ -259,6 +259,7 @@ uint32_t server_run(struct Server* server)
 					if(client == NULL)
 					{
 						// remove orphan socket
+						socketclose(pfd->fd);
 						server_pollfds_remove(server, pfd->fd);
 						continue;
 					}
