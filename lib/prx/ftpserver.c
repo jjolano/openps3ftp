@@ -294,16 +294,16 @@ uint32_t server_run(struct Server* server)
 
 	socketclose(server->socket);
 
-	// clear pollfds
-	while(server->nfds > 0)
-	{
-		server_pollfds_remove(server, server->pollfds[0].fd);
-	}
-
 	// clear clients
 	while(server->num_clients > 0)
 	{
 		server_client_remove(server, server->clients[0].socket);
+	}
+
+	// clear pollfds
+	while(server->nfds > 0)
+	{
+		server_pollfds_remove(server, server->pollfds[0].fd);
 	}
 
 	return retval;
