@@ -1,5 +1,7 @@
 #pragma once
 
+#define _OPENPS3FTP_STRUCTS_
+
 #include <stdbool.h>
 #include <inttypes.h>
 

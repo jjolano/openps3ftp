@@ -562,7 +562,7 @@ namespace feat
 					return;
 				}
 
-				struct sockaddr_in* port_addr = new (std::nothrow) struct sockaddr_in;
+				struct sockaddr_in* port_addr = new struct sockaddr_in;
 				client->set_cvar("port_addr", (void*) port_addr);
 
 				port_addr->sin_family = AF_INET;
@@ -972,12 +972,12 @@ namespace feat
 
 		void register_cvars(FTP::Client* client)
 		{
-			std::vector<std::string>* cwd_vector = new (std::nothrow) std::vector<std::string>;
-			std::string* user = new (std::nothrow) std::string;
-			std::string* rnfr = new (std::nothrow) std::string;
-			bool* auth = new (std::nothrow) bool;
-			int32_t* fd = new (std::nothrow) int32_t;
-			uint64_t* rest = new (std::nothrow) uint64_t;
+			std::vector<std::string>* cwd_vector = new std::vector<std::string>;
+			std::string* user = new std::string;
+			std::string* rnfr = new std::string;
+			bool* auth = new bool;
+			int32_t* fd = new int32_t;
+			uint64_t* rest = new uint64_t;
 
 			*auth = false;
 			*fd = -1;

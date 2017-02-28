@@ -1,13 +1,37 @@
 #include "prx.h"
+#include "openps3ftp.h"
 
 SYS_MODULE_START(prx_start);
 SYS_MODULE_STOP(prx_stop);
 SYS_MODULE_EXIT(prx_stop);
 SYS_MODULE_INFO(FTPD, 0, 4, 2);
 
+SYS_LIB_DECLARE_WITH_STUB(FTPD, SYS_LIB_AUTO_EXPORT, libopenps3ftp_prx);
+
+SYS_LIB_EXPORT(ftp_command_register_connect, FTPD);
+SYS_LIB_EXPORT(ftp_command_register_disconnect, FTPD);
+SYS_LIB_EXPORT(ftp_command_register, FTPD);
+
 struct Server* ftp_server;
+struct Command* ftp_command;
+
 sys_ppu_thread_t prx_tid;
 bool prx_running = false;
+
+void ftp_command_register_connect(connect_callback callback)
+{
+	command_register_connect(ftp_command, callback);
+}
+
+void ftp_command_register_disconnect(disconnect_callback callback)
+{
+	command_register_disconnect(ftp_command, callback);
+}
+
+void ftp_command_register(const char name[32], command_callback callback)
+{
+	command_register(ftp_command, name, callback);
+}
 
 inline void _sys_ppu_thread_exit(uint64_t val)
 {
@@ -52,7 +76,7 @@ void prx_main(uint64_t ptr)
 {
 	prx_running = true;
 
-	struct Command* ftp_command = (struct Command*) malloc(sizeof(struct Command));
+	ftp_command = (struct Command*) malloc(sizeof(struct Command));
 
 	// initialize command struct
 	command_init(ftp_command);

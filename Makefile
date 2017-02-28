@@ -95,6 +95,7 @@ prx:
 prxclean:
 	$(MAKE) -C lib/prx clean
 	$(MAKE) -C bin -f Makefile.cell.prx.mk clean
+	rm -f bin/FTPD_verlog.txt bin/libopenps3ftp_prx.a
 
 sdkall:
 	$(MAKE) all SDK=LINUX
