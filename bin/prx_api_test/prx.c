@@ -10,28 +10,21 @@ SYS_MODULE_INFO(FTPD_TEST, 0, 4, 2);
 sys_ppu_thread_t prx_tid;
 bool prx_running = false;
 
+bool ftpd_running(void)
+{
+	return sys_prx_get_module_id_by_name("FTPD", 0, NULL) > 0;
+}
+
 inline void _sys_ppu_thread_exit(uint64_t val)
 {
 	system_call_1(41, val);
-}
-
-inline sys_prx_id_t prx_get_module_id_by_name(const char* name)
-{
-	system_call_3(496, (uint64_t)(uintptr_t) name, 0, NULL);
-	return (sys_prx_id_t) p1;
-}
-
-inline sys_prx_id_t prx_get_module_id_by_address(void* addr)
-{
-	system_call_1(461, (uint64_t)(uintptr_t) addr);
-	return (sys_prx_id_t) p1;
 }
 
 void finalize_module(void)
 {
 	uint64_t meminfo[5];
 
-	sys_prx_id_t prx = prx_get_module_id_by_address(finalize_module);
+	sys_prx_id_t prx = sys_prx_get_module_id_by_address(finalize_module);
 
 	meminfo[0] = 0x28;
 	meminfo[1] = 2;
@@ -42,7 +35,7 @@ void finalize_module(void)
 
 void prx_unload(void)
 {
-	sys_prx_id_t prx = prx_get_module_id_by_address(prx_unload);
+	sys_prx_id_t prx = sys_prx_get_module_id_by_address(prx_unload);
 	
 	system_call_3(483, prx, 0, NULL);
 }
@@ -58,7 +51,7 @@ int prx_stop(void)
 	}
 
 	finalize_module();
-	_sys_ppu_thread_exit(0);
+	_sys_ppu_thread_exit(SYS_PRX_STOP_OK);
 	return SYS_PRX_STOP_OK;
 }
 
@@ -73,7 +66,7 @@ int prx_exit(void)
 	}
 
 	prx_unload();
-	_sys_ppu_thread_exit(0);
+	_sys_ppu_thread_exit(SYS_PRX_STOP_OK);
 	return SYS_PRX_STOP_OK;
 }
 
@@ -84,20 +77,26 @@ void prx_main(uint64_t ptr)
 	// wait for ftpd
 	do {
 		sys_timer_sleep(1);
-	} while(prx_get_module_id_by_name("FTPD") <= 0);
+	} while(!ftpd_running());
 
 	// add ftp commands using api
 	prx_command_register("TEST", cmd_test);
 
-	while(prx_running)
+	while(prx_running && ftpd_running())
 	{
 		sys_timer_sleep(1);
 	}
 
 	// unregister commands
-	if(prx_get_module_id_by_name("FTPD") > 0)
+	if(ftpd_running())
 	{
 		prx_command_unregister(cmd_test);
+	}
+
+	if(prx_running)
+	{
+		prx_running = false;
+		finalize_module();
 	}
 	
 	sys_ppu_thread_exit(0);
@@ -106,6 +105,6 @@ void prx_main(uint64_t ptr)
 int prx_start(size_t args, void* argv)
 {
 	sys_ppu_thread_create(&prx_tid, prx_main, 0, 1000, 0x1000, SYS_PPU_THREAD_CREATE_JOINABLE, (char*) "OpenPS3FTP-TEST");
-	_sys_ppu_thread_exit(0);
-	return SYS_PRX_RESIDENT;
+	_sys_ppu_thread_exit(SYS_PRX_START_OK);
+	return SYS_PRX_START_OK;
 }

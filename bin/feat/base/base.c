@@ -850,7 +850,7 @@ void cmd_stat(struct Client* client, const char command_name[32], const char* co
 	sprintf(buffer, "Username: %s", user);
 	client_send_multimessage(client, buffer);
 
-	sprintf(buffer, "Authenticated: %d", auth);
+	sprintf(buffer, "Authenticated: %d", *auth);
 	client_send_multimessage(client, buffer);
 
 	sprintf(buffer, "Total connections: %d", client->server_ptr->num_clients);

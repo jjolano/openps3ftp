@@ -43,8 +43,6 @@ SYS_LIB_EXPORT(get_absolute_path, FTPD);
 
 SYS_LIB_EXPORT(parse_command_string, FTPD);
 
-int (*vshtask_notify)(int, const char *) = NULL;
-
 struct Server* ftp_server;
 struct Command* ftp_command;
 
@@ -164,6 +162,7 @@ void* getNIDfunc(const char* vsh_module, uint32_t fnid, int32_t offset)
 				}
 			}
 		}
+		
 		table += 4;
 	}
 
@@ -172,8 +171,7 @@ void* getNIDfunc(const char* vsh_module, uint32_t fnid, int32_t offset)
 
 void show_msg(const char* msg)
 {
-	if(!vshtask_notify)
-		vshtask_notify = getNIDfunc("vshtask", 0xA02D46E7, 0);
+	int (*vshtask_notify)(int, const char *) = getNIDfunc("vshtask", 0xA02D46E7, 0);
 
 	if(vshtask_notify)
 		vshtask_notify(0, msg);
@@ -184,17 +182,11 @@ inline void _sys_ppu_thread_exit(uint64_t val)
 	system_call_1(41, val);
 }
 
-inline sys_prx_id_t prx_get_module_id_by_address(void* addr)
-{
-	system_call_1(461, (uint64_t)(uintptr_t) addr);
-	return (sys_prx_id_t) p1;
-}
-
 void finalize_module(void)
 {
 	uint64_t meminfo[5];
 
-	sys_prx_id_t prx = prx_get_module_id_by_address(finalize_module);
+	sys_prx_id_t prx = sys_prx_get_module_id_by_address(finalize_module);
 
 	meminfo[0] = 0x28;
 	meminfo[1] = 2;
@@ -205,7 +197,7 @@ void finalize_module(void)
 
 void prx_unload(void)
 {
-	sys_prx_id_t prx = prx_get_module_id_by_address(prx_unload);
+	sys_prx_id_t prx = sys_prx_get_module_id_by_address(prx_unload);
 	
 	system_call_3(483, prx, 0, NULL);
 }
@@ -222,7 +214,7 @@ int prx_stop(void)
 	}
 	
 	finalize_module();
-	_sys_ppu_thread_exit(0);
+	_sys_ppu_thread_exit(SYS_PRX_STOP_OK);
 	return SYS_PRX_STOP_OK;
 }
 
@@ -238,7 +230,7 @@ int prx_exit(void)
 	}
 
 	prx_unload();
-	_sys_ppu_thread_exit(0);
+	_sys_ppu_thread_exit(SYS_PRX_STOP_OK);
 	return SYS_PRX_STOP_OK;
 }
 
@@ -309,10 +301,10 @@ int prx_start(size_t args, void* argv)
 	if(sys_ppu_thread_create(&prx_tid, prx_main, 0, 1000, 0x2000, SYS_PPU_THREAD_CREATE_JOINABLE, (char*) "OpenPS3FTP") != 0)
 	{
 		finalize_module();
-		_sys_ppu_thread_exit(0);
+		_sys_ppu_thread_exit(SYS_PRX_NO_RESIDENT);
 		return SYS_PRX_NO_RESIDENT;
 	}
 
-	_sys_ppu_thread_exit(0);
-	return SYS_PRX_RESIDENT;
+	_sys_ppu_thread_exit(SYS_PRX_START_OK);
+	return SYS_PRX_START_OK;
 }
