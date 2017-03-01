@@ -3,7 +3,7 @@
 
 SYS_MODULE_START(prx_start);
 SYS_MODULE_STOP(prx_stop);
-SYS_MODULE_EXIT(prx_stop);
+SYS_MODULE_EXIT(prx_exit);
 SYS_MODULE_INFO(FTPD, 0, 4, 2);
 
 SYS_LIB_DECLARE_WITH_STUB(FTPD, SYS_LIB_AUTO_EXPORT, libopenps3ftp_prx);
@@ -222,8 +222,22 @@ int prx_stop(void)
 	}
 	
 	finalize_module();
-	prx_unload();
+	_sys_ppu_thread_exit(0);
+	return SYS_PRX_STOP_OK;
+}
 
+int prx_exit(void)
+{
+	if(prx_running)
+	{
+		prx_running = false;
+		server_stop(ftp_server);
+
+		uint64_t prx_exit = 0;
+		sys_ppu_thread_join(prx_tid, &prx_exit);
+	}
+
+	prx_unload();
 	_sys_ppu_thread_exit(0);
 	return SYS_PRX_STOP_OK;
 }
@@ -285,7 +299,6 @@ void prx_main(uint64_t ptr)
 	{
 		prx_running = false;
 		finalize_module();
-		prx_unload();
 	}
 	
 	sys_ppu_thread_exit(ret);

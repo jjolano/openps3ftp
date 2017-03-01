@@ -4,7 +4,7 @@
 
 SYS_MODULE_START(prx_start);
 SYS_MODULE_STOP(prx_stop);
-SYS_MODULE_EXIT(prx_stop);
+SYS_MODULE_EXIT(prx_exit);
 SYS_MODULE_INFO(FTPD_TEST, 0, 4, 2);
 
 sys_ppu_thread_t prx_tid;
@@ -52,8 +52,21 @@ int prx_stop(void)
 	}
 
 	finalize_module();
-	prx_unload();
+	_sys_ppu_thread_exit(0);
+	return SYS_PRX_STOP_OK;
+}
 
+int prx_exit(void)
+{
+	if(prx_running)
+	{
+		prx_running = false;
+
+		uint64_t prx_exit;
+		sys_ppu_thread_join(prx_tid, &prx_exit);
+	}
+
+	prx_unload();
 	_sys_ppu_thread_exit(0);
 	return SYS_PRX_STOP_OK;
 }
@@ -81,7 +94,6 @@ void prx_main(uint64_t ptr)
 	{
 		prx_running = false;
 		finalize_module();
-		prx_unload();
 	}
 	
 	sys_ppu_thread_exit(0);
