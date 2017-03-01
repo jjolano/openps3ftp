@@ -2,28 +2,34 @@
 
 void command_call_connect(struct Command* command, struct Client* client)
 {
-	int i;
-	for(i = 0; i < command->num_connect_callbacks; ++i)
+	if(command->connect_callbacks != NULL)
 	{
-		struct ConnectCallback* cb = &command->connect_callbacks[i];
-
-		if(*cb->callback != NULL)
+		int i;
+		for(i = 0; i < command->num_connect_callbacks; ++i)
 		{
-			(*cb->callback)(client);
+			struct ConnectCallback* cb = &command->connect_callbacks[i];
+
+			if(cb != NULL && *cb->callback != NULL)
+			{
+				(*cb->callback)(client);
+			}
 		}
 	}
 }
 
 void command_call_disconnect(struct Command* command, struct Client* client)
 {
-	int i;
-	for(i = 0; i < command->num_disconnect_callbacks; ++i)
+	if(command->disconnect_callbacks != NULL)
 	{
-		struct DisconnectCallback* cb = &command->disconnect_callbacks[i];
-
-		if(*cb->callback != NULL)
+		int i;
+		for(i = 0; i < command->num_disconnect_callbacks; ++i)
 		{
-			(*cb->callback)(client);
+			struct DisconnectCallback* cb = &command->disconnect_callbacks[i];
+
+			if(cb != NULL && *cb->callback != NULL)
+			{
+				(*cb->callback)(client);
+			}
 		}
 	}
 }
@@ -48,23 +54,22 @@ void command_register_disconnect(struct Command* command, disconnect_callback ca
 
 bool command_call(struct Command* command, const char name[32], const char* param, struct Client* client)
 {
-	bool ret = false;
-	int i;
-
-	for(i = 0; i < command->num_command_callbacks; ++i)
+	if(command->command_callbacks != NULL)
 	{
-		struct CommandCallback* cb = &command->command_callbacks[i];
-
-		if(strcmp(cb->name, name) == 0 && *cb->callback != NULL)
+		int i;
+		for(i = 0; i < command->num_command_callbacks; ++i)
 		{
-			(*cb->callback)(client, name, param);
+			struct CommandCallback* cb = &command->command_callbacks[i];
 
-			// intentionally not breaking loop here since multiple handlers could be a useful feature
-			ret = true;
+			if(cb != NULL && *cb->callback != NULL && strcmp(cb->name, name) == 0)
+			{
+				(*cb->callback)(client, name, param);
+				return true;
+			}
 		}
 	}
 
-	return ret;
+	return false;
 }
 
 void command_register(struct Command* command, const char name[32], command_callback callback)

@@ -14,28 +14,31 @@ void server_pollfds_add(struct Server* server, int fd, short events)
 
 void server_pollfds_remove(struct Server* server, int fd)
 {
-	// find index
-	nfds_t i;
-
-	for(i = 0; i < server->nfds; ++i)
+	if(server->pollfds != NULL)
 	{
-		if(server->pollfds[i].fd == fd)
+		// find index
+		nfds_t i;
+
+		for(i = 0; i < server->nfds; ++i)
 		{
-			break;
+			if(server->pollfds[i].fd == fd)
+			{
+				break;
+			}
 		}
+
+		if(i == server->nfds)
+		{
+			// not found, don't do anything
+			return;
+		}
+
+		// shift memory
+		memmove(&server->pollfds[i], &server->pollfds[i + 1], (server->nfds - i - 1) * sizeof(struct pollfd));
+
+		// reallocate memory
+		server->pollfds = (struct pollfd*) realloc(server->pollfds, --server->nfds * sizeof(struct pollfd));
 	}
-
-	if(i == server->nfds)
-	{
-		// not found, don't do anything
-		return;
-	}
-
-	// shift memory
-	memmove(&server->pollfds[i], &server->pollfds[i + 1], (server->nfds - i - 1) * sizeof(struct pollfd));
-
-	// reallocate memory
-	server->pollfds = (struct pollfd*) realloc(server->pollfds, --server->nfds * sizeof(struct pollfd));
 }
 
 void server_client_add(struct Server* server, int fd, struct Client** client_ptr)
@@ -74,57 +77,63 @@ void server_client_add(struct Server* server, int fd, struct Client** client_ptr
 
 void server_client_find(struct Server* server, int fd, struct Client** client_ptr)
 {
-	size_t i;
-
 	*client_ptr = NULL;
 
-	for(i = 0; i < server->num_clients; ++i)
+	if(server->clients != NULL)
 	{
-		if(server->clients[i].socket == fd)
+		size_t i;
+
+		for(i = 0; i < server->num_clients; ++i)
 		{
-			*client_ptr = server->clients[i].client;
-			break;
+			if(server->clients[i].socket == fd)
+			{
+				*client_ptr = server->clients[i].client;
+				break;
+			}
 		}
 	}
 }
 
 void server_client_remove(struct Server* server, int fd)
 {
-	// find index
-	size_t i;
-
-	for(i = 0; i < server->num_clients; ++i)
+	if(server->clients != NULL)
 	{
-		if(server->clients[i].socket == fd)
+		// find index
+		size_t i;
+
+		for(i = 0; i < server->num_clients; ++i)
 		{
-			if(server->clients[i].client->socket_control == fd
-			&& server->clients[i].client->socket_data != fd)
+			if(server->clients[i].socket == fd)
 			{
-				// free client if control socket
-				struct Client* client = server->clients[i].client;
+				if(server->clients[i].client->socket_control == fd
+				&& server->clients[i].client->socket_data != fd)
+				{
+					// free client if control socket
+					struct Client* client = server->clients[i].client;
 
-				// make sure client is disconnected
-				client_socket_disconnect(client, fd);
+					// make sure client is disconnected
+					client_socket_disconnect(client, fd);
 
-				client_free(client);
-				free(client);
+					client_free(client);
+					free(client);
+				}
+
+				break;
 			}
-
-			break;
 		}
+
+		if(i == server->num_clients)
+		{
+			// not found, don't do anything
+			return;
+		}
+
+		// shift memory
+		memmove(&server->clients[i], &server->clients[i + 1], (server->num_clients - i - 1) * sizeof(struct ServerClients));
+
+		// reallocate memory
+		server->clients = (struct ServerClients*) realloc(server->clients, --server->num_clients * sizeof(struct ServerClients));
 	}
-
-	if(i == server->num_clients)
-	{
-		// not found, don't do anything
-		return;
-	}
-
-	// shift memory
-	memmove(&server->clients[i], &server->clients[i + 1], (server->num_clients - i - 1) * sizeof(struct ServerClients));
-
-	// reallocate memory
-	server->clients = (struct ServerClients*) realloc(server->clients, --server->num_clients * sizeof(struct ServerClients));
 }
 
 void server_init(struct Server* server, struct Command* command_ptr, unsigned short port)
@@ -186,7 +195,7 @@ uint32_t server_run(struct Server* server)
 
 	while(!server->should_stop)
 	{
-		int p = socketpoll(server->pollfds, server->nfds, 500);
+		int p = socketpoll(server->pollfds, server->nfds, 1000);
 
 		if(p == 0)
 		{
@@ -200,6 +209,12 @@ uint32_t server_run(struct Server* server)
 		}
 
 		nfds_t i = server->nfds;
+
+		if(i == 0)
+		{
+			retval = 2;
+			break;
+		}
 
 		while(i--)
 		{
@@ -244,11 +259,8 @@ uint32_t server_run(struct Server* server)
 					server_client_add(server, socket_client, &client);
 					server_pollfds_add(server, socket_client, POLLIN|POLLRDNORM);
 
-					client_send_multicode(client, 220, WELCOME_MSG);
-
 					command_call_connect(server->command_ptr, client);
-
-					client_send_code(client, 220, "Ready.");
+					client_send_code(client, 220, WELCOME_MSG);
 				}
 				else
 				{

@@ -249,14 +249,10 @@ void prx_main(uint64_t ptr)
 	ext_command_import(ftp_command);
 
 	// wait for a bit for other plugins...
-	sys_timer_sleep(10);
-
-	if(!prx_running)
+	int wait = 10;
+	while(prx_running && wait--)
 	{
-		command_free(ftp_command);
-		free(ftp_command);
-
-		sys_ppu_thread_exit(0);
+		sys_timer_sleep(1);
 	}
 
 	ftp_server = (struct Server*) malloc(sizeof(struct Server));
@@ -264,17 +260,22 @@ void prx_main(uint64_t ptr)
 	// initialize server struct
 	server_init(ftp_server, ftp_command, 21);
 
-	// show startup msg
-	show_msg("FTP server (v" APP_VERSION ") started.");
+	uint32_t ret = 0;
 
-	// let ftp library take over thread
-	uint32_t ret = server_run(ftp_server);
+	if(prx_running)
+	{
+		// show startup msg
+		show_msg("FTP server (v" APP_VERSION ") started.");
 
-	// show shutdown msg
-	char msg[200];
-	sprintf(msg, "FTP server stopped (code: %d).", ret);
+		// let ftp library take over thread
+		ret = server_run(ftp_server);
 
-	show_msg(msg);
+		// show shutdown msg
+		char msg[200];
+		sprintf(msg, "FTP server stopped (code: %d).", ret);
+
+		show_msg(msg);
+	}
 
 	// let plugins unregister...
 	sys_timer_sleep(1);
