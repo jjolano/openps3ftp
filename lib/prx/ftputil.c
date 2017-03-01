@@ -19,49 +19,26 @@ void get_working_directory(char path_str[MAX_PATH], struct Path* path)
 
 void set_working_directory(struct Path* path, char new_path[MAX_PATH])
 {
-	size_t o = path->num_levels;
-	size_t i = path->num_levels;
+	if(path->dir != NULL)
+	{
+		free(path->dir);
+		path->dir = NULL;
+	}
+
+	path->num_levels = 0;
 
 	char* dirname = strtok(new_path, "/");
 
-	if(dirname == NULL)
-	{
-		// root
-		path->num_levels = 0;
-		path->dir = NULL;
-		return;
-	}
-
 	while(dirname != NULL)
 	{
-		struct Directory* dir;
+		// allocate path
+		path->dir = (struct Directory*) realloc(path->dir, ++path->num_levels * sizeof(struct Directory));
 
-		if(i > 0)
-		{
-			// memory already allocated
-			dir = &path->dir[path->num_levels - i--];
-		}
-		else
-		{
-			// allocate new memory
-			path->dir = (struct Directory*) realloc(path->dir, ++path->num_levels * sizeof(struct Directory));
-			dir = &path->dir[path->num_levels - 1];
-		}
+		struct Directory* dir = &path->dir[path->num_levels - 1];
 
 		strcpy(dir->name, dirname);
 
 		dirname = strtok(NULL, "/");
-	}
-
-	if(i > 0)
-	{
-		path->num_levels = i;
-	}
-
-	if(path->num_levels < o)
-	{
-		// reallocate memory to fit
-		path->dir = (struct Directory*) realloc(path->dir, path->num_levels * sizeof(struct Directory));
 	}
 }
 

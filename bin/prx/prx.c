@@ -150,17 +150,30 @@ void finalize_module(void)
 	system_call_3(482, prx, 0, (uint64_t)(uint32_t)meminfo);
 }
 
+void prx_unload(void)
+{
+	sys_prx_id_t prx = prx_get_module_id_by_address(prx_unload);
+	
+	system_call_3(483, prx, 0, NULL);
+}
+
 int prx_stop(void)
 {
 	if(prx_running)
 	{
+		prx_running = false;
 		server_stop(ftp_server);
 
 		uint64_t prx_exit;
 		sys_ppu_thread_join(prx_tid, &prx_exit);
 	}
+	else
+	{
+		finalize_module();
+	}
 
-	finalize_module();
+	prx_unload();
+
 	_sys_ppu_thread_exit(0);
 	return SYS_PRX_STOP_OK;
 }
@@ -169,7 +182,17 @@ void prx_main(uint64_t ptr)
 {
 	prx_running = true;
 
-	// wait for a bit...
+	ftp_command = (struct Command*) malloc(sizeof(struct Command));
+
+	// initialize command struct
+	command_init(ftp_command);
+
+	// import commands...
+	feat_command_import(ftp_command);
+	base_command_import(ftp_command);
+	ext_command_import(ftp_command);
+
+	// wait for a bit for other plugins...
 	sys_timer_sleep(15);
 
 	ftp_server = (struct Server*) malloc(sizeof(struct Server));
@@ -196,6 +219,7 @@ void prx_main(uint64_t ptr)
 	// exited by server error or command
 	if(prx_running)
 	{
+		prx_running = false;
 		finalize_module();
 	}
 	
@@ -204,19 +228,8 @@ void prx_main(uint64_t ptr)
 
 int prx_start(size_t args, void* argv)
 {
-	ftp_command = (struct Command*) malloc(sizeof(struct Command));
-
-	// initialize command struct
-	command_init(ftp_command);
-
-	// import commands...
-	feat_command_import(ftp_command);
-	base_command_import(ftp_command);
-	ext_command_import(ftp_command);
-
 	if(sys_ppu_thread_create(&prx_tid, prx_main, 0, 1000, 0x2000, SYS_PPU_THREAD_CREATE_JOINABLE, (char*) "OpenPS3FTP") != 0)
 	{
-		free(ftp_command);
 		finalize_module();
 		_sys_ppu_thread_exit(0);
 		return SYS_PRX_NO_RESIDENT;
