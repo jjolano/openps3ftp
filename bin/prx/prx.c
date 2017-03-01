@@ -150,13 +150,6 @@ void finalize_module(void)
 	system_call_3(482, prx, 0, (uint64_t)(uint32_t)meminfo);
 }
 
-void prx_unload(void)
-{
-	sys_prx_id_t prx = prx_get_module_id_by_address(prx_unload);
-	
-	system_call_3(483, prx, 0, NULL);
-}
-
 int prx_stop(void)
 {
 	if(prx_running)
@@ -164,16 +157,11 @@ int prx_stop(void)
 		prx_running = false;
 		server_stop(ftp_server);
 
-		uint64_t prx_exit;
+		uint64_t prx_exit = 0;
 		sys_ppu_thread_join(prx_tid, &prx_exit);
 	}
-	else
-	{
-		finalize_module();
-	}
-
-	prx_unload();
-
+	
+	finalize_module();
 	_sys_ppu_thread_exit(0);
 	return SYS_PRX_STOP_OK;
 }
@@ -193,7 +181,12 @@ void prx_main(uint64_t ptr)
 	ext_command_import(ftp_command);
 
 	// wait for a bit for other plugins...
-	sys_timer_sleep(15);
+	sys_timer_sleep(2);
+
+	if(!prx_running)
+	{
+		sys_ppu_thread_exit(0);
+	}
 
 	ftp_server = (struct Server*) malloc(sizeof(struct Server));
 
@@ -207,7 +200,10 @@ void prx_main(uint64_t ptr)
 	uint32_t ret = server_run(ftp_server);
 
 	// show shutdown msg
-	show_msg("FTP server stopped.");
+	char msg[200];
+	sprintf(msg, "FTP server stopped (code: %d).", ret);
+
+	show_msg(msg);
 
 	// server stopped, free resources
 	server_free(ftp_server);

@@ -34,13 +34,6 @@ void finalize_module(void)
 	system_call_3(482, prx, 0, (uint64_t)(uint32_t)meminfo);
 }
 
-void prx_unload(void)
-{
-	sys_prx_id_t prx = prx_get_module_id_by_address(prx_unload);
-	
-	system_call_3(483, prx, 0, NULL);
-}
-
 int prx_stop(void)
 {
 	if(prx_running)
@@ -50,13 +43,8 @@ int prx_stop(void)
 		uint64_t prx_exit;
 		sys_ppu_thread_join(prx_tid, &prx_exit);
 	}
-	else
-	{
-		finalize_module();
-	}
 
-	prx_unload();
-
+	finalize_module();
 	_sys_ppu_thread_exit(0);
 	return SYS_PRX_STOP_OK;
 }
