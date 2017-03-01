@@ -131,8 +131,8 @@ void prx_server_stop(void)
 {
 	server_stop(ftp_server);
 
-	uint64_t prx_exit;
-	sys_ppu_thread_join(prx_tid, &prx_exit);
+	uint64_t prx_exitcode;
+	sys_ppu_thread_join(prx_tid, &prx_exitcode);
 }
 
 void* getNIDfunc(const char* vsh_module, uint32_t fnid, int32_t offset)
@@ -186,8 +186,8 @@ inline void _sys_ppu_thread_exit(uint64_t val)
 
 inline sys_prx_id_t prx_get_module_id_by_address(void* addr)
 {
-	system_call_1(461, (uint64_t)(uint32_t)addr);
-	return (int)p1;
+	system_call_1(461, (uint64_t)(uintptr_t) addr);
+	return (sys_prx_id_t) p1;
 }
 
 void finalize_module(void)
@@ -200,7 +200,7 @@ void finalize_module(void)
 	meminfo[1] = 2;
 	meminfo[3] = 0;
 
-	system_call_3(482, prx, 0, (uint64_t)(uint32_t)meminfo);
+	system_call_3(482, prx, 0, (uintptr_t) meminfo);
 }
 
 void prx_unload(void)
@@ -217,8 +217,8 @@ int prx_stop(void)
 		prx_running = false;
 		server_stop(ftp_server);
 
-		uint64_t prx_exit = 0;
-		sys_ppu_thread_join(prx_tid, &prx_exit);
+		uint64_t prx_exitcode;
+		sys_ppu_thread_join(prx_tid, &prx_exitcode);
 	}
 	
 	finalize_module();
@@ -233,8 +233,8 @@ int prx_exit(void)
 		prx_running = false;
 		server_stop(ftp_server);
 
-		uint64_t prx_exit = 0;
-		sys_ppu_thread_join(prx_tid, &prx_exit);
+		uint64_t prx_exitcode;
+		sys_ppu_thread_join(prx_tid, &prx_exitcode);
 	}
 
 	prx_unload();

@@ -15,10 +15,16 @@ inline void _sys_ppu_thread_exit(uint64_t val)
 	system_call_1(41, val);
 }
 
+inline sys_prx_id_t prx_get_module_id_by_name(const char* name)
+{
+	system_call_3(496, (uint64_t)(uintptr_t) name, 0, NULL);
+	return (sys_prx_id_t) p1;
+}
+
 inline sys_prx_id_t prx_get_module_id_by_address(void* addr)
 {
-	system_call_1(461, (uint64_t)(uint32_t)addr);
-	return (int)p1;
+	system_call_1(461, (uint64_t)(uintptr_t) addr);
+	return (sys_prx_id_t) p1;
 }
 
 void finalize_module(void)
@@ -31,7 +37,7 @@ void finalize_module(void)
 	meminfo[1] = 2;
 	meminfo[3] = 0;
 
-	system_call_3(482, prx, 0, (uint64_t)(uint32_t)meminfo);
+	system_call_3(482, prx, 0, (uintptr_t) meminfo);
 }
 
 void prx_unload(void)
@@ -47,8 +53,8 @@ int prx_stop(void)
 	{
 		prx_running = false;
 
-		uint64_t prx_exit;
-		sys_ppu_thread_join(prx_tid, &prx_exit);
+		uint64_t prx_exitcode;
+		sys_ppu_thread_join(prx_tid, &prx_exitcode);
 	}
 
 	finalize_module();
@@ -62,8 +68,8 @@ int prx_exit(void)
 	{
 		prx_running = false;
 
-		uint64_t prx_exit;
-		sys_ppu_thread_join(prx_tid, &prx_exit);
+		uint64_t prx_exitcode;
+		sys_ppu_thread_join(prx_tid, &prx_exitcode);
 	}
 
 	prx_unload();
@@ -75,25 +81,23 @@ void prx_main(uint64_t ptr)
 {
 	prx_running = true;
 
-	// let ftpd initialize command struct
-	sys_timer_sleep(1);
+	// wait for ftpd
+	do {
+		sys_timer_sleep(1);
+	} while(prx_get_module_id_by_name("FTPD") <= 0);
 
 	// add ftp commands using api
 	prx_command_register("TEST", cmd_test);
 
-	// keep running until ftpd exits or plugin unloaded
-	while(prx_running && prx_get_module_id_by_address(prx_command_register) > 0)
+	while(prx_running)
 	{
 		sys_timer_sleep(1);
 	}
 
 	// unregister commands
-	prx_command_unregister(cmd_test);
-	
-	if(prx_running)
+	if(prx_get_module_id_by_name("FTPD") > 0)
 	{
-		prx_running = false;
-		finalize_module();
+		prx_command_unregister(cmd_test);
 	}
 	
 	sys_ppu_thread_exit(0);

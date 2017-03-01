@@ -11,6 +11,7 @@
 #include "vsh_exports.h"
 
 inline void _sys_ppu_thread_exit(uint64_t val);
+inline sys_prx_id_t prx_get_module_id_by_name(const char* name);
 inline sys_prx_id_t prx_get_module_id_by_address(void* addr);
 void finalize_module(void);
 void prx_unload(void);
