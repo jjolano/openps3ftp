@@ -11,6 +11,11 @@ SYS_LIB_DECLARE_WITH_STUB(FTPD, SYS_LIB_AUTO_EXPORT, libopenps3ftp_prx);
 SYS_LIB_EXPORT(prx_command_register_connect, FTPD);
 SYS_LIB_EXPORT(prx_command_register_disconnect, FTPD);
 SYS_LIB_EXPORT(prx_command_register, FTPD);
+
+SYS_LIB_EXPORT(prx_command_unregister_connect, FTPD);
+SYS_LIB_EXPORT(prx_command_unregister_disconnect, FTPD);
+SYS_LIB_EXPORT(prx_command_unregister, FTPD);
+
 SYS_LIB_EXPORT(prx_command_import, FTPD);
 
 SYS_LIB_EXPORT(prx_command_override, FTPD);
@@ -59,6 +64,54 @@ void prx_command_register_disconnect(disconnect_callback callback)
 void prx_command_register(const char name[32], command_callback callback)
 {
 	command_register(ftp_command, name, callback);
+}
+
+void prx_command_unregister_connect(connect_callback callback)
+{
+	int i;
+
+	for(i = 0; i < ftp_command->num_connect_callbacks; ++i)
+	{
+		struct ConnectCallback* cb = &ftp_command->connect_callbacks[i];
+
+		if(cb->callback == callback)
+		{
+			cb->callback = NULL;
+			break;
+		}
+	}
+}
+
+void prx_command_unregister_disconnect(disconnect_callback callback)
+{
+	int i;
+
+	for(i = 0; i < ftp_command->num_disconnect_callbacks; ++i)
+	{
+		struct DisconnectCallback* cb = &ftp_command->disconnect_callbacks[i];
+
+		if(cb->callback == callback)
+		{
+			cb->callback = NULL;
+			break;
+		}
+	}
+}
+
+void prx_command_unregister(command_callback callback)
+{
+	int i;
+
+	for(i = 0; i < ftp_command->num_command_callbacks; ++i)
+	{
+		struct CommandCallback* cb = &ftp_command->command_callbacks[i];
+
+		if(cb->callback == callback)
+		{
+			cb->callback = NULL;
+			break;
+		}
+	}
 }
 
 void prx_command_import(struct Command* ext_command)
@@ -181,7 +234,7 @@ void prx_main(uint64_t ptr)
 	ext_command_import(ftp_command);
 
 	// wait for a bit for other plugins...
-	sys_timer_sleep(2);
+	sys_timer_sleep(10);
 
 	if(!prx_running)
 	{
@@ -204,6 +257,9 @@ void prx_main(uint64_t ptr)
 	sprintf(msg, "FTP server stopped (code: %d).", ret);
 
 	show_msg(msg);
+
+	// let plugins unregister...
+	sys_timer_sleep(1);
 
 	// server stopped, free resources
 	server_free(ftp_server);

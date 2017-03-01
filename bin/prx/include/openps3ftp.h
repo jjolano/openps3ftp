@@ -140,6 +140,11 @@ void parse_command_string(char command_name[32], char* command_param, char* to_p
 void prx_command_register_connect(connect_callback callback);
 void prx_command_register_disconnect(disconnect_callback callback);
 void prx_command_register(const char name[32], command_callback callback);
+
+void prx_command_unregister_connect(connect_callback callback);
+void prx_command_unregister_disconnect(disconnect_callback callback);
+void prx_command_unregister(command_callback callback);
+
 void prx_command_import(struct Command* ext_command);
 
 /* This function lets you override the whole command struct. */

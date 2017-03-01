@@ -53,14 +53,20 @@ void prx_main(uint64_t ptr)
 {
 	prx_running = true;
 
-	// wait for ftpd
-	while(prx_get_module_id_by_address(prx_command_register) <= 0)
+	// let ftpd initialize command struct
+	sys_timer_sleep(1);
+
+	// add ftp commands using api
+	prx_command_register("TEST", cmd_test);
+
+	// keep running until ftpd exits or plugin unloaded
+	while(prx_running && prx_get_module_id_by_address(prx_command_register) > 0)
 	{
 		sys_timer_sleep(1);
 	}
 
-	// add ftp commands using api
-	prx_command_register("TEST", cmd_test);
+	// unregister commands
+	prx_command_unregister(cmd_test);
 	
 	if(prx_running)
 	{
