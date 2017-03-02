@@ -210,13 +210,10 @@ uint32_t server_run(struct Server* server)
 	}
 
 	// setup server socket
-	int optval = 1;
-	setsockopt(server->socket, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
-
 	struct sockaddr_in server_addr;
 	server_addr.sin_family = AF_INET;
 	server_addr.sin_port = htons(server->port);
-	server_addr.sin_addr.s_addr = INADDR_ANY;
+	server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
 
 	if(bind(server->socket, (struct sockaddr*) &server_addr, sizeof(struct sockaddr_in)) == -1)
 	{
@@ -295,7 +292,6 @@ uint32_t server_run(struct Server* server)
 					struct timeval opttv;
 					opttv.tv_sec = 5;
 					opttv.tv_usec = 0;
-
 					setsockopt(socket_client, SOL_SOCKET, SO_SNDTIMEO, &opttv, sizeof(opttv));
 
 					if(server->num_clients < 50)

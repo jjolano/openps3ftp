@@ -256,7 +256,6 @@ bool client_pasv_enter(struct Client* client, struct sockaddr_in* pasv_addr)
 	struct linger optlinger;
 	optlinger.l_onoff = 1;
 	optlinger.l_linger = 0;
-
 	setsockopt(client->socket_pasv, SOL_SOCKET, SO_LINGER, &optlinger, sizeof(optlinger));
 
 	socklen_t len = sizeof(struct sockaddr_in);
