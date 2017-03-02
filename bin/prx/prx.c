@@ -117,12 +117,19 @@ void prx_command_import(struct Command* ext_command)
 	command_import(ftp_command, ext_command);
 }
 
-void prx_command_override(struct Command* ext_command)
+void prx_command_override(const char name[32], command_callback callback)
 {
-	command_free(ftp_command);
-	free(ftp_command);
+	int i;
+	for(i = 0; i < ftp_command->num_command_callbacks; ++i)
+	{
+		struct CommandCallback* cb = &ftp_command->command_callbacks[i];
 
-	ftp_command = ext_command;
+		if(strcmp(cb->name, name) == 0)
+		{
+			cb->callback = callback;
+			break;
+		}
+	}
 }
 
 void prx_server_stop(void)
