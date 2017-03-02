@@ -173,7 +173,7 @@ extern ssize_t sys_net_AD09481B(int32_t s, const struct msghdr *msg, int32_t fla
 // sys_net_AFC21C3E // ?
 
 extern int32_t sys_net_B0A59804(int32_t s, const struct sockaddr *addr, socklen_t addrlen); // bind()
-#define bind sys_net_B0A59804
+#define bind(a,b,c) sys_net_B0A59804(a,b,c)
 
 // sys_net_B15E9321 // ?
 
