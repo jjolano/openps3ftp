@@ -46,7 +46,10 @@ void client_send_message(struct Client* client, const char* message)
 	char* buffer = client->server_ptr->buffer_control;
 	size_t len = sprintf(buffer, "%s\r\n", message);
 
-	send(client->socket_control, buffer, len, 0);
+	if(send(client->socket_control, buffer, len, 0) == -1)
+	{
+		client_socket_disconnect(client, client->socket_control);
+	}
 }
 
 void client_send_code(struct Client* client, int code, const char* message)
@@ -54,7 +57,10 @@ void client_send_code(struct Client* client, int code, const char* message)
 	char* buffer = client->server_ptr->buffer_control;
 	size_t len = sprintf(buffer, "%d %s\r\n", code, message);
 
-	send(client->socket_control, buffer, len, 0);
+	if(send(client->socket_control, buffer, len, 0) == -1)
+	{
+		client_socket_disconnect(client, client->socket_control);
+	}
 }
 
 void client_send_multicode(struct Client* client, int code, const char* message)
@@ -62,7 +68,10 @@ void client_send_multicode(struct Client* client, int code, const char* message)
 	char* buffer = client->server_ptr->buffer_control;
 	size_t len = sprintf(buffer, "%d-%s\r\n", code, message);
 
-	send(client->socket_control, buffer, len, 0);
+	if(send(client->socket_control, buffer, len, 0) == -1)
+	{
+		client_socket_disconnect(client, client->socket_control);
+	}
 }
 
 void client_send_multimessage(struct Client* client, const char* message)
@@ -70,7 +79,10 @@ void client_send_multimessage(struct Client* client, const char* message)
 	char* buffer = client->server_ptr->buffer_control;
 	size_t len = sprintf(buffer, " %s\r\n", message);
 
-	send(client->socket_control, buffer, len, 0);
+	if(send(client->socket_control, buffer, len, 0) == -1)
+	{
+		client_socket_disconnect(client, client->socket_control);
+	}
 }
 
 bool client_data_start(struct Client* client, data_callback callback, short pevents)
@@ -299,7 +311,6 @@ void client_socket_event(struct Client* client, int socket_ev)
 
 		if(bytes <= 0)
 		{
-			shutdown(socket_ev, SHUT_RDWR);
 			client_socket_disconnect(client, socket_ev);
 
 			server_pollfds_remove(client->server_ptr, socket_ev);
@@ -323,8 +334,10 @@ void client_socket_event(struct Client* client, int socket_ev)
 		{
 			client_send_code(client, 502, FTP_502);
 		}
-
-		strcpy(client->lastcmd, command_name);
+		else
+		{
+			strcpy(client->lastcmd, command_name);
+		}
 	}
 }
 
@@ -349,6 +362,7 @@ void client_socket_disconnect(struct Client* client, int socket_dc)
 			socketclose(client->socket_pasv);
 		}
 
+		shutdown(client->socket_control, SHUT_RDWR);
 		socketclose(client->socket_control);
 	}
 }

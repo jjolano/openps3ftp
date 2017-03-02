@@ -298,11 +298,20 @@ uint32_t server_run(struct Server* server)
 
 					setsockopt(socket_client, SOL_SOCKET, SO_SNDTIMEO, &opttv, sizeof(opttv));
 
-					struct Client* client = NULL;
-					server_client_add(server, socket_client, &client);
-					server_pollfds_add(server, socket_client, POLLIN|POLLRDNORM);
+					if(server->num_clients < 50)
+					{
+						struct Client* client = NULL;
+						server_client_add(server, socket_client, &client);
+						server_pollfds_add(server, socket_client, POLLIN|POLLRDNORM);
 
-					client_send_code(client, 220, WELCOME_MSG);
+						client_send_multicode(client, 220, WELCOME_MSG);
+						client_send_code(client, 220, "Features: p .");
+					}
+					else
+					{
+						shutdown(socket_client, SHUT_RDWR);
+						socketclose(socket_client);
+					}
 				}
 				else
 				{

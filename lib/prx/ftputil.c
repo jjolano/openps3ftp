@@ -76,7 +76,7 @@ void parse_command_string(char command_name[32], char* command_param, char* to_p
 
 	if(token != NULL)
 	{
-		str_toupper(command_name, token);
+		str_toupper(command_name, token, sizeof(command_name));
 	}
 
 	token = strtok(NULL, " ");
@@ -137,9 +137,9 @@ void get_file_mode(char mode[11], CellFsStat* st)
 	mode[10] = '\0';
 }
 
-void str_toupper(char* dst, const char* src)
+void str_toupper(char* dst, const char* src, size_t len)
 {
-	int c = 0;
+	size_t c = 0;
  
 	do {
 		if(src[c] >= 'a' && src[c] <= 'z')
@@ -150,7 +150,9 @@ void str_toupper(char* dst, const char* src)
 		{
 			dst[c] = src[c];
 		}
-	} while(src[c++] != '\0');
+	} while(src[c++] != '\0' && c < len);
+
+	dst[c] = '\0';
 }
 
 bool file_exists(const char* path)

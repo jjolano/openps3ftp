@@ -22,5 +22,5 @@ int parse_port_tuple(unsigned short tuple[6], const char* to_parse);
 
 void get_file_mode(char mode[11], CellFsStat* stat);
 
-void str_toupper(char* dst, const char* src);
+void str_toupper(char* dst, const char* src, size_t len);
 bool file_exists(const char* path);
