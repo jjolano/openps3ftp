@@ -3,15 +3,25 @@
 void get_working_directory(char path_str[MAX_PATH], struct Path* path)
 {
 	size_t i;
+	size_t len = 1;
 
 	strcpy(path_str, "/");
 
 	for(i = 0; i < path->num_levels; ++i)
 	{
+		len += strlen(path->dir[i].name);
+
+		if(len > MAX_PATH)
+		{
+			break;
+		}
+
 		strcat(path_str, path->dir[i].name);
 
 		if((i + 1) < path->num_levels)
 		{
+			len++;
+			
 			strcat(path_str, "/");
 		}
 	}
