@@ -7,6 +7,10 @@ include $(CELL_MK_DIR)/sdk.makedef.mk
 PPU_SRCS = $(wildcard *.c)
 PPU_LIB_TARGET = libopenps3ftp.a
 
+ifeq ($(LIB_EXTERNAL), 1)
+PPU_CFLAGS += -D_NO_VSH_EXPORTS_
+endif
+
 PPU_OPTIMIZE_LV = -Os
 PPU_INCDIRS += -I../../include/prx -I../../include/prx/ftp
 

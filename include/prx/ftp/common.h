@@ -22,3 +22,7 @@
 #ifndef _NO_VSH_EXPORTS_
 #include "vsh_exports.h"
 #endif
+
+#ifdef _WITH_STDC_EXPORT_
+#include "stdc.h"
+#endif
