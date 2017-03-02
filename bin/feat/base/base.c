@@ -1,4 +1,5 @@
 #include "base/base.h"
+#include "site/site.h"
 
 bool data_list(struct Client* client)
 {
@@ -394,7 +395,7 @@ void cmd_mkd(struct Client* client, const char command_name[32], const char* com
 
 	if(cellFsMkdir(path, 0777) == 0)
 	{
-		char* buffer = client->server_ptr->buffer_data;
+		char buffer[MAX_PATH + 32];
 
 		sprintf(buffer, FTP_257, path);
 		client_send_code(client, 257, buffer);
@@ -490,7 +491,7 @@ void cmd_pass(struct Client* client, const char command_name[32], const char* co
 
 	*auth = true;
 
-	char* buffer = client->server_ptr->buffer_data;
+	char buffer[MAX_USERNAME_LEN + 32];
 	sprintf(buffer, FTP_230, user);
 
 	client_send_code(client, 230, buffer);
@@ -510,7 +511,7 @@ void cmd_pasv(struct Client* client, const char command_name[32], const char* co
 
 	if(client_pasv_enter(client, &pasv_addr))
 	{
-		char* buffer = client->server_ptr->buffer_data;
+		char buffer[64];
 
 		sprintf(buffer, FTP_227,
 			((htonl(pasv_addr.sin_addr.s_addr) & 0xff000000) >> 24),
@@ -593,7 +594,7 @@ void cmd_pwd(struct Client* client, const char command_name[32], const char* com
 	char cwd_str[MAX_PATH];
 	get_working_directory(cwd_str, cwd);
 
-	char* buffer = client->server_ptr->buffer_data;
+	char buffer[MAX_PATH + 32];
 	sprintf(buffer, FTP_257, cwd_str);
 
 	client_send_code(client, 257, buffer);
@@ -627,7 +628,7 @@ void cmd_rest(struct Client* client, const char command_name[32], const char* co
 	{
 		*rest = rest_param;
 
-		char* buffer = client->server_ptr->buffer_data;
+		char buffer[32];
 		sprintf(buffer, FTP_350, *rest);
 
 		client_send_code(client, 350, buffer);
@@ -817,30 +818,53 @@ void cmd_site(struct Client* client, const char command_name[32], const char* co
 		return;
 	}
 
+	struct Command* site_command = (struct Command*) malloc(sizeof(struct Command));
+
+	command_init(site_command);
+
+	site_command_import(site_command);
+
 	if(command_params[0] == '\0')
 	{
-		client_send_code(client, 501, FTP_501);
+		// list site commands if no command given
+		client_send_multicode(client, 214, "SITE commands:");
+
+		int i;
+		for(i = 0; i < site_command->num_command_callbacks; ++i)
+		{
+			struct CommandCallback* cb = &site_command->command_callbacks[i];
+			client_send_multimessage(client, cb->name);
+		}
+
+		client_send_code(client, 214, "End.");
+		
+		command_free(site_command);
+		free(site_command);
 		return;
 	}
 
-	struct Command* site_command = (struct Command*) malloc(sizeof(struct Command));
+	char* sitecmd = strdup(command_params);
 
 	char sitecmd_name[32];
-	char* sitecmd_params = client->server_ptr->buffer_control;
+	char* sitecmd_params = (char*) malloc(BUFFER_COMMAND * sizeof(char));
 
-	parse_command_string(sitecmd_name, sitecmd_params, command_params);
+	parse_command_string(sitecmd_name, sitecmd_params, sitecmd);
 
 	if(!command_call(site_command, sitecmd_name, sitecmd_params, client))
 	{
 		client_send_code(client, 502, FTP_502);
 	}
 
+	command_free(site_command);
+	
 	free(site_command);
+	free(sitecmd_params);
+	free(sitecmd);
 }
 
 void cmd_stat(struct Client* client, const char command_name[32], const char* command_params)
 {
-	char* buffer = client->server_ptr->buffer_data;
+	char buffer[64];
 
 	char* user = (char*) client_get_cvar(client, "user");
 	bool* auth = (bool*) client_get_cvar(client, "auth");
@@ -995,7 +1019,7 @@ void cmd_user(struct Client* client, const char command_name[32], const char* co
 
 	strcpy(user, command_params);
 
-	char* buffer = client->server_ptr->buffer_data;
+	char buffer[MAX_USERNAME_LEN + 32];
 	sprintf(buffer, FTP_331, user);
 
 	client_send_code(client, 331, buffer);
@@ -1042,6 +1066,11 @@ void base_disconnect(struct Client* client)
 	{
 		struct sockaddr_in* port_addr = (struct sockaddr_in*) cvar_port_addr_ptr;
 		free(port_addr);
+	}
+
+	if(cwd->dir != NULL)
+	{
+		free(cwd->dir);
 	}
 
 	free(cwd);

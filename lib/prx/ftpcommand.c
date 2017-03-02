@@ -9,7 +9,7 @@ void command_call_connect(struct Command* command, struct Client* client)
 		{
 			struct ConnectCallback* cb = &command->connect_callbacks[i];
 
-			if(cb != NULL && *cb->callback != NULL)
+			if(*cb->callback != NULL)
 			{
 				(*cb->callback)(client);
 			}
@@ -26,7 +26,7 @@ void command_call_disconnect(struct Command* command, struct Client* client)
 		{
 			struct DisconnectCallback* cb = &command->disconnect_callbacks[i];
 
-			if(cb != NULL && *cb->callback != NULL)
+			if(*cb->callback != NULL)
 			{
 				(*cb->callback)(client);
 			}
@@ -61,7 +61,7 @@ bool command_call(struct Command* command, const char name[32], const char* para
 		{
 			struct CommandCallback* cb = &command->command_callbacks[i];
 
-			if(cb != NULL && *cb->callback != NULL && strcmp(cb->name, name) == 0)
+			if(*cb->callback != NULL && strcmp(cb->name, name) == 0)
 			{
 				(*cb->callback)(client, name, param);
 				return true;

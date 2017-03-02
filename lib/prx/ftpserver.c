@@ -72,6 +72,25 @@ void server_client_add(struct Server* server, int fd, struct Client** client_ptr
 	server_client->client->cb_data = NULL;
 	server_client->client->lastcmd[0] = '\0';
 
+	// allocate memory if not already allocated
+	if(server->buffer_control == NULL)
+	{
+		server->buffer_control = (char*) malloc(BUFFER_CONTROL * sizeof(char));
+	}
+
+	if(server->buffer_data == NULL)
+	{
+		server->buffer_data = (char*) malloc(BUFFER_DATA * sizeof(char));
+	}
+
+	if(server->buffer_command == NULL)
+	{
+		server->buffer_command = (char*) malloc(BUFFER_COMMAND * sizeof(char));
+	}
+
+	// call connect callback
+	command_call_connect(server->command_ptr, server_client->client);
+
 	*client_ptr = server_client->client;
 }
 
@@ -105,11 +124,13 @@ void server_client_remove(struct Server* server, int fd)
 		{
 			if(server->clients[i].socket == fd)
 			{
-				if(server->clients[i].client->socket_control == fd
-				&& server->clients[i].client->socket_data != fd)
+				struct Client* client = server->clients[i].client;
+
+				if(client->socket_control == fd)
 				{
 					// free client if control socket
-					struct Client* client = server->clients[i].client;
+					// call disconnect callback
+					command_call_disconnect(server->command_ptr, client);
 
 					// make sure client is disconnected
 					client_socket_disconnect(client, fd);
@@ -134,6 +155,28 @@ void server_client_remove(struct Server* server, int fd)
 		// reallocate memory
 		server->clients = (struct ServerClients*) realloc(server->clients, --server->num_clients * sizeof(struct ServerClients));
 	}
+
+	// free memory if no clients are connected
+	if(server->num_clients == 0)
+	{
+		if(server->buffer_control != NULL)
+		{
+			free(server->buffer_control);
+			server->buffer_control = NULL;
+		}
+
+		if(server->buffer_data != NULL)
+		{
+			free(server->buffer_data);
+			server->buffer_data = NULL;
+		}
+
+		if(server->buffer_command != NULL)
+		{
+			free(server->buffer_command);
+			server->buffer_command = NULL;
+		}
+	}
 }
 
 void server_init(struct Server* server, struct Command* command_ptr, unsigned short port)
@@ -145,9 +188,9 @@ void server_init(struct Server* server, struct Command* command_ptr, unsigned sh
 	server->running = false;
 	server->should_stop = false;
 
-	server->buffer_control = (char*) malloc(BUFFER_CONTROL * sizeof(char));
-	server->buffer_data = (char*) malloc(BUFFER_DATA * sizeof(char));
-	server->buffer_command = (char*) malloc(BUFFER_COMMAND * sizeof(char));
+	server->buffer_control = NULL;
+	server->buffer_data = NULL;
+	server->buffer_command = NULL;
 	server->pollfds = NULL;
 	server->clients = NULL;
 
@@ -210,12 +253,6 @@ uint32_t server_run(struct Server* server)
 
 		nfds_t i = server->nfds;
 
-		if(i == 0)
-		{
-			retval = 2;
-			break;
-		}
-
 		while(i--)
 		{
 			if(p == 0)
@@ -252,14 +289,19 @@ uint32_t server_run(struct Server* server)
 
 					struct linger optlinger;
 					optlinger.l_onoff = 1;
-					optlinger.l_linger = 1;
+					optlinger.l_linger = 0;
 					setsockopt(socket_client, SOL_SOCKET, SO_LINGER, &optlinger, sizeof(optlinger));
+
+					struct timeval opttv;
+					opttv.tv_sec = 5;
+					opttv.tv_usec = 0;
+
+					setsockopt(socket_client, SOL_SOCKET, SO_SNDTIMEO, &opttv, sizeof(opttv));
 
 					struct Client* client = NULL;
 					server_client_add(server, socket_client, &client);
 					server_pollfds_add(server, socket_client, POLLIN|POLLRDNORM);
 
-					command_call_connect(server->command_ptr, client);
 					client_send_code(client, 220, WELCOME_MSG);
 				}
 				else

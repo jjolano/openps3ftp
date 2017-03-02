@@ -33,7 +33,7 @@ void cmd_size(struct Client* client, const char command_name[32], const char* co
 
 	if(cellFsStat(path, &st) == 0)
 	{
-		char* buffer = client->server_ptr->buffer_data;
+		char buffer[32];
 		sprintf(buffer, "%" PRIu64, st.st_size);
 
 		client_send_code(client, 213, buffer);
@@ -77,7 +77,7 @@ void cmd_mdtm(struct Client* client, const char command_name[32], const char* co
 
 	if(cellFsStat(path, &st) == 0)
 	{
-		char* buffer = client->server_ptr->buffer_data;
+		char buffer[32];
 		strftime(buffer, BUFFER_DATA, "%Y%m%d%H%M%S", localtime(&st.st_mtime));
 
 		client_send_code(client, 213, buffer);

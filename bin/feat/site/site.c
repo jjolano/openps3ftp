@@ -53,6 +53,8 @@ void cmd_chmod(struct Client* client, const char command_name[32], const char* c
 	{
 		client_send_code(client, 550, FTP_550);
 	}
+
+	free(params_temp);
 }
 
 void site_command_import(struct Command* command)

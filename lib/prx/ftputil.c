@@ -19,12 +19,6 @@ void get_working_directory(char path_str[MAX_PATH], struct Path* path)
 
 void set_working_directory(struct Path* path, char new_path[MAX_PATH])
 {
-	if(path->dir != NULL)
-	{
-		free(path->dir);
-		path->dir = NULL;
-	}
-
 	path->num_levels = 0;
 
 	char* dirname = strtok(new_path, "/");

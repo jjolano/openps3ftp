@@ -112,6 +112,12 @@ bool client_data_start(struct Client* client, data_callback callback, short peve
 			setsockopt(client->socket_data, SOL_SOCKET, SO_RCVBUF, &optval, sizeof(optval));
 			setsockopt(client->socket_data, SOL_SOCKET, SO_SNDBUF, &optval, sizeof(optval));
 
+			struct timeval opttv;
+			opttv.tv_sec = 5;
+			opttv.tv_usec = 0;
+
+			setsockopt(client->socket_data, SOL_SOCKET, SO_SNDTIMEO, &opttv, sizeof(opttv));
+
 			if(connect(client->socket_data, (struct sockaddr*) &active_addr, len) == -1)
 			{
 				socketclose(client->socket_data);
@@ -130,6 +136,8 @@ bool client_data_start(struct Client* client, data_callback callback, short peve
 
 			if(p <= 0)
 			{
+				socketclose(client->socket_pasv);
+				client->socket_pasv = -1;
 				return false;
 			}
 
@@ -146,6 +154,12 @@ bool client_data_start(struct Client* client, data_callback callback, short peve
 			int optval = BUFFER_DATA;
 			setsockopt(client->socket_data, SOL_SOCKET, SO_RCVBUF, &optval, sizeof(optval));
 			setsockopt(client->socket_data, SOL_SOCKET, SO_SNDBUF, &optval, sizeof(optval));
+
+			struct timeval opttv;
+			opttv.tv_sec = 5;
+			opttv.tv_usec = 0;
+
+			setsockopt(client->socket_data, SOL_SOCKET, SO_SNDTIMEO, &opttv, sizeof(opttv));
 		}
 	}
 
@@ -197,11 +211,8 @@ void client_data_end(struct Client* client)
 			}
 		}
 
-		if(client->socket_data != client->socket_control)
-		{
-			shutdown(client->socket_data, SHUT_RDWR);
-			socketclose(client->socket_data);
-		}
+		shutdown(client->socket_data, SHUT_RDWR);
+		socketclose(client->socket_data);
 
 		client->socket_data = -1;
 	}
@@ -265,9 +276,16 @@ void client_socket_event(struct Client* client, int socket_ev)
 
 	if(socket_ev == client->socket_data)
 	{
-		bool ended = (*client->cb_data)(client);
+		if(client->cb_data != NULL)
+		{
+			bool ended = (*client->cb_data)(client);
 
-		if(ended)
+			if(ended)
+			{
+				client_data_end(client);
+			}
+		}
+		else
 		{
 			client_data_end(client);
 		}
@@ -331,7 +349,6 @@ void client_socket_disconnect(struct Client* client, int socket_dc)
 			socketclose(client->socket_pasv);
 		}
 
-		command_call_disconnect(client->server_ptr->command_ptr, client);
 		socketclose(client->socket_control);
 	}
 }
