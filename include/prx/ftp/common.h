@@ -18,4 +18,7 @@
 #include "types.h"
 #include "const.h"
 #include "util.h"
+
+#ifndef _NO_VSH_EXPORTS_
 #include "vsh_exports.h"
+#endif
