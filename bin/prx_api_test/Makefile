@@ -23,7 +23,7 @@ PPU_PRX_LDLIBS += -lopenps3ftp_prx -lfs_stub
 PPU_PRX_LDLIBS += -lsys_net_export_stub -lallocator_export_stub -lstdc_export_stub -lsysPrxForUser_export_stub
 
 PPU_OPTIMIZE_LV = -Os
-PPU_INCDIRS += -I. -I../prx/include -I../../include/prx
+PPU_INCDIRS += -I../prx/include -I../../include
 
 all: $(PPU_PRX_TARGET)
 	$(PPU_PRX_STRIP) --strip-debug --strip-section-header $<

@@ -8,7 +8,7 @@
 #include <sys/ppu_thread.h>
 #include <sys/timer.h>
 
-#include "vsh_exports.h"
+#include "vsh/vsh_exports.h"
 
 inline void _sys_ppu_thread_exit(uint64_t val);
 void finalize_module(void);
