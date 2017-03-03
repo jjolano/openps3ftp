@@ -57,7 +57,22 @@ void cmd_chmod(struct Client* client, const char command_name[32], const char* c
 	free(params_temp);
 }
 
+void cmd_stop(struct Client* client, const char command_name[32], const char* command_params)
+{
+	bool* auth = (bool*) client_get_cvar(client, "auth");
+
+	if(!*auth)
+	{
+		client_send_code(client, 530, FTP_530);
+		return;
+	}
+
+	server_stop(client->server_ptr);
+	client_send_code(client, 421, FTP_421);
+}
+
 void site_command_import(struct Command* command)
 {
 	command_register(command, "CHMOD", cmd_chmod);
+	command_register(command, "STOP", cmd_stop);
 }

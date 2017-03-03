@@ -331,6 +331,7 @@ uint32_t server_run(struct Server* server)
 
 						// remove from pollfds
 						server_pollfds_remove(server, pfd->fd);
+						continue;
 					}
 
 					// let client handle socket events

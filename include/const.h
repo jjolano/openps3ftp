@@ -32,7 +32,7 @@
 #define FTP_350			"Restarting at %" PRIu64 "."
 #define FTP_350A		"Ready for next command."
 
-#define FTP_421			"Connection limit reached."
+#define FTP_421			"Closing control connection."
 #define FTP_425			"Cannot open data connection."
 #define FTP_450			"Another data transfer is already in progress."
 #define FTP_451			"Data transfer error (network)."
