@@ -3,7 +3,7 @@
 #include <inttypes.h>
 
 #ifndef WELCOME_MSG
-#define WELCOME_MSG		"ftpd " APP_VERSION
+#define WELCOME_MSG		"OpenPS3FTP " APP_VERSION
 #endif
 
 #define FTP_150			"Accepted data connection."
