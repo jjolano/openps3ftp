@@ -57,6 +57,7 @@ ifeq ($(SDK), psl1ght)
 	rm -f $(APPID).pkg EBOOT.BIN PARAM.SFO
 endif
 	$(MAKE) -C bin/$(SDK) clean
+	$(MAKE) -C lib SDK=$(SDK) clean LIB_EXTERNAL=1
 	$(MAKE) -C lib SDK=$(SDK) clean
 
 distclean: clean prxclean ps3clean
@@ -76,7 +77,7 @@ prxclean:
 	rm -f bin/prx/FTPD_verlog.txt bin/prx/libopenps3ftp_prx.a
 
 ps3:
-	$(MAKE) SDK=psl1ght EXTRAOPTS="LIB_EXTERNAL=1"
+	$(MAKE) SDK=psl1ght
 
 ps3clean:
 	$(MAKE) SDK=psl1ght clean
@@ -93,10 +94,11 @@ lib: $(LIB_LOC)
 elf: lib $(ELF_LOC)
 
 $(ELF_LOC):
-	$(MAKE) -C bin/$(SDK) $(EXTRAOPTS)
+	$(MAKE) -C bin/$(SDK)
 
 $(LIB_LOC):
-	$(MAKE) -C lib SDK=$(SDK) $(EXTRAOPTS)
+	$(MAKE) -C lib SDK=$(SDK) LIB_EXTERNAL=1
+	$(MAKE) -C lib SDK=$(SDK)
 
 ifeq ($(SDK), psl1ght)
 $(TARGET).zip: $(APPID).pkg

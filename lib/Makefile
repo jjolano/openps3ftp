@@ -8,6 +8,9 @@ CELL_MK_DIR ?= $(CELL_SDK)/samples/mk
 
 include $(CELL_MK_DIR)/sdk.makedef.mk
 
+OBJS_DIR = .
+PPU_CFLAGS += -DCELL_SDK
+
 ifeq ($(LIB_EXTERNAL), 1)
 PPU_LIB_TARGET = libopenps3ftp_cell.a
 else
@@ -38,16 +41,14 @@ ifeq ($(LIB_EXTERNAL), 1)
 PPU_CFLAGS += -D_NO_VSH_EXPORTS_
 endif
 
-OBJS_DIR = .
-
-PPU_SRCS = $(wildcard *.c)
+PPU_SRCS := $(wildcard *.c)
+PPU_OBJS = $(PPU_SRCS:.c=.$(SDK).o)
 PPU_CFLAGS += -DAPP_VER_MIN=\"-g$(GIT_VERSION)\"
 
 PPU_OPTIMIZE_LV = -Os
 PPU_INCDIRS += -I../include
 
 ifeq ($(SDK), cell)
-PPU_CFLAGS += -DCELL_SDK
 include $(CELL_MK_DIR)/sdk.target.mk
 else
 .PHONY: all clean
