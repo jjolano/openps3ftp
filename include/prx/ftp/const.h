@@ -2,6 +2,14 @@
 
 #include <inttypes.h>
 
+#define APP_VER_MAJ		"v4.2"
+
+#ifndef APP_VER_MIN
+#define APP_VER_MIN		""
+#endif
+
+#define APP_VERSION		APP_VER_MAJ APP_VER_MIN
+
 #ifndef WELCOME_MSG
 #define WELCOME_MSG		"OpenPS3FTP " APP_VERSION
 #endif

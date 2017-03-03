@@ -1,12 +1,12 @@
 # libCellPS3FTP Makefile
-GIT_VERSION := $(shell git describe --abbrev=5 --dirty --always --tags)
+GIT_VERSION := $(shell git describe --abbrev=5 --dirty --always)
 
 CELL_SDK ?= /usr/local/cell
 CELL_MK_DIR ?= $(CELL_SDK)/samples/mk
 include $(CELL_MK_DIR)/sdk.makedef.mk
 
 PPU_SRCS = $(wildcard *.c)
-PPU_CFLAGS += -DAPP_VERSION=\"$(GIT_VERSION)\"
+PPU_CFLAGS += -DAPP_VER_MIN=\"-$(GIT_VERSION)\"
 PPU_LIB_TARGET = libopenps3ftp_vsh.a
 
 ifeq ($(LIB_EXTERNAL), 1)
