@@ -1049,6 +1049,9 @@ void base_connect(struct Client* client)
 	client_set_cvar(client, "auth", (void*) auth);
 	client_set_cvar(client, "fd", (void*) fd);
 	client_set_cvar(client, "rest", (void*) rest);
+
+	// welcome message
+	client_send_multicode(client, 220, WELCOME_MSG);
 }
 
 void base_disconnect(struct Client* client)
