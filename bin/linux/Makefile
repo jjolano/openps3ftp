@@ -1,23 +1,26 @@
 # FTP Makefile
+GIT_VERSION := $(shell git describe --dirty --always)
+
 TARGET		:= ftp.elf
 
 # Libraries
-LDFLAGS		+= -L../lib
+LDFLAGS		+= -L../../lib
 LDLIBS		+= -lftp
 
 # Includes
-INCLUDE		:= -I../include -I./feat
+INCLUDE		:= -I../../include -I../../feat
 
 # Source Files
-SRCS		:= $(wildcard linux/*.cpp)
-OBJS		:= $(SRCS:.cpp=.cc.o)
+SRCS		:= $(wildcard *.cpp)
+OBJS		:= $(SRCS:.cpp=.cpp.o)
 
-C_SRCS		:= $(wildcard feat/*/*.c)
+C_SRCS		:= $(wildcard ../../feat/*/*.c)
 OBJS		+= $(C_SRCS:.c=.c.o)
 
 # Define compilation options
 DEFINES		:= -DLINUX
 CFLAGS		+= -O2 -Wall $(INCLUDE) $(DEFINES)
+CFLAGS		+= -DAPP_VER_MIN=\"-g$(GIT_VERSION)\"
 CXXFLAGS	+= $(CFLAGS)
 
 # Make rules
@@ -31,7 +34,7 @@ clean:
 $(TARGET): $(OBJS)
 	$(CXX) $^ $(LDFLAGS) $(LDLIBS) -o $@
 
-%.cc.o: %.cpp
+%.cpp.o: %.cpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 %.c.o: %.c

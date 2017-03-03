@@ -1,5 +1,5 @@
 # OpenPS3FTP Makefile - CELL PRX edition
-GIT_VERSION := $(shell git describe --abbrev=5 --dirty --always)
+GIT_VERSION := $(shell git describe --dirty --always)
 
 SCETOOL_FLAGS := -0 SELF
 SCETOOL_FLAGS += -1 TRUE
@@ -15,21 +15,21 @@ CELL_SDK ?= /usr/local/cell
 CELL_MK_DIR ?= $(CELL_SDK)/samples/mk
 include $(CELL_MK_DIR)/sdk.makedef.mk
 
-OBJS_DIR = objs/prx
+OBJS_DIR = .
 
-PPU_SRCS = $(wildcard prx/*.c) $(wildcard feat/*/*.c)
+PPU_SRCS = $(wildcard *.c) $(wildcard ../../feat/*/*.c)
 PPU_PRX_TARGET = openps3ftp.prx
 PPU_CFLAGS += -Wno-unused-parameter -fno-builtin-printf -nodefaultlibs
 PPU_CFLAGS += -DCELL_SDK -DAPP_VER_MIN=\"-g$(GIT_VERSION)\"
 
 PPU_PRX_LDFLAGS += $(PPU_CFLAGS)
-PPU_PRX_LDLIBDIR += -L../lib -L./prx/lib
+PPU_PRX_LDLIBDIR += -L../../lib -L../../lib/vsh
 
-PPU_PRX_LDLIBS += -lopenps3ftp_vsh -lfs_stub
-PPU_PRX_LDLIBS += -lsys_net_export_stub -lallocator_export_stub -lstdc_export_stub -lsysPrxForUser_export_stub
+PPU_PRX_LDLIBS += -lopenps3ftp_cell_vsh -lfs_stub
+PPU_PRX_LDLIBS += -lsys_net_cell_vsh -lallocator_cell_vsh -lstdc_cell_vsh -lsysPrxForUser_cell_vsh
 
 PPU_OPTIMIZE_LV = -Os
-PPU_INCDIRS += -I./prx/include -I../include -I./feat
+PPU_INCDIRS += -I./include -I../../include -I../../feat
 
 all: $(PPU_PRX_TARGET)
 	$(PPU_PRX_STRIP) --strip-debug --strip-section-header $<

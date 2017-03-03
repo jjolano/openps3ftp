@@ -1,41 +1,50 @@
 # libOpenPS3FTP Makefile
 SDK ?= linux
-GIT_VERSION := $(shell git describe --abbrev=5 --dirty --always)
+GIT_VERSION := $(shell git describe --dirty --always)
 
 ifeq ($(SDK), cell)
 CELL_SDK ?= /usr/local/cell
 CELL_MK_DIR ?= $(CELL_SDK)/samples/mk
-include $(CELL_MK_DIR)/sdk.makedef.mk
-else
-LIB_EXTERNAL := 1
-PPU_OBJS = $(PPU_SRCS:.c=.$(SDK).o)
-endif
 
-PPU_SRCS = $(wildcard *.c)
-PPU_CFLAGS += -DAPP_VER_MIN=\"-g$(GIT_VERSION)\"
-PPU_LIB_TARGET = libopenps3ftp_vsh.a
+include $(CELL_MK_DIR)/sdk.makedef.mk
 
 ifeq ($(LIB_EXTERNAL), 1)
-PPU_CFLAGS += -D_NO_VSH_EXPORTS_
-PPU_LIB_TARGET = libopenps3ftp.a
+PPU_LIB_TARGET = libopenps3ftp_cell.a
 else
-OBJS_DIR = objs/vsh
+PPU_LIB_TARGET = libopenps3ftp_cell_vsh.a
 endif
-
-PPU_OPTIMIZE_LV = -Os
-PPU_INCDIRS += -I../include
+endif
 
 ifeq ($(SDK), psl1ght)
 include $(PSL1GHT)/ppu_rules
+
 PPU_INCDIRS += -I$(PORTLIBS)/include $(LIBPSL1GHT_INC)
 PPU_CFLAGS += -DPSL1GHT_SDK -g -Wall -mregnames -mcpu=cell $(MACHDEP)
+
+ifeq ($(LIB_EXTERNAL), 1)
 PPU_LIB_TARGET = libopenps3ftp_psl1ght.a
+else
+PPU_LIB_TARGET = libopenps3ftp_psl1ght_vsh.a
+endif
 endif
 
 ifeq ($(SDK), linux)
+LIB_EXTERNAL := 1
 PPU_CFLAGS += -DLINUX -g -Wall
 PPU_LIB_TARGET = libftp.a
 endif
+
+ifeq ($(LIB_EXTERNAL), 1)
+PPU_CFLAGS += -D_NO_VSH_EXPORTS_
+endif
+
+OBJS_DIR = .
+
+PPU_SRCS = $(wildcard *.c)
+PPU_CFLAGS += -DAPP_VER_MIN=\"-g$(GIT_VERSION)\"
+
+PPU_OPTIMIZE_LV = -Os
+PPU_INCDIRS += -I../include
 
 ifeq ($(SDK), cell)
 PPU_CFLAGS += -DCELL_SDK
