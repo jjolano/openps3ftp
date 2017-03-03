@@ -1,4 +1,5 @@
 # OpenPS3FTP Makefile - CELL PRX edition
+GIT_VERSION := $(shell git describe --abbrev=5 --dirty --always --tags)
 
 SCETOOL_FLAGS := -0 SELF
 SCETOOL_FLAGS += -1 TRUE
@@ -19,11 +20,12 @@ OBJS_DIR = objs/prx
 PPU_SRCS = $(wildcard prx/*.c) $(wildcard feat/*/*.c)
 PPU_PRX_TARGET = openps3ftp.prx
 PPU_CFLAGS += -Wno-unused-parameter -fno-builtin-printf -nodefaultlibs
+PPU_CFLAGS += -DAPP_VERSION=\"$(GIT_VERSION)\"
 
 PPU_PRX_LDFLAGS += $(PPU_CFLAGS)
 PPU_PRX_LDLIBDIR += -L../lib/prx -L./prx/lib
 
-PPU_PRX_LDLIBS += -lopenps3ftp -lfs_stub
+PPU_PRX_LDLIBS += -lopenps3ftp_vsh -lfs_stub
 PPU_PRX_LDLIBS += -lsys_net_export_stub -lallocator_export_stub -lstdc_export_stub -lsysPrxForUser_export_stub
 
 PPU_OPTIMIZE_LV = -Os

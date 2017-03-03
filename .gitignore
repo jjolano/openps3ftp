@@ -13,3 +13,4 @@ objs/
 *.sprx
 *.prx
 *.sym
+*_verlog.txt

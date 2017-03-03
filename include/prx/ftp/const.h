@@ -2,8 +2,9 @@
 
 #include <inttypes.h>
 
-#define APP_VERSION		"4.2-prx"
-#define WELCOME_MSG		"ftp server v" APP_VERSION " by jjolano"
+#ifndef WELCOME_MSG
+#define WELCOME_MSG		"ftpd " APP_VERSION
+#endif
 
 #define FTP_150			"Accepted data connection."
 
