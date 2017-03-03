@@ -116,7 +116,7 @@ int parse_port_tuple(unsigned short tuple[6], const char* to_parse)
 	);
 }
 
-void get_file_mode(char mode[11], CellFsStat* st)
+void get_file_mode(char mode[11], ftpstat* st)
 {
 	mode[0] = '?';
 
@@ -167,9 +167,9 @@ void str_toupper(char* dst, const char* src, size_t len)
 
 bool file_exists(const char* path)
 {
-	CellFsStat st;
+	ftpstat st;
 	
-	if(cellFsStat(path, &st) == 0)
+	if(ftpio_stat(path, &st) == 0)
 	{
 		return true;
 	}

@@ -205,17 +205,17 @@ void client_data_end(struct Client* client)
 
 			if(*fd != -1)
 			{
-				CellFsStat st;
+				ftpstat st;
 				
-				if(cellFsFstat(*fd, &st) == 0)
+				if(ftpio_fstat(*fd, &st) == 0)
 				{
 					if((st.st_mode & S_IFMT) == S_IFDIR)
 					{
-						cellFsClosedir(*fd);
+						ftpio_closedir(*fd);
 					}
 					else
 					{
-						cellFsClose(*fd);
+						ftpio_close(*fd);
 					}
 				}
 

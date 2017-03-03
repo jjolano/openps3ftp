@@ -4,7 +4,7 @@
 
 struct Directory
 {
-	char name[CELL_FS_MAX_FS_FILE_NAME_LENGTH + 1];
+	char name[MAX_NAME];
 };
 
 struct Path
@@ -20,7 +20,7 @@ void get_absolute_path(char abs_path[MAX_PATH], const char old_path[MAX_PATH], c
 void parse_command_string(char command_name[32], char* command_param, char* to_parse);
 int parse_port_tuple(unsigned short tuple[6], const char* to_parse);
 
-void get_file_mode(char mode[11], CellFsStat* stat);
+void get_file_mode(char mode[11], ftpstat* stat);
 
 void str_toupper(char* dst, const char* src, size_t len);
 bool file_exists(const char* path);
