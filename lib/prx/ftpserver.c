@@ -352,6 +352,7 @@ uint32_t server_run(struct Server* server)
 	server->running = false;
 
 	socketclose(server->socket);
+	server->socket = -1;
 
 	// clear clients
 	while(server->num_clients > 0)
@@ -402,5 +403,10 @@ void server_free(struct Server* server)
 	if(server->buffer_command != NULL)
 	{
 		free(server->buffer_command);
+	}
+
+	if(server->socket != -1)
+	{
+		socketclose(server->socket);
 	}
 }

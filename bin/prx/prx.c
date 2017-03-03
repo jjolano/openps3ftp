@@ -262,36 +262,44 @@ void prx_main(uint64_t ptr)
 		sys_timer_sleep(1);
 	}
 
-	ftp_server = (struct Server*) malloc(sizeof(struct Server));
-
-	// initialize server struct
-	server_init(ftp_server, ftp_command, 21);
-
-	uint32_t ret = 0;
-
 	if(prx_running)
 	{
+		ftp_server = (struct Server*) malloc(sizeof(struct Server));
+
 		// show startup msg
-		show_msg("FTP server (v" APP_VERSION ") started.");
+		show_msg("Starting OpenPS3FTP v" APP_VERSION ".");
 
 		// let ftp library take over thread
-		ret = server_run(ftp_server);
+		while(prx_running)
+		{
+			// initialize server struct
+			server_init(ftp_server, ftp_command, 21);
 
-		// show shutdown msg
-		char msg[200];
-		sprintf(msg, "FTP server stopped (code: %d).", ret);
+			uint32_t ret = server_run(ftp_server);
 
-		show_msg(msg);
+			switch(ret)
+			{
+				case 1:
+				show_msg("FTP Error: Another FTP server is using port 21. Trying again in 30 seconds.");
+				sys_timer_sleep(30);
+				break;
+				case 2:
+				case 3:
+				show_msg("FTP Error: Network library error. Trying again in 5 seconds.");
+				sys_timer_sleep(5);
+				break;
+				default:
+				sys_timer_sleep(1);
+			}
+
+			server_free(ftp_server);
+		}
+		
+		free(ftp_server);
 	}
 
-	// let plugins unregister...
-	sys_timer_sleep(1);
-
 	// server stopped, free resources
-	server_free(ftp_server);
 	command_free(ftp_command);
-
-	free(ftp_server);
 	free(ftp_command);
 
 	// exited by server error or command
@@ -301,7 +309,7 @@ void prx_main(uint64_t ptr)
 		finalize_module();
 	}
 	
-	sys_ppu_thread_exit(ret);
+	sys_ppu_thread_exit(0);
 }
 
 int prx_start(size_t args, void* argv)
