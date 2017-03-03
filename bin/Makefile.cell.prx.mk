@@ -20,7 +20,7 @@ OBJS_DIR = objs/prx
 PPU_SRCS = $(wildcard prx/*.c) $(wildcard feat/*/*.c)
 PPU_PRX_TARGET = openps3ftp.prx
 PPU_CFLAGS += -Wno-unused-parameter -fno-builtin-printf -nodefaultlibs
-PPU_CFLAGS += -DAPP_VER_MIN=\"-$(GIT_VERSION)\"
+PPU_CFLAGS += -DAPP_VER_MIN=\"-g$(GIT_VERSION)\"
 
 PPU_PRX_LDFLAGS += $(PPU_CFLAGS)
 PPU_PRX_LDLIBDIR += -L../lib/prx -L./prx/lib
