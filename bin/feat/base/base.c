@@ -810,14 +810,6 @@ void cmd_rnto(struct Client* client, const char command_name[32], const char* co
 
 void cmd_site(struct Client* client, const char command_name[32], const char* command_params)
 {
-	bool* auth = (bool*) client_get_cvar(client, "auth");
-
-	if(!*auth)
-	{
-		client_send_code(client, 530, FTP_530);
-		return;
-	}
-
 	struct Command* site_command = (struct Command*) malloc(sizeof(struct Command));
 
 	command_init(site_command);
