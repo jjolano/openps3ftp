@@ -1,3 +1,9 @@
+[Version 4.2a - March 5, 2017]
+- Rebased standalone app server code to sprx plugin server code.
+  * OpenPS3FTP standalone and sprx now share the same server code.
+- Removed build for CellPS3FTP.
+- Fixed various crashes that existed in version 4.2
+
 [Version 4.2 - February 13, 2017]
 - Reverted removal of APPE command.
 - Added some additional standard FTP commands.

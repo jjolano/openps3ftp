@@ -2,7 +2,7 @@
 
 #include <inttypes.h>
 
-#define APP_VER_MAJ		"v4.2"
+#define APP_VER_MAJ		"v4.2a"
 
 #ifndef APP_VER_MIN
 #define APP_VER_MIN		""
