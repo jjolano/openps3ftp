@@ -23,7 +23,7 @@ OBJS_DIR = objs/vsh
 endif
 
 PPU_OPTIMIZE_LV = -Os
-PPU_INCDIRS += -I../../include/prx -I../../include/prx/ftp
+PPU_INCDIRS += -I../include
 
 ifeq ($(SDK), psl1ght)
 include $(PSL1GHT)/ppu_rules

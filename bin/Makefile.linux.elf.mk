@@ -1,21 +1,24 @@
-# FTP++ Makefile
-
-TARGET		:= ftpxx.elf
+# FTP Makefile
+TARGET		:= ftp.elf
 
 # Libraries
 LDFLAGS		+= -L../lib
-LDLIBS		+= -lftpxx
+LDLIBS		+= -lftp
 
 # Includes
-INCLUDE		:= -I../include -I./helper -I./feat
+INCLUDE		:= -I../include -I./feat
 
 # Source Files
-SRCS		:= $(wildcard linux/*.cpp) $(wildcard helper/*.cpp) $(wildcard feat/*/*.cpp)
-OBJS		:= $(SRCS:.cpp=.o)
+SRCS		:= $(wildcard linux/*.cpp)
+OBJS		:= $(SRCS:.cpp=.cc.o)
+
+C_SRCS		:= $(wildcard feat/*/*.c)
+OBJS		+= $(C_SRCS:.c=.c.o)
 
 # Define compilation options
 DEFINES		:= -DLINUX
-CXXFLAGS	+= -O2 -Wall $(INCLUDE) $(DEFINES)
+CFLAGS		+= -O2 -Wall $(INCLUDE) $(DEFINES)
+CXXFLAGS	+= $(CFLAGS)
 
 # Make rules
 .PHONY: all clean
@@ -28,5 +31,8 @@ clean:
 $(TARGET): $(OBJS)
 	$(CXX) $^ $(LDFLAGS) $(LDLIBS) -o $@
 
-%.o: %.cpp
+%.cc.o: %.cpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+%.c.o: %.c
+	$(CC) $(CFLAGS) -c $< -o $@

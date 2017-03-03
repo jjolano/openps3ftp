@@ -26,7 +26,7 @@ void cmd_chmod(struct Client* client, const char command_name[32], const char* c
 		return;
 	}
 
-	CellFsMode mode = strtoul(param, NULL, 8);
+	mode_t mode = strtoul(param, NULL, 8);
 
 	param = strtok(NULL, " ");
 
@@ -45,7 +45,7 @@ void cmd_chmod(struct Client* client, const char command_name[32], const char* c
 	char path[MAX_PATH];
 	get_absolute_path(path, cwd_str, param_path);
 
-	if(cellFsChmod(path, mode) == 0)
+	if(ftpio_chmod(path, mode) == 0)
 	{
 		client_send_code(client, 200, FTP_200);
 	}

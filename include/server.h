@@ -1,5 +1,9 @@
 #pragma once
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "common.h"
 #include "client.h"
 #include "command.h"
@@ -44,3 +48,7 @@ void server_init(struct Server* server, struct Command* command_ptr, unsigned sh
 uint32_t server_run(struct Server* server);
 void server_stop(struct Server* server);
 void server_free(struct Server* server);
+
+#ifdef __cplusplus
+}
+#endif

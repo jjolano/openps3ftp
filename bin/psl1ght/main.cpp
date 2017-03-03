@@ -8,11 +8,13 @@
 #include <NoRSX.h>
 #include <NoRSX/NoRSXutil.h>
 
-#include "const.hpp"
-#include "ftphelper.hpp"
-#include "server.hpp"
+#include "server.h"
+#include "client.h"
+#include "command.h"
 
-#include "feat.hpp"
+#include "feat/feat.h"
+#include "base/base.h"
+#include "ext/ext.h"
 
 #define MOUNT_POINT	"/dev_blind"
 
@@ -66,6 +68,13 @@ LV2_SYSCALL sysLv2FsUnmount(const char* path)
 }
 #endif
 
+void server_run_ex(void* arg)
+{
+	struct Server* ftp_server = (struct Server*) arg;
+	server_run(ftp_server);
+	sysThreadExit(0);
+}
+
 int main(void)
 {
 	// Initialize required sysmodules.
@@ -111,26 +120,24 @@ int main(void)
 	// Mount dev_blind.
 	sysLv2FsMount("CELL_FS_IOS:BUILTIN_FLSH1", "CELL_FS_FAT", MOUNT_POINT, 0);
 
-#ifdef _USE_SYSFS_
-	// Prepare Async IO.
-	sysFsAioInit("/dev_hdd0");
-#endif
-
 	// Create the server thread.
-	FTP::Command command;
+	struct Command* ftp_command = (struct Command*) malloc(sizeof(struct Command));
+
+	// initialize command struct
+	command_init(ftp_command);
+
+	// import commands...
+	feat_command_import(ftp_command);
+	base_command_import(ftp_command);
+	ext_command_import(ftp_command);
+
+	struct Server* ftp_server = (struct Server*) malloc(sizeof(struct Server));
 	
-	FTP::Command base_command = feat::base::get_commands();
-	FTP::Command ext_command = feat::ext::get_commands();
-	FTP::Command feat_command = feat::get_commands();
-
-	command.import(&base_command);
-	command.import(&ext_command);
-	command.import(&feat_command);
-
-	FTP::Server server(&command, 21);
+	// initialize server struct
+	server_init(ftp_server, ftp_command, 21);
 
 	sys_ppu_thread_t server_tid;
-	sysThreadCreate(&server_tid, ftp_server_start, (void*) &server, 1001, 0x10000, THREAD_JOINABLE, (char*)"ftpd");
+	sysThreadCreate(&server_tid, server_run_ex, (void*) &ftp_server, 1001, 0x2000, THREAD_JOINABLE, (char*)"ftpd");
 	sysThreadYield();
 
 	// Start application loop.
@@ -139,9 +146,9 @@ int main(void)
 	int flipped = 0;
 	int last_num_connections = 0;
 
-	while(gfx->GetAppStatus() && server.is_running())
+	while(gfx->GetAppStatus() && ftp_server->running)
 	{
-		int num_connections = server.get_num_connections();
+		int num_connections = ftp_server->num_clients;
 
 		if(gfx->GetXMBStatus() == XMB_CLOSE && flipped < 2)
 		{
@@ -179,15 +186,16 @@ int main(void)
 	gfx->Flip();
 
 	// Join server thread and wait for exit...
-	server.stop();
+	server_stop(ftp_server);
 
 	u64 thread_exit;
 	sysThreadJoin(server_tid, &thread_exit);
 
-#ifdef _USE_SYSFS_
-	// Finish Async IO.
-	sysFsAioFinish("/dev_hdd0");
-#endif
+	server_free(ftp_server);
+	free(ftp_server);
+
+	command_free(ftp_command);
+	free(ftp_command);
 
 	// Unmount dev_blind.
 	sysLv2FsUnmount(MOUNT_POINT);

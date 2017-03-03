@@ -29,9 +29,9 @@ void cmd_size(struct Client* client, const char command_name[32], const char* co
 	char path[MAX_PATH];
 	get_absolute_path(path, cwd_str, param_path);
 
-	CellFsStat st;
+	ftpstat st;
 
-	if(cellFsStat(path, &st) == 0)
+	if(ftpio_stat(path, &st) == 0)
 	{
 		char buffer[32];
 		sprintf(buffer, "%" PRIu64, st.st_size);
@@ -73,9 +73,9 @@ void cmd_mdtm(struct Client* client, const char command_name[32], const char* co
 	char path[MAX_PATH];
 	get_absolute_path(path, cwd_str, param_path);
 
-	CellFsStat st;
+	ftpstat st;
 
-	if(cellFsStat(path, &st) == 0)
+	if(ftpio_stat(path, &st) == 0)
 	{
 		char buffer[32];
 		strftime(buffer, BUFFER_DATA, "%Y%m%d%H%M%S", localtime(&st.st_mtime));

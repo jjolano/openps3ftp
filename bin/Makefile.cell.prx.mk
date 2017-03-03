@@ -23,13 +23,13 @@ PPU_CFLAGS += -Wno-unused-parameter -fno-builtin-printf -nodefaultlibs
 PPU_CFLAGS += -DAPP_VER_MIN=\"-g$(GIT_VERSION)\"
 
 PPU_PRX_LDFLAGS += $(PPU_CFLAGS)
-PPU_PRX_LDLIBDIR += -L../lib/prx -L./prx/lib
+PPU_PRX_LDLIBDIR += -L../lib -L./prx/lib
 
 PPU_PRX_LDLIBS += -lopenps3ftp_vsh -lfs_stub
 PPU_PRX_LDLIBS += -lsys_net_export_stub -lallocator_export_stub -lstdc_export_stub -lsysPrxForUser_export_stub
 
 PPU_OPTIMIZE_LV = -Os
-PPU_INCDIRS += -I./prx/include -I../include/prx -I../include/prx/ftp -I./feat
+PPU_INCDIRS += -I./prx/include -I../include -I./feat
 
 all: $(PPU_PRX_TARGET)
 	$(PPU_PRX_STRIP) --strip-debug --strip-section-header $<

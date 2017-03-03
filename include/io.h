@@ -1,5 +1,9 @@
 #pragma once
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "common.h"
 
 int32_t ftpio_open(const char* path, int oflags, int32_t* fd);
@@ -17,3 +21,7 @@ int32_t ftpio_rmdir(const char* path);
 int32_t ftpio_unlink(const char* path);
 int32_t ftpio_stat(const char* path, ftpstat* st);
 int32_t ftpio_fstat(int32_t fd, ftpstat* st);
+
+#ifdef __cplusplus
+}
+#endif

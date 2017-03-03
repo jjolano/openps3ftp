@@ -6,12 +6,12 @@ bool data_list(struct Client* client)
 	struct Path* cwd = (struct Path*) client_get_cvar(client, "cwd");
 	int* fd = (int*) client_get_cvar(client, "fd");
 
-	CellFsDirent dirent;
+	ftpdirent dirent;
 	uint64_t nread;
 
-	if(cellFsReaddir(*fd, &dirent, &nread) != 0)
+	if(ftpio_readdir(*fd, &dirent, &nread) != 0)
 	{
-		cellFsClosedir(*fd);
+		ftpio_closedir(*fd);
 		*fd = -1;
 
 		client_send_code(client, 452, FTP_452);
@@ -20,7 +20,7 @@ bool data_list(struct Client* client)
 
 	if(nread == 0)
 	{
-		cellFsClosedir(*fd);
+		ftpio_closedir(*fd);
 		*fd = -1;
 
 		client_send_code(client, 226, FTP_226);
@@ -33,8 +33,8 @@ bool data_list(struct Client* client)
 	char path[MAX_PATH];
 	get_absolute_path(path, cwd_str, dirent.d_name);
 
-	CellFsStat st;
-	if(cellFsStat(path, &st) == 0)
+	ftpstat st;
+	if(ftpio_stat(path, &st) == 0)
 	{
 		char* buffer = client->server_ptr->buffer_data;
 
@@ -53,7 +53,7 @@ bool data_list(struct Client* client)
 
 		if(nwrite == -1 || nwrite < len)
 		{
-			cellFsClosedir(*fd);
+			ftpio_closedir(*fd);
 			*fd = -1;
 
 			client_send_code(client, 451, FTP_451);
@@ -69,12 +69,12 @@ bool data_nlst(struct Client* client)
 	struct Path* cwd = (struct Path*) client_get_cvar(client, "cwd");
 	int* fd = (int*) client_get_cvar(client, "fd");
 
-	CellFsDirent dirent;
+	ftpdirent dirent;
 	uint64_t nread;
 
-	if(cellFsReaddir(*fd, &dirent, &nread) != 0)
+	if(ftpio_readdir(*fd, &dirent, &nread) != 0)
 	{
-		cellFsClosedir(*fd);
+		ftpio_closedir(*fd);
 		*fd = -1;
 
 		client_send_code(client, 452, FTP_452);
@@ -83,7 +83,7 @@ bool data_nlst(struct Client* client)
 
 	if(nread == 0)
 	{
-		cellFsClosedir(*fd);
+		ftpio_closedir(*fd);
 		*fd = -1;
 
 		client_send_code(client, 226, FTP_226);
@@ -96,8 +96,8 @@ bool data_nlst(struct Client* client)
 	char path[MAX_PATH];
 	get_absolute_path(path, cwd_str, dirent.d_name);
 
-	CellFsStat st;
-	if(cellFsStat(path, &st) == 0)
+	ftpstat st;
+	if(ftpio_stat(path, &st) == 0)
 	{
 		char* buffer = client->server_ptr->buffer_data;
 
@@ -106,7 +106,7 @@ bool data_nlst(struct Client* client)
 
 		if(nwrite == -1 || nwrite < len)
 		{
-			cellFsClosedir(*fd);
+			ftpio_closedir(*fd);
 			*fd = -1;
 
 			client_send_code(client, 451, FTP_451);
@@ -124,9 +124,9 @@ bool data_retr(struct Client* client)
 
 	uint64_t nread;
 
-	if(cellFsRead(*fd, buffer, BUFFER_DATA, &nread) != 0)
+	if(ftpio_read(*fd, buffer, BUFFER_DATA, &nread) != 0)
 	{
-		cellFsClose(*fd);
+		ftpio_close(*fd);
 		*fd = -1;
 
 		client_send_code(client, 452, FTP_452);
@@ -135,7 +135,7 @@ bool data_retr(struct Client* client)
 
 	if(nread == 0)
 	{
-		cellFsClose(*fd);
+		ftpio_close(*fd);
 		*fd = -1;
 
 		client_send_code(client, 226, FTP_226);
@@ -146,7 +146,7 @@ bool data_retr(struct Client* client)
 
 	if(nwrite == -1 || (uint64_t) nwrite < nread)
 	{
-		cellFsClose(*fd);
+		ftpio_close(*fd);
 		*fd = -1;
 
 		client_send_code(client, 451, FTP_451);
@@ -165,7 +165,7 @@ bool data_stor(struct Client* client)
 
 	if(nread == 0)
 	{
-		cellFsClose(*fd);
+		ftpio_close(*fd);
 		*fd = -1;
 
 		client_send_code(client, 226, FTP_226);
@@ -174,7 +174,7 @@ bool data_stor(struct Client* client)
 
 	if(nread == -1)
 	{
-		cellFsClose(*fd);
+		ftpio_close(*fd);
 		*fd = -1;
 
 		client_send_code(client, 451, FTP_451);
@@ -183,10 +183,10 @@ bool data_stor(struct Client* client)
 
 	uint64_t nwrite;
 
-	if(cellFsWrite(*fd, buffer, (uint64_t) nread, &nwrite) != 0
+	if(ftpio_write(*fd, buffer, (uint64_t) nread, &nwrite) != 0
 	|| nwrite < (uint64_t) nread)
 	{
-		cellFsClose(*fd);
+		ftpio_close(*fd);
 		*fd = -1;
 
 		client_send_code(client, 452, FTP_452);
@@ -279,9 +279,9 @@ void cmd_cwd(struct Client* client, const char command_name[32], const char* com
 	char path[MAX_PATH];
 	get_absolute_path(path, cwd_str, command_params);
 
-	CellFsStat st;
+	ftpstat st;
 
-	if(cellFsStat(path, &st) == 0 && (st.st_mode & S_IFMT) == S_IFDIR)
+	if(ftpio_stat(path, &st) == 0 && (st.st_mode & S_IFMT) == S_IFDIR)
 	{
 		set_working_directory(cwd, path);
 		client_send_code(client, 250, FTP_250);
@@ -315,7 +315,7 @@ void cmd_dele(struct Client* client, const char command_name[32], const char* co
 	char path[MAX_PATH];
 	get_absolute_path(path, cwd_str, command_params);
 
-	if(cellFsUnlink(path) == 0)
+	if(ftpio_unlink(path) == 0)
 	{
 		client_send_code(client, 250, FTP_250);
 	}
@@ -351,7 +351,7 @@ void cmd_list(struct Client* client, const char command_name[32], const char* co
 	char cwd_str[MAX_PATH];
 	get_working_directory(cwd_str, cwd);
 
-	if(cellFsOpendir(cwd_str, fd) != 0)
+	if(ftpio_opendir(cwd_str, fd) != 0)
 	{
 		client_send_code(client, 550, FTP_550);
 		return;
@@ -363,7 +363,7 @@ void cmd_list(struct Client* client, const char command_name[32], const char* co
 	}
 	else
 	{
-		cellFsClosedir(*fd);
+		ftpio_closedir(*fd);
 		*fd = -1;
 
 		client_send_code(client, 425, FTP_425);
@@ -393,7 +393,7 @@ void cmd_mkd(struct Client* client, const char command_name[32], const char* com
 	char path[MAX_PATH];
 	get_absolute_path(path, cwd_str, command_params);
 
-	if(cellFsMkdir(path, 0777) == 0)
+	if(ftpio_mkdir(path, 0777) == 0)
 	{
 		char buffer[MAX_PATH + 32];
 
@@ -448,7 +448,7 @@ void cmd_nlst(struct Client* client, const char command_name[32], const char* co
 	char cwd_str[MAX_PATH];
 	get_working_directory(cwd_str, cwd);
 
-	if(cellFsOpendir(cwd_str, fd) != 0)
+	if(ftpio_opendir(cwd_str, fd) != 0)
 	{
 		client_send_code(client, 550, FTP_550);
 		return;
@@ -460,7 +460,7 @@ void cmd_nlst(struct Client* client, const char command_name[32], const char* co
 	}
 	else
 	{
-		cellFsClosedir(*fd);
+		ftpio_closedir(*fd);
 		*fd = -1;
 
 		client_send_code(client, 425, FTP_425);
@@ -676,14 +676,14 @@ void cmd_retr(struct Client* client, const char command_name[32], const char* co
 		return;
 	}
 
-	if(cellFsOpen(path, CELL_FS_O_RDONLY, fd, NULL, 0) != 0)
+	if(ftpio_open(path, O_RDONLY, fd) != 0)
 	{
 		client_send_code(client, 550, FTP_550);
 		return;
 	}
 
 	uint64_t pos;
-	cellFsLseek(*fd, *rest, SEEK_SET, &pos);
+	ftpio_lseek(*fd, *rest, SEEK_SET, &pos);
 	*rest = 0;
 
 	if(client_data_start(client, data_retr, POLLOUT|POLLWRNORM))
@@ -692,7 +692,7 @@ void cmd_retr(struct Client* client, const char command_name[32], const char* co
 	}
 	else
 	{
-		cellFsClose(*fd);
+		ftpio_close(*fd);
 		*fd = -1;
 
 		client_send_code(client, 425, FTP_425);
@@ -722,7 +722,7 @@ void cmd_rmd(struct Client* client, const char command_name[32], const char* com
 	char path[MAX_PATH];
 	get_absolute_path(path, cwd_str, command_params);
 
-	if(cellFsRmdir(path) == 0)
+	if(ftpio_rmdir(path) == 0)
 	{
 		client_send_code(client, 250, FTP_250);
 	}
@@ -798,7 +798,7 @@ void cmd_rnto(struct Client* client, const char command_name[32], const char* co
 	char path[MAX_PATH];
 	get_absolute_path(path, cwd_str, command_params);
 
-	if(cellFsRename(rnfr, path) == 0)
+	if(ftpio_rename(rnfr, path) == 0)
 	{
 		client_send_code(client, 250, FTP_250);
 	}
@@ -877,7 +877,7 @@ void cmd_stat(struct Client* client, const char command_name[32], const char* co
 	sprintf(buffer, "Authenticated: %d", *auth);
 	client_send_multimessage(client, buffer);
 
-	sprintf(buffer, "Total connections: %d", client->server_ptr->num_clients);
+	sprintf(buffer, "Total connections: %zu", client->server_ptr->num_clients);
 	client_send_multimessage(client, buffer);
 
 	client_send_code(client, 211, "End.");
@@ -914,38 +914,38 @@ void cmd_stor(struct Client* client, const char command_name[32], const char* co
 	char path[MAX_PATH];
 	get_absolute_path(path, cwd_str, command_params);
 
-	uint32_t oflags = CELL_FS_O_WRONLY;
+	uint32_t oflags = O_WRONLY;
 
 	if(!file_exists(path))
 	{
-		oflags |= CELL_FS_O_CREAT;
+		oflags |= O_CREAT;
 	}
 
 	if(strcmp(command_name, "APPE") == 0)
 	{
-		oflags |= CELL_FS_O_APPEND;
+		oflags |= O_APPEND;
 	}
 	else
 	{
 		if(*rest == 0)
 		{
-			oflags |= CELL_FS_O_TRUNC;
+			oflags |= O_TRUNC;
 		}
 	}
 
-	if(cellFsOpen(path, oflags, fd, NULL, 0) != 0)
+	if(ftpio_open(path, oflags, fd) != 0)
 	{
 		client_send_code(client, 550, FTP_550);
 		return;
 	}
 
-	if(oflags & CELL_FS_O_CREAT)
+	if(oflags & O_CREAT)
 	{
-		cellFsChmod(path, 0777);
+		ftpio_chmod(path, 0777);
 	}
 
 	uint64_t pos;
-	cellFsLseek(*fd, *rest, SEEK_SET, &pos);
+	ftpio_lseek(*fd, *rest, SEEK_SET, &pos);
 	*rest = 0;
 
 	if(client_data_start(client, data_stor, POLLIN|POLLRDNORM))
@@ -954,7 +954,7 @@ void cmd_stor(struct Client* client, const char command_name[32], const char* co
 	}
 	else
 	{
-		cellFsClose(*fd);
+		ftpio_close(*fd);
 		*fd = -1;
 
 		client_send_code(client, 425, FTP_425);

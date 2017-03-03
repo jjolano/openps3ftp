@@ -1,3 +1,9 @@
+#pragma once
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
@@ -15,6 +21,11 @@
 #ifdef CELL_SDK
 #include <cell.h>
 #include <sys/poll.h>
+
+#ifndef _NO_VSH_EXPORTS_
+#include "vsh/vsh_exports.h"
+#endif
+
 #endif
 
 #ifdef PSL1GHT_SDK
@@ -38,6 +49,7 @@ int closesocket(int socket);
 #include <dirent.h>
 #include <unistd.h>
 #include <errno.h>
+#include <time.h>
 
 #include <linux/limits.h>
 
@@ -53,6 +65,6 @@ int closesocket(int socket);
 #include "util.h"
 #include "io.h"
 
-#ifndef _NO_VSH_EXPORTS_
-#include "vsh_exports.h"
+#ifdef __cplusplus
+}
 #endif

@@ -2,37 +2,29 @@
 
 BUILDDIR ?= build
 
-# SDK: LINUX, PSL1GHT, CELL
+# SDK: LINUX, PSL1GHT
 SDK ?= LINUX
 SDK_MK = $(shell echo $(SDK) | tr '[:upper:]' '[:lower:]')
 
-ifeq ($(SDK),CELL)
-TARGET		:= cellps3ftp
-endif
-
-ifeq ($(SDK),PSL1GHT)
+ifeq ($(SDK), PSL1GHT)
 TARGET		:= openps3ftp
+LIBNAME		:= lib$(TARGET)_psl1ght.a
 endif
 
-ifeq ($(SDK),LINUX)
-TARGET		:= ftpxx
+ifeq ($(SDK), LINUX)
+TARGET		:= ftp
 endif
 
-ELFNAME		:= $(TARGET).elf
-LIBNAME		:= lib$(TARGET).a
+ELFNAME		?= $(TARGET).elf
+LIBNAME		?= lib$(TARGET).a
 
 # Define pkg file and application information
-ifeq ($(SDK),PSL1GHT)
+ifeq ($(SDK), PSL1GHT)
 TITLE		:= OpenPS3FTP
 APPID		:= NPXS91337
 endif
 
-ifeq ($(SDK),CELL)
-TITLE		:= CellPS3FTP
-APPID		:= NPXS01337
-endif
-
-ifneq ($(SDK),LINUX)
+ifneq ($(SDK), LINUX)
 include $(PSL1GHT)/ppu_rules
 
 CONTENTID	:= UP0001-$(APPID)_00-0000000000000000
@@ -66,10 +58,9 @@ ELF_LOC	:= ./bin/$(ELFNAME)
 LIB_LOC	:= ./lib/$(LIBNAME)
 
 ELF_MK	:= Makefile.$(SDK_MK).elf.mk
-LIB_MK	:= Makefile.$(SDK_MK).lib.mk
 
 # Make rules
-.PHONY: all clean distclean sdkall sdkdist sdkclean sdkdistclean dist pkg elf lib install PARAM.SFO $(ELF_LOC) $(LIB_LOC)
+.PHONY: all clean distclean prx prxclean ps3dist ps3clean ps3distclean dist pkg elf lib PARAM.SFO $(ELF_LOC) $(LIB_LOC)
 
 all: elf
 
@@ -79,42 +70,35 @@ ifneq ($(SDK),LINUX)
 	rm -f $(APPID).pkg EBOOT.BIN PARAM.SFO
 endif
 	$(MAKE) -C bin -f $(ELF_MK) clean
-	$(MAKE) -C lib -f $(LIB_MK) clean
+	$(MAKE) -C lib SDK=$(SDK_MK) clean
 
 ifneq ($(SDK),LINUX)
-distclean: clean prxclean
+distclean: clean
 	rm -f $(TARGET).zip
 
 dist: distclean $(TARGET).zip
 endif
 
 prx:
-	$(MAKE) -C lib/prx
+	$(MAKE) -C lib
 	$(MAKE) -C bin -f Makefile.cell.prx.mk
 
 prxclean:
-	$(MAKE) -C lib/prx clean
+	$(MAKE) -C lib clean
 	$(MAKE) -C bin -f Makefile.cell.prx.mk clean
 	rm -f bin/FTPD_verlog.txt bin/libopenps3ftp_prx.a
 
-sdkall:
-	$(MAKE) all SDK=LINUX
-	$(MAKE) all SDK=PSL1GHT
-	$(MAKE) all SDK=CELL
+ps3:
+	$(MAKE) SDK=PSL1GHT
 
-sdkclean:
-	$(MAKE) clean SDK=LINUX
+ps3clean:
 	$(MAKE) clean SDK=PSL1GHT
-	$(MAKE) clean SDK=CELL
 
-sdkdist:
+ps3dist:
 	$(MAKE) dist SDK=PSL1GHT
-	$(MAKE) dist SDK=CELL
 
-sdkdistclean:
-	$(MAKE) clean SDK=LINUX
+ps3distclean:
 	$(MAKE) distclean SDK=PSL1GHT
-	$(MAKE) distclean SDK=CELL
 
 ifneq ($(SDK),LINUX)
 pkg: $(APPID).pkg
@@ -123,9 +107,6 @@ endif
 lib: $(LIB_LOC)
 
 elf: lib $(ELF_LOC)
-
-install: lib
-	$(MAKE) -C lib -f $(LIB_MK) install
 
 ifneq ($(SDK),LINUX)
 $(TARGET).zip: $(APPID).pkg
@@ -153,4 +134,4 @@ $(ELF_LOC):
 	$(MAKE) -C bin -f $(ELF_MK)
 
 $(LIB_LOC):
-	$(MAKE) -C lib -f $(LIB_MK)
+	$(MAKE) -C lib SDK=$(SDK_MK)

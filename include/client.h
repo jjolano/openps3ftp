@@ -1,5 +1,9 @@
 #pragma once
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "common.h"
 #include "server.h"
 
@@ -45,3 +49,7 @@ void client_socket_disconnect(struct Client* client, int socket_dc);
 
 /* internal functions */
 void client_free(struct Client* client);
+
+#ifdef __cplusplus
+}
+#endif

@@ -17,7 +17,7 @@
 #include "base/base.h"
 #include "ext/ext.h"
 
-#include "vsh_exports.h"
+#include "vsh/vsh_exports.h"
 
 void* getNIDfunc(const char* vsh_module, uint32_t fnid, int32_t offset);
 void show_msg(const char* msg);

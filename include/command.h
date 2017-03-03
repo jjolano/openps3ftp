@@ -1,5 +1,9 @@
 #pragma once
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "common.h"
 #include "client.h"
 
@@ -45,3 +49,7 @@ void command_import(struct Command* command, struct Command* ext_command);
 /* internal functions */
 void command_init(struct Command* command);
 void command_free(struct Command* command);
+
+#ifdef __cplusplus
+}
+#endif

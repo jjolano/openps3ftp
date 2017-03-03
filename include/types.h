@@ -1,5 +1,9 @@
 #pragma once
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct Client;
 struct Server;
 struct Command;
@@ -36,4 +40,8 @@ typedef void (*disconnect_callback)(struct Client*);
 #ifdef LINUX
 #define ftpstat		struct stat
 #define ftpdirent	struct dirent
+#endif
+
+#ifdef __cplusplus
+}
 #endif

@@ -1,44 +1,54 @@
 #include <iostream>
 
-#include "common.hpp"
-#include "server.hpp"
-#include "client.hpp"
-#include "command.hpp"
+#include "server.h"
+#include "client.h"
+#include "command.h"
 
-#include "feat.hpp"
+#include "feat/feat.h"
+#include "base/base.h"
+#include "ext/ext.h"
 
-void client_connect(FTP::Client* client)
+void client_connect(struct Client* client)
 {
-	std::cout << "Client [fd: " << client->get_control_socket() << "]: connected" << std::endl;
+	std::cout << "Client [fd: " << client->socket_control << "]: connected" << std::endl;
 }
 
-void client_disconnect(FTP::Client* client)
+void client_disconnect(struct Client* client)
 {
-	std::cout << "Client [fd: " << client->get_control_socket() << "]: disconnected" << std::endl;
+	std::cout << "Client [fd: " << client->socket_control << "]: disconnected" << std::endl;
 }
 
 int main(void)
 {
-	FTP::Command command;
+	struct Command* ftp_command = (struct Command*) malloc(sizeof(struct Command));
+
+	// initialize command struct
+	command_init(ftp_command);
+
+	// import commands...
+	feat_command_import(ftp_command);
+	base_command_import(ftp_command);
+	ext_command_import(ftp_command);
+
+	command_register_connect(ftp_command, client_connect);
+	command_register_disconnect(ftp_command, client_disconnect);
+
+	struct Server* ftp_server = (struct Server*) malloc(sizeof(struct Server));
 	
-	FTP::Command base_command = feat::base::get_commands();
-	FTP::Command ext_command = feat::ext::get_commands();
-	FTP::Command feat_command = feat::get_commands();
-
-	command.import(&base_command);
-	command.import(&ext_command);
-	command.import(&feat_command);
-
-	command.register_connect_callback(client_connect);
-	command.register_disconnect_callback(client_disconnect);
-
-	FTP::Server server(&command, 21);
+	// initialize server struct
+	server_init(ftp_server, ftp_command, 21);
 
 	std::cout << "Started server!" << std::endl;
 
-	server.start();
+	server_run(ftp_server);
 
 	std::cout << "Server stopped!" << std::endl;
+
+	server_free(ftp_server);
+	free(ftp_server);
+
+	command_free(ftp_command);
+	free(ftp_command);
 
 	return 0;
 }
