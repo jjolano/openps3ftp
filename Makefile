@@ -80,11 +80,11 @@ dist: distclean $(TARGET).zip
 endif
 
 prx:
-	$(MAKE) -C lib
+	$(MAKE) -C lib SDK=cell
 	$(MAKE) -C bin -f Makefile.cell.prx.mk
 
 prxclean:
-	$(MAKE) -C lib clean
+	$(MAKE) -C lib SDK=cell clean
 	$(MAKE) -C bin -f Makefile.cell.prx.mk clean
 	rm -f bin/FTPD_verlog.txt bin/libopenps3ftp_prx.a
 
