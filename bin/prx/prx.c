@@ -4,9 +4,10 @@
 SYS_MODULE_START(prx_start);
 SYS_MODULE_STOP(prx_stop);
 SYS_MODULE_EXIT(prx_exit);
+SYS_MODULE_REBOOT_BEFORE(prx_exit);
 SYS_MODULE_INFO(FTPD, 0, 4, 2);
 
-SYS_LIB_DECLARE_WITH_STUB(FTPD, SYS_LIB_NOLINK_EXPORT, libopenps3ftp_prx);
+SYS_LIB_DECLARE_WITH_STUB(FTPD, SYS_LIB_AUTO_EXPORT, libopenps3ftp_prx);
 
 SYS_LIB_EXPORT(prx_command_register_connect, FTPD);
 SYS_LIB_EXPORT(prx_command_register_disconnect, FTPD);

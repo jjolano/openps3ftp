@@ -5,6 +5,7 @@
 SYS_MODULE_START(prx_start);
 SYS_MODULE_STOP(prx_stop);
 SYS_MODULE_EXIT(prx_exit);
+SYS_MODULE_REBOOT_BEFORE(prx_exit);
 SYS_MODULE_INFO(FTPD_TEST, 0, 4, 2);
 
 sys_ppu_thread_t prx_tid;
@@ -77,7 +78,7 @@ void prx_main(uint64_t ptr)
 	// wait for ftpd
 	do {
 		sys_timer_sleep(1);
-	} while(!ftpd_running());
+	} while(prx_running && !ftpd_running());
 
 	// add ftp commands using api
 	prx_command_register("TEST", cmd_test);
