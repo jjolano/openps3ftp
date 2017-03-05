@@ -52,7 +52,7 @@ LIB_LOC	:= ./lib/$(LIBNAME)
 all: elf
 
 clean: 
-ifeq ($(SDK), psl1ght)
+ifneq ($(SDK), linux)
 	rm -rf $(APPID)/ $(BUILDDIR)/
 	rm -f $(APPID).pkg EBOOT.BIN PARAM.SFO
 endif
@@ -61,10 +61,8 @@ endif
 	$(MAKE) -C lib SDK=$(SDK) clean
 
 distclean: clean prxclean ps3clean
-ifeq ($(SDK), psl1ght)
+ifneq ($(SDK), linux)
 	rm -f $(TARGET).zip
-
-dist: distclean $(TARGET).zip
 endif
 
 prx:
@@ -85,10 +83,6 @@ ps3clean:
 ps3dist:
 	$(MAKE) SDK=psl1ght dist
 
-ifneq ($(SDK),LINUX)
-pkg: $(APPID).pkg
-endif
-
 lib: $(LIB_LOC)
 
 elf: lib $(ELF_LOC)
@@ -97,10 +91,13 @@ $(ELF_LOC):
 	$(MAKE) -C bin/$(SDK)
 
 $(LIB_LOC):
-	$(MAKE) -C lib SDK=$(SDK) LIB_EXTERNAL=1
-	$(MAKE) -C lib SDK=$(SDK)
+ifneq ($(SDK), psl1ght)
+	$(MAKE) -C lib SDK=$(SDK) all
+else
+	$(MAKE) -C lib SDK=$(SDK) all LIB_EXTERNAL=1
+endif
 
-ifeq ($(SDK), psl1ght)
+ifneq ($(SDK), linux)
 $(TARGET).zip: $(APPID).pkg
 	mkdir -p $(BUILDDIR)/cex $(BUILDDIR)/rex
 	cp $< $(BUILDDIR)/cex/
@@ -120,4 +117,8 @@ $(APPID).pkg: EBOOT.BIN PARAM.SFO $(ICON0)
 
 PARAM.SFO: $(SFOXML)
 	$(call MAKE_SFO,$<,$@,$(TITLE),$(APPID))
+
+pkg: $(APPID).pkg
+
+dist: distclean $(TARGET).zip
 endif

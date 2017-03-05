@@ -26,7 +26,7 @@ PPU_PRX_LDFLAGS += $(PPU_CFLAGS)
 PPU_PRX_LDLIBDIR += -L../../lib -L../../lib/vsh
 
 PPU_PRX_LDLIBS += -lopenps3ftp_cell_vsh -lfs_stub
-PPU_PRX_LDLIBS += -lsys_net_cell_vsh -lallocator_cell_vsh -lstdc_cell_vsh -lsysPrxForUser_cell_vsh
+PPU_PRX_LDLIBS += -lsys_net_vsh -lallocator_vsh -lstdc_vsh -lsysPrxForUser_vsh
 
 PPU_OPTIMIZE_LV = -Os
 PPU_INCDIRS += -I./include -I../../include -I../../feat

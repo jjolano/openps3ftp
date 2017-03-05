@@ -25,7 +25,6 @@ extern "C" {
 #ifndef _NO_VSH_EXPORTS_
 #include "vsh/vsh_exports.h"
 #endif
-
 #endif
 
 #ifdef PSL1GHT_SDK
