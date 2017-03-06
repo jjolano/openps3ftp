@@ -4,11 +4,7 @@
 
 SYS_MODULE_START(prx_start);
 SYS_MODULE_STOP(prx_stop);
-
 SYS_MODULE_EXIT(prx_exit);
-SYS_MODULE_REBOOT_BEFORE(prx_exit);
-SYS_MODULE_EPILOGUE(prx_exit);
-
 SYS_MODULE_INFO(FTPD_TEST, 0, 4, 2);
 
 sys_ppu_thread_t prx_tid;
