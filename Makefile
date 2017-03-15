@@ -43,7 +43,7 @@ TARGET		?= ftp
 ELFNAME		?= $(TARGET).elf
 LIBNAME		?= lib$(TARGET).a
 
-ELF_LOC	:= ./bin/$(ELFNAME)
+ELF_LOC	:= ./bin/$(SDK)/$(ELFNAME)
 LIB_LOC	:= ./lib/$(LIBNAME)
 
 # Make rules
