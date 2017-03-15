@@ -55,15 +55,13 @@ clean:
 ifneq ($(SDK), linux)
 	rm -rf $(APPID)/ $(BUILDDIR)/
 	rm -f $(APPID).pkg EBOOT.BIN PARAM.SFO
+	rm -f $(TARGET).zip
 endif
 	$(MAKE) -C bin/$(SDK) clean
 	$(MAKE) -C lib SDK=$(SDK) clean LIB_EXTERNAL=1
 	$(MAKE) -C lib SDK=$(SDK) clean
 
 distclean: clean prxclean ps3clean
-ifneq ($(SDK), linux)
-	rm -f $(TARGET).zip
-endif
 
 prx:
 	$(MAKE) -C lib SDK=cell
