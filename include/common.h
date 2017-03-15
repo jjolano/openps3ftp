@@ -23,7 +23,7 @@ extern "C" {
 #include <sys/poll.h>
 
 #ifndef _NO_VSH_EXPORTS_
-#include "vsh/vsh_exports.h"
+#include "vsh_exports.h"
 #endif
 #endif
 

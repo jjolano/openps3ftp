@@ -46,7 +46,7 @@ PPU_OBJS = $(PPU_SRCS:.c=.$(SDK).o)
 PPU_CFLAGS += -DAPP_VER_MIN=\"-g$(GIT_VERSION)\"
 
 PPU_OPTIMIZE_LV = -Os
-PPU_INCDIRS += -I../include
+PPU_INCDIRS += -I../include -I../bin/prx/vsh/include -I../bin/prx/include
 
 ifeq ($(SDK), cell)
 include $(CELL_MK_DIR)/sdk.target.mk

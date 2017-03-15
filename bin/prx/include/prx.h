@@ -17,10 +17,8 @@
 #include "base/base.h"
 #include "ext/ext.h"
 
-#include "vsh/vsh_exports.h"
+#include "vsh_exports.h"
 
-void* getNIDfunc(const char* vsh_module, uint32_t fnid, int32_t offset);
-void show_msg(const char* msg);
 inline void _sys_ppu_thread_exit(uint64_t val);
 void finalize_module(void);
 void prx_unload(void);

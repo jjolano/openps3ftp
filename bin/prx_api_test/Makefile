@@ -12,18 +12,18 @@ CELL_SDK ?= /usr/local/cell
 CELL_MK_DIR ?= $(CELL_SDK)/samples/mk
 include $(CELL_MK_DIR)/sdk.makedef.mk
 
-PPU_SRCS = $(wildcard *.c)
+PPU_SRCS = $(wildcard util/*.c) $(wildcard *.c)
 PPU_PRX_TARGET = openps3ftp_prx_test.prx
-PPU_CFLAGS += -Wno-unused-parameter -fno-builtin-printf -nodefaultlibs
+PPU_CFLAGS += -Wno-unused-parameter -fno-builtin-printf
 
-PPU_PRX_LDFLAGS += $(PPU_CFLAGS)
-PPU_PRX_LDLIBDIR += -L../prx -L../../lib/vsh
+PPU_PRX_LDFLAGS += -nodefaultlibs
+PPU_PRX_LDLIBDIR += -L../prx -L../prx/vsh/lib
 
 PPU_PRX_LDLIBS += -lopenps3ftp_prx -lfs_stub
-PPU_PRX_LDLIBS += -lsys_net_vsh -lallocator_vsh -lstdc_vsh -lsysPrxForUser_vsh
+PPU_PRX_LDLIBS += -lsys_net_export_stub -lallocator_export_stub -lstdc_export_stub -lsysPrxForUser_export_stub
 
 PPU_OPTIMIZE_LV = -Os
-PPU_INCDIRS += -I../prx/include -I../../include
+PPU_INCDIRS += -Iinclude -I../prx/vsh/include -I../prx -I../prx/include -I../../include
 
 all: $(PPU_PRX_TARGET)
 	$(PPU_PRX_STRIP) --strip-debug --strip-section-header $<

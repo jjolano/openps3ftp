@@ -140,50 +140,6 @@ void prx_server_stop(void)
 	sys_ppu_thread_join(prx_tid, &prx_exitcode);
 }
 
-void* getNIDfunc(const char* vsh_module, uint32_t fnid, int32_t offset)
-{
-	// 0x10000 = ELF
-	// 0x10080 = segment 2 start
-	// 0x10200 = code start
-
-	uint32_t table = (*(uint32_t*)0x1008C) + 0x984; // vsh table address
-
-	while(((uint32_t)*(uint32_t*)table) != 0)
-	{
-		uint32_t* export_stru_ptr = (uint32_t*)*(uint32_t*)table; // ptr to export stub, size 2C, "sys_io" usually... Exports:0000000000635BC0 stru_635BC0:    ExportStub_s <0x1C00, 1, 9, 0x39, 0, 0x2000000, aSys_io, ExportFNIDTable_sys_io, ExportStubTable_sys_io>
-
-		const char* lib_name_ptr =  (const char*)*(uint32_t*)((char*)export_stru_ptr + 0x10);
-
-		if(strncmp(vsh_module, lib_name_ptr, strlen(lib_name_ptr)) == 0)
-		{
-			// we got the proper export struct
-			uint32_t lib_fnid_ptr = *(uint32_t*)((char*)export_stru_ptr + 0x14);
-			uint32_t lib_func_ptr = *(uint32_t*)((char*)export_stru_ptr + 0x18);
-			uint16_t count = *(uint16_t*)((char*)export_stru_ptr + 6); // number of exports
-			for(int i = 0; i < count; i++)
-			{
-				if(fnid == *(uint32_t*)((char*)lib_fnid_ptr + i*4))
-				{
-					// take address from OPD
-					return (void**)*((uint32_t*)(lib_func_ptr) + i) + offset;
-				}
-			}
-		}
-		
-		table += 4;
-	}
-
-	return 0;
-}
-
-void show_msg(const char* msg)
-{
-	int (*vshtask_notify)(int, const char *) = getNIDfunc("vshtask", 0xA02D46E7, 0);
-
-	if(vshtask_notify)
-		vshtask_notify(0, msg);
-}
-
 inline void _sys_ppu_thread_exit(uint64_t val)
 {
 	system_call_1(41, val);
@@ -267,7 +223,7 @@ void prx_main(uint64_t ptr)
 		ftp_server = (struct Server*) malloc(sizeof(struct Server));
 
 		// show startup msg
-		show_msg("Starting OpenPS3FTP v" APP_VERSION ".");
+		vshtask_notify("Starting OpenPS3FTP " APP_VERSION ".");
 
 		// let ftp library take over thread
 		while(prx_running)
@@ -280,12 +236,12 @@ void prx_main(uint64_t ptr)
 			switch(ret)
 			{
 				case 1:
-				show_msg("FTP Error: Another FTP server is using port 21. Trying again in 30 seconds.");
+				vshtask_notify("FTP Error: Another FTP server is using port 21. Trying again in 30 seconds.");
 				sys_timer_sleep(30);
 				break;
 				case 2:
 				case 3:
-				show_msg("FTP Error: Network library error. Trying again in 5 seconds.");
+				vshtask_notify("FTP Error: Network library error. Trying again in 5 seconds.");
 				sys_timer_sleep(5);
 				break;
 				default:

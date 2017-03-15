@@ -17,19 +17,20 @@ include $(CELL_MK_DIR)/sdk.makedef.mk
 
 OBJS_DIR = .
 
-PPU_SRCS = $(wildcard *.c) $(wildcard ../../feat/*/*.c)
+PPU_SRCS = $(wildcard util/*.c) $(wildcard *.c) $(wildcard ../../feat/*/*.c)
 PPU_PRX_TARGET = openps3ftp.prx
-PPU_CFLAGS += -Wno-unused-parameter -fno-builtin-printf -nodefaultlibs
+PPU_CFLAGS += -Wno-unused-parameter -fno-builtin-printf
 PPU_CFLAGS += -DCELL_SDK -DAPP_VER_MIN=\"-g$(GIT_VERSION)\"
 
-PPU_PRX_LDFLAGS += $(PPU_CFLAGS)
-PPU_PRX_LDLIBDIR += -L../../lib -L../../lib/vsh
+PPU_PRX_LDFLAGS += -nodefaultlibs
+PPU_PRX_LDLIBDIR += -L../../lib -Lvsh/lib
 
 PPU_PRX_LDLIBS += -lopenps3ftp_cell_vsh -lfs_stub
-PPU_PRX_LDLIBS += -lsys_net_vsh -lallocator_vsh -lstdc_vsh -lsysPrxForUser_vsh
+PPU_PRX_LDLIBS += -lsys_net_export_stub -lallocator_export_stub -lstdc_export_stub -lsysPrxForUser_export_stub \
+				-lvshtask_export_stub
 
 PPU_OPTIMIZE_LV = -Os
-PPU_INCDIRS += -I./include -I../../include -I../../feat
+PPU_INCDIRS += -I. -Ivsh/include -Iinclude -I../../include -I../../feat
 
 all: $(PPU_PRX_TARGET)
 	$(PPU_PRX_STRIP) --strip-debug --strip-section-header $<
