@@ -177,7 +177,7 @@ int prx_stop(void)
 	}
 	
 	finalize_module();
-	_sys_ppu_thread_exit(SYS_PRX_STOP_OK);
+	_sys_ppu_thread_exit(0);
 	return SYS_PRX_STOP_OK;
 }
 
@@ -193,7 +193,7 @@ int prx_exit(void)
 	}
 
 	prx_unload();
-	_sys_ppu_thread_exit(SYS_PRX_STOP_OK);
+	_sys_ppu_thread_exit(0);
 	return SYS_PRX_STOP_OK;
 }
 
@@ -212,18 +212,14 @@ void prx_main(uint64_t ptr)
 	ext_command_import(ftp_command);
 
 	// wait for a bit for other plugins...
-	int wait = 10;
-	while(prx_running && wait--)
-	{
-		sys_timer_sleep(1);
-	}
+	sys_timer_sleep(12);
 
 	if(prx_running)
 	{
 		ftp_server = (struct Server*) malloc(sizeof(struct Server));
 
 		// show startup msg
-		vshtask_notify("Starting OpenPS3FTP " APP_VERSION ".");
+		vshtask_notify("OpenPS3FTP " APP_VERSION);
 
 		// let ftp library take over thread
 		while(prx_running)

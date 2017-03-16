@@ -838,7 +838,7 @@ void cmd_site(struct Client* client, const char command_name[32], const char* co
 	char* sitecmd = strdup(command_params);
 
 	char sitecmd_name[32];
-	char* sitecmd_params = (char*) malloc(BUFFER_COMMAND * sizeof(char));
+	char* sitecmd_params = (char*) malloc(strlen(command_params) * sizeof(char));
 
 	parse_command_string(sitecmd_name, sitecmd_params, sitecmd);
 
