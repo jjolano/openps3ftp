@@ -70,7 +70,6 @@ prx:
 prxclean:
 	$(MAKE) -C lib SDK=cell clean
 	$(MAKE) -C bin/prx clean
-	rm -f bin/prx/FTPD_verlog.txt bin/prx/libopenps3ftp_prx.a
 
 ps3:
 	$(MAKE) SDK=psl1ght

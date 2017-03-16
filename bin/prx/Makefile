@@ -25,7 +25,7 @@ PPU_CFLAGS += -DCELL_SDK -DAPP_VER_MIN=\"-g$(GIT_VERSION)\"
 PPU_PRX_LDFLAGS += -nodefaultlibs
 PPU_PRX_LDLIBDIR += -L../../lib -Lvsh/lib
 
-PPU_PRX_LDLIBS += -lopenps3ftp_cell_vsh -lfs_stub
+PPU_PRX_LDLIBS += -lopenps3ftp_cell_vsh -lfs_stub -lsyscall
 PPU_PRX_LDLIBS += -lsys_net_export_stub -lallocator_export_stub -lstdc_export_stub -lsysPrxForUser_export_stub \
 				-lvshtask_export_stub
 

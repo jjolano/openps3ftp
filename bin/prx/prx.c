@@ -1,144 +1,15 @@
 #include "prx.h"
-#include "openps3ftp.h"
 
 SYS_MODULE_START(prx_start);
 SYS_MODULE_STOP(prx_stop);
 SYS_MODULE_EXIT(prx_exit);
 SYS_MODULE_INFO(FTPD, 0, 4, 2);
 
-SYS_LIB_DECLARE_WITH_STUB(FTPD, SYS_LIB_AUTO_EXPORT, libopenps3ftp_prx);
-
-SYS_LIB_EXPORT(prx_command_register_connect, FTPD);
-SYS_LIB_EXPORT(prx_command_register_disconnect, FTPD);
-SYS_LIB_EXPORT(prx_command_register, FTPD);
-
-SYS_LIB_EXPORT(prx_command_unregister_connect, FTPD);
-SYS_LIB_EXPORT(prx_command_unregister_disconnect, FTPD);
-SYS_LIB_EXPORT(prx_command_unregister, FTPD);
-
-SYS_LIB_EXPORT(prx_command_import, FTPD);
-
-SYS_LIB_EXPORT(prx_command_override, FTPD);
-
-SYS_LIB_EXPORT(prx_server_stop, FTPD);
-
-SYS_LIB_EXPORT(client_get_cvar, FTPD);
-SYS_LIB_EXPORT(client_set_cvar, FTPD);
-
-SYS_LIB_EXPORT(client_send_message, FTPD);
-SYS_LIB_EXPORT(client_send_code, FTPD);
-SYS_LIB_EXPORT(client_send_multicode, FTPD);
-SYS_LIB_EXPORT(client_send_multimessage, FTPD);
-
-SYS_LIB_EXPORT(command_call, FTPD);
-SYS_LIB_EXPORT(command_register, FTPD);
-SYS_LIB_EXPORT(command_import, FTPD);
-
-SYS_LIB_EXPORT(command_init, FTPD);
-SYS_LIB_EXPORT(command_free, FTPD);
-
-SYS_LIB_EXPORT(get_working_directory, FTPD);
-SYS_LIB_EXPORT(set_working_directory, FTPD);
-SYS_LIB_EXPORT(get_absolute_path, FTPD);
-
-SYS_LIB_EXPORT(parse_command_string, FTPD);
-
 struct Server* ftp_server;
 struct Command* ftp_command;
 
 sys_ppu_thread_t prx_tid;
 bool prx_running = false;
-
-void prx_command_register_connect(connect_callback callback)
-{
-	command_register_connect(ftp_command, callback);
-}
-
-void prx_command_register_disconnect(disconnect_callback callback)
-{
-	command_register_disconnect(ftp_command, callback);
-}
-
-void prx_command_register(const char name[32], command_callback callback)
-{
-	command_register(ftp_command, name, callback);
-}
-
-void prx_command_unregister_connect(connect_callback callback)
-{
-	int i;
-
-	for(i = 0; i < ftp_command->num_connect_callbacks; ++i)
-	{
-		struct ConnectCallback* cb = &ftp_command->connect_callbacks[i];
-
-		if(cb->callback == callback)
-		{
-			cb->callback = NULL;
-			break;
-		}
-	}
-}
-
-void prx_command_unregister_disconnect(disconnect_callback callback)
-{
-	int i;
-
-	for(i = 0; i < ftp_command->num_disconnect_callbacks; ++i)
-	{
-		struct DisconnectCallback* cb = &ftp_command->disconnect_callbacks[i];
-
-		if(cb->callback == callback)
-		{
-			cb->callback = NULL;
-			break;
-		}
-	}
-}
-
-void prx_command_unregister(command_callback callback)
-{
-	int i;
-
-	for(i = 0; i < ftp_command->num_command_callbacks; ++i)
-	{
-		struct CommandCallback* cb = &ftp_command->command_callbacks[i];
-
-		if(cb->callback == callback)
-		{
-			cb->callback = NULL;
-			break;
-		}
-	}
-}
-
-void prx_command_import(struct Command* ext_command)
-{
-	command_import(ftp_command, ext_command);
-}
-
-void prx_command_override(const char name[32], command_callback callback)
-{
-	int i;
-	for(i = 0; i < ftp_command->num_command_callbacks; ++i)
-	{
-		struct CommandCallback* cb = &ftp_command->command_callbacks[i];
-
-		if(strcmp(cb->name, name) == 0)
-		{
-			cb->callback = callback;
-			break;
-		}
-	}
-}
-
-void prx_server_stop(void)
-{
-	server_stop(ftp_server);
-
-	uint64_t prx_exitcode;
-	sys_ppu_thread_join(prx_tid, &prx_exitcode);
-}
 
 inline void _sys_ppu_thread_exit(uint64_t val)
 {
@@ -212,7 +83,7 @@ void prx_main(uint64_t ptr)
 	ext_command_import(ftp_command);
 
 	// wait for a bit for other plugins...
-	sys_timer_sleep(12);
+	sys_timer_sleep(11);
 
 	if(prx_running)
 	{
