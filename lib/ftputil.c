@@ -82,25 +82,31 @@ void parse_command_string(char command_name[32], char* command_param, char* to_p
 	command_name[0] = '\0';
 	command_param[0] = '\0';
 
-	char* token = strtok(to_parse, " ");
+	char* token = strchr(to_parse, ' ');
+	int namelen = 0;
 
 	if(token != NULL)
 	{
-		str_toupper(command_name, token, sizeof(command_name));
+		// has params
+		namelen = token - to_parse;
+	}
+	else
+	{
+		// no params
+		namelen = strlen(to_parse);
 	}
 
-	token = strtok(NULL, " ");
-
-	while(token != NULL)
+	if(namelen > 32)
 	{
-		if(command_param[0] != '\0')
-		{
-			strcat(command_param, " ");
-		}
+		namelen = 32;
+	}
 
-		strcat(command_param, token);
+	// copy strings
+	str_toupper(command_name, to_parse, namelen);
 
-		token = strtok(NULL, " ");
+	if(token != NULL)
+	{
+		strcpy(command_param, token + 1);
 	}
 }
 
@@ -168,11 +174,5 @@ void str_toupper(char* dst, const char* src, size_t len)
 bool file_exists(const char* path)
 {
 	ftpstat st;
-	
-	if(ftpio_stat(path, &st) == 0)
-	{
-		return true;
-	}
-	
-	return false;
+	return ftpio_stat(path, &st) == 0;
 }
