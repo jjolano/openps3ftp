@@ -37,16 +37,21 @@ PPU_CFLAGS += -DLINUX -g -Wall
 PPU_LIB_TARGET = libftp.a
 endif
 
-ifeq ($(LIB_EXTERNAL), 1)
-PPU_CFLAGS += -D_NO_VSH_EXPORTS_
-endif
-
 PPU_SRCS := $(wildcard *.c)
 PPU_OBJS = $(PPU_SRCS:.c=.$(SDK).o)
 PPU_CFLAGS += -DAPP_VER_MIN=\"-g$(GIT_VERSION)\"
 
 PPU_OPTIMIZE_LV = -Os
 PPU_INCDIRS += -I../include -I../bin/prx/vsh/include -I../bin/prx/include
+
+ifeq ($(LIB_EXTERNAL), 1)
+PPU_CFLAGS += -D_NO_VSH_EXPORTS_
+endif
+
+ifeq ($(NTFS_SUPPORT), 1)
+PPU_CFLAGS += -D_NTFS_SUPPORT_
+PPU_INCDIRS += -I../external/ps3ntfs/external/libntfs/include
+endif
 
 ifeq ($(SDK), cell)
 include $(CELL_MK_DIR)/sdk.target.mk
