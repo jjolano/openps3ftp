@@ -11,6 +11,11 @@ extern "C" {
 
 #define MAX_USERNAME_LEN	32
 
+#ifdef _NTFS_SUPPORT_
+bool data_ntfs_list(struct Client* client);
+bool data_ntfs_nlst(struct Client* client);
+#endif
+
 bool data_list(struct Client* client);
 bool data_nlst(struct Client* client);
 bool data_retr(struct Client* client);
