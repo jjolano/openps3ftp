@@ -176,3 +176,8 @@ bool file_exists(const char* path)
 	ftpstat st;
 	return ftpio_stat(path, &st) == 0;
 }
+
+bool str_startswith(const char* str, const char* sub)
+{
+	return strncmp(str, sub, strlen(sub)) == 0;
+}

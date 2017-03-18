@@ -25,6 +25,10 @@ extern "C" {
 #ifndef _NO_VSH_EXPORTS_
 #include "vsh_exports.h"
 #endif
+
+#ifdef _NTFS_SUPPORT_
+#include "ntfs.h"
+#endif
 #endif
 
 #ifdef PSL1GHT_SDK
@@ -63,6 +67,8 @@ int closesocket(int socket);
 #include "const.h"
 #include "util.h"
 #include "io.h"
+
+#define NTFS_FD_MASK 0x40000000
 
 #ifdef __cplusplus
 }

@@ -29,6 +29,8 @@ void get_file_mode(char mode[11], ftpstat* stat);
 void str_toupper(char* dst, const char* src, size_t len);
 bool file_exists(const char* path);
 
+bool str_startswith(const char* str, const char* sub);
+
 #ifdef __cplusplus
 }
 #endif

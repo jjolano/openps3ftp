@@ -5,7 +5,25 @@ int32_t ftpio_open(const char* path, int oflags, int32_t* fd)
 	int32_t ret = -1;
 
 	#ifdef CELL_SDK
-	ret = cellFsOpen(path, oflags, fd, NULL, 0);
+	if(str_startswith(path, "/dev_ntfs"))
+	{
+		#ifdef _NTFS_SUPPORT_
+		char ntfspath[MAX_PATH];
+		sprintf(ntfspath, "ntfs%c:%s", path[9], strchr((char*) path + 1, '/'));
+
+		*fd = ps3ntfs_open(ntfspath, oflags, 0);
+
+		if(*fd != -1)
+		{
+			*fd |= NTFS_FD_MASK;
+			ret = 0;
+		}
+		#endif
+	}
+	else
+	{
+		ret = cellFsOpen(path, oflags, fd, NULL, 0);
+	}
 	#endif
 
 	#ifdef PSL1GHT_SDK
@@ -29,7 +47,25 @@ int32_t ftpio_opendir(const char* path, int32_t* fd)
 	int32_t ret = -1;
 
 	#ifdef CELL_SDK
-	ret = cellFsOpendir(path, fd);
+	if(str_startswith(path, "/dev_ntfs"))
+	{
+		#ifdef _NTFS_SUPPORT_
+		char ntfspath[MAX_PATH];
+		sprintf(ntfspath, "ntfs%c:%s", path[9], strchr((char*) path + 1, '/'));
+
+		DIR_ITER* dirState = ps3ntfs_diropen(ntfspath);
+
+		if(dirState != NULL)
+		{
+			*fd = ((intptr_t) dirState) | NTFS_FD_MASK;
+			ret = 0;
+		}
+		#endif
+	}
+	else
+	{
+		ret = cellFsOpendir(path, fd);
+	}
 	#endif
 
 	#ifdef PSL1GHT_SDK
@@ -41,7 +77,7 @@ int32_t ftpio_opendir(const char* path, int32_t* fd)
 
 	if(dirp != NULL)
 	{
-		*fd = ((intptr_t) ((void*) dirp));
+		*fd = (intptr_t) dirp;
 		ret = 0;
 	}
 	#endif
@@ -54,7 +90,32 @@ int32_t ftpio_readdir(int32_t fd, ftpdirent* dirent, uint64_t* nread)
 	int32_t ret = -1;
 
 	#ifdef CELL_SDK
-	ret = cellFsReaddir(fd, dirent, nread);
+	if(fd & NTFS_FD_MASK)
+	{
+		#ifdef _NTFS_SUPPORT_
+		DIR_ITER* dirState = (DIR_ITER*) (intptr_t) (fd & ~NTFS_FD_MASK);
+
+		struct stat filestat;
+		ret = ps3ntfs_dirnext(dirState, dirent->d_name, &filestat);
+
+		if(ret == 0)
+		{
+			*nread = 1;
+		}
+		else
+		{
+			if(ps3ntfs_errno() == 0)
+			{
+				*nread = 0;
+				ret = 0;
+			}
+		}
+		#endif
+	}
+	else
+	{
+		ret = cellFsReaddir(fd, dirent, nread);
+	}
 	#endif
 
 	#ifdef PSL1GHT_SDK
@@ -64,7 +125,7 @@ int32_t ftpio_readdir(int32_t fd, ftpdirent* dirent, uint64_t* nread)
 	#ifdef LINUX
 	errno = 0;
 
-	DIR* dirp = (DIR*) ((void*) ((intptr_t) fd));
+	DIR* dirp = (DIR*) (intptr_t) fd;
 
 	ftpdirent* dirent_temp = readdir(dirp);
 	
@@ -93,7 +154,23 @@ int32_t ftpio_read(int32_t fd, char* buf, uint64_t nbytes, uint64_t* nread)
 	int32_t ret = -1;
 
 	#ifdef CELL_SDK
-	ret = cellFsRead(fd, buf, nbytes, nread);
+	if(fd & NTFS_FD_MASK)
+	{
+		#ifdef _NTFS_SUPPORT_
+		int32_t ntfsfd = (fd & ~NTFS_FD_MASK);
+		ssize_t nread_bytes = ps3ntfs_read(ntfsfd, buf, (size_t) nbytes);
+
+		if(nread_bytes > -1)
+		{
+			*nread = (uint64_t) nread_bytes;
+			ret = 0;
+		}
+		#endif
+	}
+	else
+	{
+		ret = cellFsRead(fd, buf, nbytes, nread);
+	}
 	#endif
 
 	#ifdef PSL1GHT_SDK
@@ -118,7 +195,23 @@ int32_t ftpio_write(int32_t fd, char* buf, uint64_t nbytes, uint64_t* nwrite)
 	int32_t ret = -1;
 
 	#ifdef CELL_SDK
-	ret = cellFsWrite(fd, buf, nbytes, nwrite);
+	if(fd & NTFS_FD_MASK)
+	{
+		#ifdef _NTFS_SUPPORT_
+		int32_t ntfsfd = (fd & ~NTFS_FD_MASK);
+		ssize_t nwrite_bytes = ps3ntfs_write(ntfsfd, buf, (size_t) nbytes);
+
+		if(nwrite_bytes > -1)
+		{
+			*nwrite = (uint64_t) nwrite_bytes;
+			ret = 0;
+		}
+		#endif
+	}
+	else
+	{
+		ret = cellFsWrite(fd, buf, nbytes, nwrite);
+	}
 	#endif
 
 	#ifdef PSL1GHT_SDK
@@ -143,7 +236,17 @@ int32_t ftpio_close(int32_t fd)
 	int32_t ret = -1;
 
 	#ifdef CELL_SDK
-	ret = cellFsClose(fd);
+	if(fd & NTFS_FD_MASK)
+	{
+		#ifdef _NTFS_SUPPORT_
+		int32_t ntfsfd = (fd & ~NTFS_FD_MASK);
+		ret = ps3ntfs_close(ntfsfd);
+		#endif
+	}
+	else
+	{
+		ret = cellFsClose(fd);
+	}
 	#endif
 
 	#ifdef PSL1GHT_SDK
@@ -162,7 +265,17 @@ int32_t ftpio_closedir(int32_t fd)
 	int32_t ret = -1;
 
 	#ifdef CELL_SDK
-	ret = cellFsClosedir(fd);
+	if(fd & NTFS_FD_MASK)
+	{
+		#ifdef _NTFS_SUPPORT_
+		DIR_ITER* dirState = (DIR_ITER*) (intptr_t) (fd & ~NTFS_FD_MASK);
+		ret = ps3ntfs_dirclose(dirState);
+		#endif
+	}
+	else
+	{
+		ret = cellFsClosedir(fd);
+	}
 	#endif
 
 	#ifdef PSL1GHT_SDK
@@ -170,7 +283,7 @@ int32_t ftpio_closedir(int32_t fd)
 	#endif
 
 	#ifdef LINUX
-	ret = closedir((DIR*) ((intptr_t) fd));
+	ret = closedir((DIR*) (intptr_t) fd);
 	#endif
 
 	return ret;
@@ -181,7 +294,37 @@ int32_t ftpio_rename(const char* old_path, const char* new_path)
 	int32_t ret = -1;
 
 	#ifdef CELL_SDK
-	ret = cellFsRename(old_path, new_path);
+	if(str_startswith(old_path, "/dev_ntfs") || str_startswith(new_path, "/dev_ntfs"))
+	{
+		#ifdef _NTFS_SUPPORT_
+		char old_ntfspath[MAX_PATH];
+		char new_ntfspath[MAX_PATH];
+
+		if(str_startswith(old_path, "/dev_ntfs"))
+		{
+			sprintf(old_ntfspath, "ntfs%c:%s", old_path[9], strchr((char*) old_path + 1, '/'));
+		}
+		else
+		{
+			strcpy(old_ntfspath, old_path);
+		}
+
+		if(str_startswith(new_path, "/dev_ntfs"))
+		{
+			sprintf(new_ntfspath, "ntfs%c:%s", new_path[9], strchr((char*) new_path + 1, '/'));
+		}
+		else
+		{
+			strcpy(new_ntfspath, new_path);
+		}
+
+		ret = ps3ntfs_rename(old_ntfspath, new_ntfspath);
+		#endif
+	}
+	else
+	{
+		ret = cellFsRename(old_path, new_path);
+	}
 	#endif
 
 	#ifdef PSL1GHT_SDK
@@ -200,7 +343,14 @@ int32_t ftpio_chmod(const char* path, mode_t mode)
 	int32_t ret = -1;
 
 	#ifdef CELL_SDK
-	ret = cellFsChmod(path, mode);
+	if(str_startswith(path, "/dev_ntfs"))
+	{
+		// not supported
+	}
+	else
+	{
+		ret = cellFsChmod(path, mode);
+	}
 	#endif
 
 	#ifdef PSL1GHT_SDK
@@ -219,7 +369,23 @@ int32_t ftpio_lseek(int32_t fd, int64_t offset, int32_t whence, uint64_t* pos)
 	int32_t ret = -1;
 
 	#ifdef CELL_SDK
-	ret = cellFsLseek(fd, offset, whence, pos);
+	if(fd & NTFS_FD_MASK)
+	{
+		#ifdef _NTFS_SUPPORT_
+		int32_t ntfsfd = (fd & ~NTFS_FD_MASK);
+		int64_t new_pos = ps3ntfs_seek64(ntfsfd, offset, whence);
+
+		if(new_pos != -1)
+		{
+			*pos = new_pos;
+			ret = 0;
+		}
+		#endif
+	}
+	else
+	{
+		ret = cellFsLseek(fd, offset, whence, pos);
+	}
 	#endif
 
 	#ifdef PSL1GHT_SDK
@@ -244,7 +410,19 @@ int32_t ftpio_mkdir(const char* path, mode_t mode)
 	int32_t ret = -1;
 
 	#ifdef CELL_SDK
-	ret = cellFsMkdir(path, mode);
+	if(str_startswith(path, "/dev_ntfs"))
+	{
+		#ifdef _NTFS_SUPPORT_
+		char ntfspath[MAX_PATH];
+		sprintf(ntfspath, "ntfs%c:%s", path[9], strchr((char*) path + 1, '/'));
+
+		ret = ps3ntfs_mkdir(ntfspath, mode);
+		#endif
+	}
+	else
+	{
+		ret = cellFsMkdir(path, mode);
+	}
 	#endif
 
 	#ifdef PSL1GHT_SDK
@@ -263,7 +441,19 @@ int32_t ftpio_rmdir(const char* path)
 	int32_t ret = -1;
 
 	#ifdef CELL_SDK
-	ret = cellFsRmdir(path);
+	if(str_startswith(path, "/dev_ntfs"))
+	{
+		#ifdef _NTFS_SUPPORT_
+		char ntfspath[MAX_PATH];
+		sprintf(ntfspath, "ntfs%c:%s/", path[9], strchr((char*) path + 1, '/'));
+
+		ret = ps3ntfs_unlink(ntfspath);
+		#endif
+	}
+	else
+	{
+		ret = cellFsRmdir(path);
+	}
 	#endif
 
 	#ifdef PSL1GHT_SDK
@@ -282,7 +472,19 @@ int32_t ftpio_unlink(const char* path)
 	int32_t ret = -1;
 
 	#ifdef CELL_SDK
-	ret = cellFsUnlink(path);
+	if(str_startswith(path, "/dev_ntfs"))
+	{
+		#ifdef _NTFS_SUPPORT_
+		char ntfspath[MAX_PATH];
+		sprintf(ntfspath, "ntfs%c:%s", path[9], strchr((char*) path + 1, '/'));
+
+		ret = ps3ntfs_unlink(ntfspath);
+		#endif
+	}
+	else
+	{
+		ret = cellFsUnlink(path);
+	}
 	#endif
 
 	#ifdef PSL1GHT_SDK
@@ -301,7 +503,32 @@ int32_t ftpio_stat(const char* path, ftpstat* st)
 	int32_t ret = -1;
 
 	#ifdef CELL_SDK
-	ret = cellFsStat(path, st);
+	if(str_startswith(path, "/dev_ntfs"))
+	{
+		#ifdef _NTFS_SUPPORT_
+		char ntfspath[MAX_PATH];
+		sprintf(ntfspath, "ntfs%c:%s", path[9], strchr((char*) path + 1, '/'));
+
+		struct stat ntfs_st;
+		ret = ps3ntfs_stat(ntfspath, &ntfs_st);
+
+		if(ret == 0)
+		{
+			st->st_mode = ntfs_st.st_mode;
+			st->st_uid = ntfs_st.st_uid;
+			st->st_gid = ntfs_st.st_gid;
+			st->st_atime = ntfs_st.st_atime;
+			st->st_mtime = ntfs_st.st_mtime;
+			st->st_ctime = ntfs_st.st_ctime;
+			st->st_size = ntfs_st.st_size;
+			st->st_blksize = ntfs_st.st_blksize;
+		}
+		#endif
+	}
+	else
+	{
+		ret = cellFsStat(path, st);
+	}
 	#endif
 
 	#ifdef PSL1GHT_SDK
@@ -320,7 +547,31 @@ int32_t ftpio_fstat(int32_t fd, ftpstat* st)
 	int32_t ret = -1;
 
 	#ifdef CELL_SDK
-	ret = cellFsFstat(fd, st);
+	if(fd & NTFS_FD_MASK)
+	{
+		#ifdef _NTFS_SUPPORT_
+		int32_t ntfsfd = (fd & ~NTFS_FD_MASK);
+
+		struct stat ntfs_st;
+		ret = ps3ntfs_fstat(ntfsfd, &ntfs_st);
+
+		if(ret == 0)
+		{
+			st->st_mode = ntfs_st.st_mode;
+			st->st_uid = ntfs_st.st_uid;
+			st->st_gid = ntfs_st.st_gid;
+			st->st_atime = ntfs_st.st_atime;
+			st->st_mtime = ntfs_st.st_mtime;
+			st->st_ctime = ntfs_st.st_ctime;
+			st->st_size = ntfs_st.st_size;
+			st->st_blksize = ntfs_st.st_blksize;
+		}
+		#endif
+	}
+	else
+	{
+		ret = cellFsFstat(fd, st);
+	}
 	#endif
 
 	#ifdef PSL1GHT_SDK
