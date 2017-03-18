@@ -22,7 +22,10 @@ PPU_PRX_TARGET = openps3ftp.prx
 PPU_CFLAGS += -Wno-unused-parameter -fno-builtin-printf
 PPU_CFLAGS += -DCELL_SDK -DAPP_VER_MIN=\"-g$(GIT_VERSION)\"
 
+ifneq ($(NTFS_STATIC), 1)
 PPU_PRX_LDFLAGS += -nodefaultlibs
+endif
+
 PPU_PRX_LDLIBDIR += -L../../lib -Lvsh/lib
 
 PPU_PRX_LDLIBS += -lopenps3ftp_cell_vsh -lfs_stub -lsyscall
@@ -31,6 +34,19 @@ PPU_PRX_LDLIBS += -lsys_net_export_stub -lallocator_export_stub -lstdc_export_st
 
 PPU_OPTIMIZE_LV = -Os
 PPU_INCDIRS += -I. -Ivsh/include -Iinclude -I../../include -I../../feat
+
+ifeq ($(NTFS_SUPPORT), 1)
+PPU_CFLAGS += -D_NTFS_SUPPORT_
+PPU_INCDIRS += -I../../external/ps3ntfs/external/libntfs/include
+
+ifeq ($(NTFS_STATIC), 1)
+PPU_PRX_LDLIBDIR += -L../../external/ps3ntfs/external/libntfs
+PPU_PRX_LDLIBS += -lntfs_prx
+else
+PPU_PRX_LDLIBDIR += -L../../external/ps3ntfs
+PPU_PRX_LDLIBS += -lps3ntfs_prx
+endif
+endif
 
 all: $(PPU_PRX_TARGET)
 	$(PPU_PRX_STRIP) --strip-debug --strip-section-header $<
