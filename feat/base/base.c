@@ -40,7 +40,7 @@ bool data_list(struct Client* client)
 					char path[MAX_PATH];
 					get_absolute_path(path, cwd_str, dirent.d_name);
 
-					/*ftpstat st;
+					ftpstat st;
 					if(ftpio_stat(path, &st) == 0)
 					{
 						char* buffer = client->server_ptr->buffer_data;
@@ -66,9 +66,7 @@ bool data_list(struct Client* client)
 							client_send_code(client, 451, FTP_451);
 							return true;
 						}
-					}*/
-
-					client_send_multicode(client, 226, dirent.d_name);
+					}
 
 					--*ntfs_list;
 					return false;
@@ -90,6 +88,8 @@ bool data_list(struct Client* client)
 				// init count down
 				int* ntfs_list = (int*) malloc(sizeof(int));
 				*ntfs_list = ps3ntfs_mounts_num;
+
+				client_set_cvar(client, "ntfs_list", (void*) ntfs_list);
 				return false;
 			}
 		}
