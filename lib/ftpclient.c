@@ -253,6 +253,10 @@ bool client_pasv_enter(struct Client* client, struct sockaddr_in* pasv_addr)
 		return false;
 	}
 
+	int optval = 1;
+	setsockopt(client->socket_pasv, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
+	setsockopt(client->socket_pasv, SOL_SOCKET, SO_REUSEPORT, &optval, sizeof(optval));
+
 	struct linger optlinger;
 	optlinger.l_onoff = 1;
 	optlinger.l_linger = 0;

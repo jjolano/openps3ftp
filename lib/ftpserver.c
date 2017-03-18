@@ -210,6 +210,10 @@ uint32_t server_run(struct Server* server)
 	}
 
 	// setup server socket
+	int optval = 1;
+	setsockopt(server->socket, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
+	setsockopt(server->socket, SOL_SOCKET, SO_REUSEPORT, &optval, sizeof(optval));
+
 	struct sockaddr_in server_addr;
 	server_addr.sin_family = AF_INET;
 	server_addr.sin_port = htons(server->port);
