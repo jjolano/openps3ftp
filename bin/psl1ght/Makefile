@@ -21,10 +21,10 @@ OBJS		+= $(C_SRCS:.c=.c.ppu.o)
 
 # Define compilation options
 DEFINES		:= -DPSL1GHT_SDK
-CXXFLAGS	= -O2 -mregnames -Wall -mcpu=cell $(MACHDEP) $(INCLUDE) $(DEFINES)
+CXXFLAGS	= -ffunction-sections -fdata-sections -O2 -mregnames -Wall -mcpu=cell $(MACHDEP) $(INCLUDE) $(DEFINES)
 CXXFLAGS	+= -DAPP_VER_MIN=\"-g$(GIT_VERSION)\"
 CFLAGS		= $(CXXFLAGS)
-LDFLAGS		= -s $(MACHDEP) $(LIBPATHS) $(LIBS)
+LDFLAGS		= -Wl,--gc-sections -s $(MACHDEP) $(LIBPATHS) $(LIBS)
 
 # Make rules
 .PHONY: all clean

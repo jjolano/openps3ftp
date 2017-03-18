@@ -39,7 +39,7 @@ endif
 
 PPU_SRCS := $(wildcard *.c)
 PPU_OBJS = $(PPU_SRCS:.c=.$(SDK).o)
-PPU_CFLAGS += -DAPP_VER_MIN=\"-g$(GIT_VERSION)\"
+PPU_CFLAGS += -ffunction-sections -fdata-sections -fno-builtin-printf -DAPP_VER_MIN=\"-g$(GIT_VERSION)\" -std=gnu99
 
 PPU_OPTIMIZE_LV = -Os
 PPU_INCDIRS += -I../include -I../bin/prx/vsh/include -I../bin/prx/include

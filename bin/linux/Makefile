@@ -4,7 +4,7 @@ GIT_VERSION := $(shell git describe --dirty --always)
 TARGET		:= ftp.elf
 
 # Libraries
-LDFLAGS		+= -L../../lib
+LDFLAGS		+= -Wl,--gc-sections -L../../lib
 LDLIBS		+= -lftp
 
 # Includes
@@ -19,7 +19,7 @@ OBJS		+= $(C_SRCS:.c=.c.o)
 
 # Define compilation options
 DEFINES		:= -DLINUX
-CFLAGS		+= -O2 -Wall $(INCLUDE) $(DEFINES)
+CFLAGS		+= -ffunction-sections -fdata-sections -O2 -Wall $(INCLUDE) $(DEFINES)
 CFLAGS		+= -DAPP_VER_MIN=\"-g$(GIT_VERSION)\"
 CXXFLAGS	+= $(CFLAGS)
 

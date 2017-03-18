@@ -1,5 +1,9 @@
 #include "prx.h"
 
+#ifdef _PS3NTFS_PRX_
+#include "ps3ntfs.h"
+#endif
+
 SYS_MODULE_START(prx_start);
 SYS_MODULE_STOP(prx_stop);
 SYS_MODULE_EXIT(prx_exit);
@@ -10,6 +14,11 @@ struct Command* ftp_command;
 
 sys_ppu_thread_t prx_tid;
 bool prx_running = false;
+
+#ifdef _NTFS_SUPPORT_
+ntfs_md* ps3ntfs_mounts = NULL;
+int ps3ntfs_mounts_num = 0;
+#endif
 
 inline void _sys_ppu_thread_exit(uint64_t val)
 {
@@ -87,6 +96,22 @@ void prx_main(uint64_t ptr)
 
 	if(prx_running)
 	{
+		#ifdef _NTFS_SUPPORT_
+		// mount ntfs if not mounted already
+		#ifdef _PS3NTFS_PRX_
+		ntfs_md** ps3ntfs_prx_mnt = ps3ntfs_prx_mounts();
+
+		if(!*ps3ntfs_prx_mnt)
+		{
+			ps3ntfs_mounts_num = ntfsMountAll(ps3ntfs_prx_mnt, NTFS_SU|NTFS_FORCE);
+		}
+
+		ps3ntfs_mounts = *ps3ntfs_prx_mnt;
+		#else
+		ps3ntfs_mounts_num = ntfsMountAll(&ps3ntfs_mounts, NTFS_SU|NTFS_FORCE);
+		#endif
+		#endif
+
 		ftp_server = (struct Server*) malloc(sizeof(struct Server));
 
 		// show startup msg

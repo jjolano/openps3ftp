@@ -28,6 +28,9 @@ extern "C" {
 
 #ifdef _NTFS_SUPPORT_
 #include "ntfs.h"
+
+extern ntfs_md* ps3ntfs_mounts;
+extern int ps3ntfs_mounts_num;
 #endif
 #endif
 
