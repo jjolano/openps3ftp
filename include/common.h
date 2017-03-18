@@ -42,7 +42,7 @@ extern int ps3ntfs_mounts_num;
 #define MAX_PATH 1056
 #define MAX_NAME 256
 
-int closesocket(int socket);
+extern int closesocket(int socket);
 #define socketclose(a)		closesocket(a)
 #define socketpoll(a,b,c)	poll(a,b,c)
 #endif
