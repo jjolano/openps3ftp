@@ -8,8 +8,25 @@ int32_t ftpio_open(const char* path, int oflags, int32_t* fd)
 	if(str_startswith(path, "/dev_ntfs"))
 	{
 		#ifdef _NTFS_SUPPORT_
+		char* path_temp = strdup(path);
+
+		char* mount_path = strchr(path_temp + 1, '/');
+		char mount_name[16];
+
 		char ntfspath[MAX_PATH];
-		sprintf(ntfspath, "ntfs%c:%s", path[9], strchr((char*) path + 1, '/'));
+		
+		if(mount_path != NULL)
+		{
+			strncpy(mount_name, path_temp + 5, mount_path - path_temp);
+			sprintf(ntfspath, "%s:%s", mount_name, mount_path);
+		}
+		else
+		{
+			strcpy(mount_name, path_temp + 5);
+			sprintf(ntfspath, "%s:/", mount_name);
+		}
+
+		free(path_temp);
 
 		*fd = ps3ntfs_open(ntfspath, oflags, 0);
 
@@ -50,8 +67,25 @@ int32_t ftpio_opendir(const char* path, int32_t* fd)
 	if(str_startswith(path, "/dev_ntfs"))
 	{
 		#ifdef _NTFS_SUPPORT_
+		char* path_temp = strdup(path);
+
+		char* mount_path = strchr(path_temp + 1, '/');
+		char mount_name[16];
+
 		char ntfspath[MAX_PATH];
-		sprintf(ntfspath, "ntfs%c:%s", path[9], strchr((char*) path + 1, '/'));
+		
+		if(mount_path != NULL)
+		{
+			strncpy(mount_name, path_temp + 5, mount_path - path_temp);
+			sprintf(ntfspath, "%s:%s", mount_name, mount_path);
+		}
+		else
+		{
+			strcpy(mount_name, path_temp + 5);
+			sprintf(ntfspath, "%s:/", mount_name);
+		}
+
+		free(path_temp);
 
 		DIR_ITER* dirState = ps3ntfs_diropen(ntfspath);
 
@@ -90,7 +124,7 @@ int32_t ftpio_readdir(int32_t fd, ftpdirent* dirent, uint64_t* nread)
 	int32_t ret = -1;
 
 	#ifdef CELL_SDK
-	if(fd & NTFS_FD_MASK)
+	if((fd & NTFS_FD_MASK) == NTFS_FD_MASK)
 	{
 		#ifdef _NTFS_SUPPORT_
 		DIR_ITER* dirState = (DIR_ITER*) (intptr_t) (fd & ~NTFS_FD_MASK);
@@ -154,7 +188,7 @@ int32_t ftpio_read(int32_t fd, char* buf, uint64_t nbytes, uint64_t* nread)
 	int32_t ret = -1;
 
 	#ifdef CELL_SDK
-	if(fd & NTFS_FD_MASK)
+	if((fd & NTFS_FD_MASK) == NTFS_FD_MASK)
 	{
 		#ifdef _NTFS_SUPPORT_
 		int32_t ntfsfd = (fd & ~NTFS_FD_MASK);
@@ -195,7 +229,7 @@ int32_t ftpio_write(int32_t fd, char* buf, uint64_t nbytes, uint64_t* nwrite)
 	int32_t ret = -1;
 
 	#ifdef CELL_SDK
-	if(fd & NTFS_FD_MASK)
+	if((fd & NTFS_FD_MASK) == NTFS_FD_MASK)
 	{
 		#ifdef _NTFS_SUPPORT_
 		int32_t ntfsfd = (fd & ~NTFS_FD_MASK);
@@ -236,7 +270,7 @@ int32_t ftpio_close(int32_t fd)
 	int32_t ret = -1;
 
 	#ifdef CELL_SDK
-	if(fd & NTFS_FD_MASK)
+	if((fd & NTFS_FD_MASK) == NTFS_FD_MASK)
 	{
 		#ifdef _NTFS_SUPPORT_
 		int32_t ntfsfd = (fd & ~NTFS_FD_MASK);
@@ -265,7 +299,7 @@ int32_t ftpio_closedir(int32_t fd)
 	int32_t ret = -1;
 
 	#ifdef CELL_SDK
-	if(fd & NTFS_FD_MASK)
+	if((fd & NTFS_FD_MASK) == NTFS_FD_MASK)
 	{
 		#ifdef _NTFS_SUPPORT_
 		DIR_ITER* dirState = (DIR_ITER*) (intptr_t) (fd & ~NTFS_FD_MASK);
@@ -302,7 +336,23 @@ int32_t ftpio_rename(const char* old_path, const char* new_path)
 
 		if(str_startswith(old_path, "/dev_ntfs"))
 		{
-			sprintf(old_ntfspath, "ntfs%c:%s", old_path[9], strchr((char*) old_path + 1, '/'));
+			char* old_path_temp = strdup(old_path);
+
+			char* mount_path = strchr(old_path_temp + 1, '/');
+			char mount_name[16];
+
+			if(mount_path != NULL)
+			{
+				strncpy(mount_name, old_path_temp + 5, mount_path - old_path_temp);
+				sprintf(old_ntfspath, "%s:%s", mount_name, mount_path);
+			}
+			else
+			{
+				strcpy(mount_name, old_path_temp + 5);
+				sprintf(old_ntfspath, "%s:/", mount_name);
+			}
+
+			free(old_path_temp);
 		}
 		else
 		{
@@ -311,7 +361,23 @@ int32_t ftpio_rename(const char* old_path, const char* new_path)
 
 		if(str_startswith(new_path, "/dev_ntfs"))
 		{
-			sprintf(new_ntfspath, "ntfs%c:%s", new_path[9], strchr((char*) new_path + 1, '/'));
+			char* new_path_temp = strdup(new_path);
+
+			char* mount_path = strchr(new_path_temp + 1, '/');
+			char mount_name[16];
+			
+			if(mount_path != NULL)
+			{
+				strncpy(mount_name, new_path_temp + 5, mount_path - new_path_temp);
+				sprintf(new_ntfspath, "%s:%s", mount_name, mount_path);
+			}
+			else
+			{
+				strcpy(mount_name, new_path_temp + 5);
+				sprintf(new_ntfspath, "%s:/", mount_name);
+			}
+
+			free(new_path_temp);
 		}
 		else
 		{
@@ -369,7 +435,7 @@ int32_t ftpio_lseek(int32_t fd, int64_t offset, int32_t whence, uint64_t* pos)
 	int32_t ret = -1;
 
 	#ifdef CELL_SDK
-	if(fd & NTFS_FD_MASK)
+	if((fd & NTFS_FD_MASK) == NTFS_FD_MASK)
 	{
 		#ifdef _NTFS_SUPPORT_
 		int32_t ntfsfd = (fd & ~NTFS_FD_MASK);
@@ -413,8 +479,25 @@ int32_t ftpio_mkdir(const char* path, mode_t mode)
 	if(str_startswith(path, "/dev_ntfs"))
 	{
 		#ifdef _NTFS_SUPPORT_
+		char* path_temp = strdup(path);
+
+		char* mount_path = strchr(path_temp + 1, '/');
+		char mount_name[16];
+
 		char ntfspath[MAX_PATH];
-		sprintf(ntfspath, "ntfs%c:%s", path[9], strchr((char*) path + 1, '/'));
+		
+		if(mount_path != NULL)
+		{
+			strncpy(mount_name, path_temp + 5, mount_path - path_temp);
+			sprintf(ntfspath, "%s:%s", mount_name, mount_path);
+		}
+		else
+		{
+			strcpy(mount_name, path_temp + 5);
+			sprintf(ntfspath, "%s:/", mount_name);
+		}
+
+		free(path_temp);
 
 		ret = ps3ntfs_mkdir(ntfspath, mode);
 		#endif
@@ -444,8 +527,25 @@ int32_t ftpio_rmdir(const char* path)
 	if(str_startswith(path, "/dev_ntfs"))
 	{
 		#ifdef _NTFS_SUPPORT_
+		char* path_temp = strdup(path);
+
+		char* mount_path = strchr(path_temp + 1, '/');
+		char mount_name[16];
+
 		char ntfspath[MAX_PATH];
-		sprintf(ntfspath, "ntfs%c:%s/", path[9], strchr((char*) path + 1, '/'));
+		
+		if(mount_path != NULL)
+		{
+			strncpy(mount_name, path_temp + 5, mount_path - path_temp);
+			sprintf(ntfspath, "%s:%s", mount_name, mount_path);
+		}
+		else
+		{
+			strcpy(mount_name, path_temp + 5);
+			sprintf(ntfspath, "%s:/", mount_name);
+		}
+
+		free(path_temp);
 
 		ret = ps3ntfs_unlink(ntfspath);
 		#endif
@@ -475,8 +575,25 @@ int32_t ftpio_unlink(const char* path)
 	if(str_startswith(path, "/dev_ntfs"))
 	{
 		#ifdef _NTFS_SUPPORT_
+		char* path_temp = strdup(path);
+
+		char* mount_path = strchr(path_temp + 1, '/');
+		char mount_name[16];
+
 		char ntfspath[MAX_PATH];
-		sprintf(ntfspath, "ntfs%c:%s", path[9], strchr((char*) path + 1, '/'));
+		
+		if(mount_path != NULL)
+		{
+			strncpy(mount_name, path_temp + 5, mount_path - path_temp);
+			sprintf(ntfspath, "%s:%s", mount_name, mount_path);
+		}
+		else
+		{
+			strcpy(mount_name, path_temp + 5);
+			sprintf(ntfspath, "%s:/", mount_name);
+		}
+
+		free(path_temp);
 
 		ret = ps3ntfs_unlink(ntfspath);
 		#endif
@@ -506,8 +623,25 @@ int32_t ftpio_stat(const char* path, ftpstat* st)
 	if(str_startswith(path, "/dev_ntfs"))
 	{
 		#ifdef _NTFS_SUPPORT_
+		char* path_temp = strdup(path);
+
+		char* mount_path = strchr(path_temp + 1, '/');
+		char mount_name[16];
+
 		char ntfspath[MAX_PATH];
-		sprintf(ntfspath, "ntfs%c:%s", path[9], strchr((char*) path + 1, '/'));
+		
+		if(mount_path != NULL)
+		{
+			strncpy(mount_name, path_temp + 5, mount_path - path_temp);
+			sprintf(ntfspath, "%s:%s", mount_name, mount_path);
+		}
+		else
+		{
+			strcpy(mount_name, path_temp + 5);
+			sprintf(ntfspath, "%s:/", mount_name);
+		}
+
+		free(path_temp);
 
 		struct stat ntfs_st;
 		ret = ps3ntfs_stat(ntfspath, &ntfs_st);
@@ -547,7 +681,7 @@ int32_t ftpio_fstat(int32_t fd, ftpstat* st)
 	int32_t ret = -1;
 
 	#ifdef CELL_SDK
-	if(fd & NTFS_FD_MASK)
+	if((fd & NTFS_FD_MASK) == NTFS_FD_MASK)
 	{
 		#ifdef _NTFS_SUPPORT_
 		int32_t ntfsfd = (fd & ~NTFS_FD_MASK);

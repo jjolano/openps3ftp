@@ -11,7 +11,7 @@ bool data_list(struct Client* client)
 
 	void* ntfs_list_cptr = client_get_cvar(client, "ntfs_list");
 
-	if(ntfs_list_cptr || ftpio_readdir(*fd, &dirent, &nread) != 0)
+	if(ntfs_list_cptr == NULL && ftpio_readdir(*fd, &dirent, &nread) != 0)
 	{
 		ftpio_closedir(*fd);
 		*fd = -1;
@@ -23,84 +23,74 @@ bool data_list(struct Client* client)
 	if(nread == 0)
 	{
 		#ifdef _NTFS_SUPPORT_
-		if(cwd->num_levels == 0) // root
+		if(cwd->num_levels == 0 && ps3ntfs_mounts != NULL && ps3ntfs_mounts_num > 0) // root
 		{
-			void* ntfs_mounts_ptr = client_get_cvar(client, "ntfs_mounts");
-
-			if(ntfs_mounts_ptr)
+			if(ntfs_list_cptr != NULL)
 			{
-				int* ntfs_mounts_num = (int*) client_get_cvar(client, "ntfs_mounts_num");
+				// count down
+				int* ntfs_list = (int*) ntfs_list_cptr;
 
-				if(ntfs_list_cptr)
+				if(*ntfs_list > 0)
 				{
-					// count down
-					int* ntfs_list = (int*) ntfs_list_cptr;
+					sprintf(dirent.d_name, "dev_%s", ps3ntfs_mounts[ps3ntfs_mounts_num - *ntfs_list].name);
 
-					if(*ntfs_list > 0)
+					char cwd_str[MAX_PATH];
+					get_working_directory(cwd_str, cwd);
+
+					char path[MAX_PATH];
+					get_absolute_path(path, cwd_str, dirent.d_name);
+
+					/*ftpstat st;
+					if(ftpio_stat(path, &st) == 0)
 					{
-						ntfs_md* mounts = (ntfs_md*) ntfs_mounts_ptr;
+						char* buffer = client->server_ptr->buffer_data;
 
-						sprintf(dirent.d_name, "dev_%s", mounts[*ntfs_mounts_num - *ntfs_list].name);
+						char mode[11];
+						get_file_mode(mode, &st);
 
-						char cwd_str[MAX_PATH];
-						get_working_directory(cwd_str, cwd);
+						char tstr[16];
+						strftime(tstr, 15, "%b %e %H:%M", localtime(&st.st_mtime));
 
-						char path[MAX_PATH];
-						get_absolute_path(path, cwd_str, dirent.d_name);
+						ssize_t len = sprintf(buffer,
+							"%s %3d %-10d %-10d %10" PRIu64 " %s %s\r\n",
+							mode, 1, st.st_uid, st.st_gid, (uint64_t) st.st_size, tstr, dirent.d_name
+						);
 
-						strcat(path, "/");
+						ssize_t nwrite = send(client->socket_data, buffer, (size_t) len, 0);
 
-						ftpstat st;
-						if(ftpio_stat(path, &st) == 0)
+						if(nwrite == -1 || nwrite < len)
 						{
-							char* buffer = client->server_ptr->buffer_data;
+							ftpio_closedir(*fd);
+							*fd = -1;
 
-							char mode[11];
-							get_file_mode(mode, &st);
-
-							char tstr[16];
-							strftime(tstr, 15, "%b %e %H:%M", localtime(&st.st_mtime));
-
-							ssize_t len = sprintf(buffer,
-								"%s %3d %-10d %-10d %10" PRIu64 " %s %s\r\n",
-								mode, 1, st.st_uid, st.st_gid, (uint64_t) st.st_size, tstr, dirent.d_name
-							);
-
-							ssize_t nwrite = send(client->socket_data, buffer, (size_t) len, 0);
-
-							if(nwrite == -1 || nwrite < len)
-							{
-								ftpio_closedir(*fd);
-								*fd = -1;
-
-								client_send_code(client, 451, FTP_451);
-								return true;
-							}
+							client_send_code(client, 451, FTP_451);
+							return true;
 						}
+					}*/
 
-						--*ntfs_list;
-						return false;
-					}
-					else
-					{
-						free(ntfs_list);
-						client_set_cvar(client, "ntfs_list", NULL);
+					client_send_multicode(client, 226, dirent.d_name);
 
-						ftpio_closedir(*fd);
-						*fd = -1;
-
-						client_send_code(client, 226, FTP_226);
-						return true;
-					}
+					--*ntfs_list;
+					return false;
 				}
 				else
 				{
-					// init count down
-					int* ntfs_list = (int*) malloc(sizeof(int));
+					free(ntfs_list);
+					client_set_cvar(client, "ntfs_list", NULL);
 
-					*ntfs_list = *ntfs_mounts_num;
-					return false;
+					ftpio_closedir(*fd);
+					*fd = -1;
+
+					client_send_code(client, 226, FTP_226);
+					return true;
 				}
+			}
+			else
+			{
+				// init count down
+				int* ntfs_list = (int*) malloc(sizeof(int));
+				*ntfs_list = ps3ntfs_mounts_num;
+				return false;
 			}
 		}
 		#endif
@@ -159,7 +149,7 @@ bool data_nlst(struct Client* client)
 
 	void* ntfs_list_cptr = client_get_cvar(client, "ntfs_list");
 
-	if(ntfs_list_cptr || ftpio_readdir(*fd, &dirent, &nread) != 0)
+	if(ntfs_list_cptr != NULL || ftpio_readdir(*fd, &dirent, &nread) != 0)
 	{
 		ftpio_closedir(*fd);
 		*fd = -1;
@@ -170,79 +160,6 @@ bool data_nlst(struct Client* client)
 
 	if(nread == 0)
 	{
-		#ifdef _NTFS_SUPPORT_
-		if(cwd->num_levels == 0) // root
-		{
-			void* ntfs_mounts_ptr = client_get_cvar(client, "ntfs_mounts");
-
-			if(ntfs_mounts_ptr)
-			{
-				int* ntfs_mounts_num = (int*) client_get_cvar(client, "ntfs_mounts_num");
-
-				if(ntfs_list_cptr)
-				{
-					// count down
-					int* ntfs_list = (int*) ntfs_list_cptr;
-
-					if(*ntfs_list > 0)
-					{
-						ntfs_md* mounts = (ntfs_md*) ntfs_mounts_ptr;
-
-						sprintf(dirent.d_name, "dev_%s", mounts[*ntfs_mounts_num - *ntfs_list].name);
-
-						char cwd_str[MAX_PATH];
-						get_working_directory(cwd_str, cwd);
-
-						char path[MAX_PATH];
-						get_absolute_path(path, cwd_str, dirent.d_name);
-
-						strcat(path, "/");
-
-						ftpstat st;
-						if(ftpio_stat(path, &st) == 0)
-						{
-							char* buffer = client->server_ptr->buffer_data;
-
-							ssize_t len = sprintf(buffer, "%s\r\n",	dirent.d_name);
-							ssize_t nwrite = send(client->socket_data, buffer, (size_t) len, 0);
-
-							if(nwrite == -1 || nwrite < len)
-							{
-								ftpio_closedir(*fd);
-								*fd = -1;
-
-								client_send_code(client, 451, FTP_451);
-								return true;
-							}
-						}
-
-						--*ntfs_list;
-						return false;
-					}
-					else
-					{
-						free(ntfs_list);
-						client_set_cvar(client, "ntfs_list", NULL);
-
-						ftpio_closedir(*fd);
-						*fd = -1;
-
-						client_send_code(client, 226, FTP_226);
-						return true;
-					}
-				}
-				else
-				{
-					// init count down
-					int* ntfs_list = (int*) malloc(sizeof(int));
-
-					*ntfs_list = *ntfs_mounts_num;
-					return false;
-				}
-			}
-		}
-		#endif
-
 		ftpio_closedir(*fd);
 		*fd = -1;
 
@@ -1202,13 +1119,27 @@ void base_connect(struct Client* client)
 	client_set_cvar(client, "fd", (void*) fd);
 	client_set_cvar(client, "rest", (void*) rest);
 
-	#ifdef _NTFS_SUPPORT_
-	client_set_cvar(client, "ntfs_mounts", (void*) ps3ntfs_mounts);
-	client_set_cvar(client, "ntfs_mounts_num", (void*) &ps3ntfs_mounts_num);
-	#endif
-
 	// welcome message
 	client_send_multicode(client, 220, WELCOME_MSG);
+
+	#ifdef _NTFS_SUPPORT_
+	char msg[256];
+
+	#ifdef _PS3NTFS_PRX_
+	sprintf(msg, "PS3NTFS mounts: %d", ps3ntfs_mounts_num);
+	#else
+	sprintf(msg, "NTFS mounts: %d", ps3ntfs_mounts_num);
+	#endif
+	
+	client_send_multicode(client, 220, msg);
+
+	int i;
+	for(i = 0; i < ps3ntfs_mounts_num; ++i)
+	{
+		sprintf(msg, "ntfs_mount[%d]: %s", i, ps3ntfs_mounts[i].name);
+		client_send_multicode(client, 220, msg);
+	}
+	#endif
 }
 
 void base_disconnect(struct Client* client)
