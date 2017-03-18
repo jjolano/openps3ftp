@@ -69,6 +69,7 @@ prx:
 	$(MAKE) -C bin/prx NTFS_SUPPORT=1
 
 prxclean:
+	$(MAKE) -C external/ps3ntfs clean
 	$(MAKE) -C lib SDK=cell clean
 	$(MAKE) -C bin/prx clean
 

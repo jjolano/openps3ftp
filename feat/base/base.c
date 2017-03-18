@@ -1202,6 +1202,11 @@ void base_connect(struct Client* client)
 	client_set_cvar(client, "fd", (void*) fd);
 	client_set_cvar(client, "rest", (void*) rest);
 
+	#ifdef _NTFS_SUPPORT_
+	client_set_cvar(client, "ntfs_mounts", (void*) ps3ntfs_mounts);
+	client_set_cvar(client, "ntfs_mounts_num", (void*) &ps3ntfs_mounts_num);
+	#endif
+
 	// welcome message
 	client_send_multicode(client, 220, WELCOME_MSG);
 }
