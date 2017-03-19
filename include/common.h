@@ -71,7 +71,7 @@ extern int closesocket(int socket);
 #include "util.h"
 #include "io.h"
 
-#define NTFS_FD_MASK 0xC0FFEE
+#define NTFS_FD_MASK 0x40000000
 
 #ifdef __cplusplus
 }

@@ -104,11 +104,8 @@ int32_t ftpio_readdir(int32_t fd, ftpdirent* dirent, uint64_t* nread)
 		}
 		else
 		{
-			if(ps3ntfs_errno() == 0)
-			{
-				*nread = 0;
-				ret = 0;
-			}
+			*nread = 0;
+			ret = 0;
 		}
 		#endif
 	}
@@ -510,11 +507,14 @@ int32_t ftpio_stat(const char* path, ftpstat* st)
 		get_ntfspath(ntfspath, path);
 
 		struct stat ntfs_st;
+		memset(&ntfs_st, 0, sizeof(struct stat));
+
 		ret = ps3ntfs_stat(ntfspath, &ntfs_st);
 
 		if(ret == 0)
 		{
 			memset(st, 0, sizeof(ftpstat));
+
 			st->st_mode = ntfs_st.st_mode;
 			st->st_uid = ntfs_st.st_uid;
 			st->st_gid = ntfs_st.st_gid;
@@ -554,11 +554,14 @@ int32_t ftpio_fstat(int32_t fd, ftpstat* st)
 		int32_t ntfsfd = (fd & ~NTFS_FD_MASK);
 
 		struct stat ntfs_st;
+		memset(&ntfs_st, 0, sizeof(struct stat));
+
 		ret = ps3ntfs_fstat(ntfsfd, &ntfs_st);
 
 		if(ret == 0)
 		{
 			memset(st, 0, sizeof(ftpstat));
+
 			st->st_mode = ntfs_st.st_mode;
 			st->st_uid = ntfs_st.st_uid;
 			st->st_gid = ntfs_st.st_gid;
