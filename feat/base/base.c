@@ -1191,13 +1191,6 @@ void base_connect(struct Client* client)
 	#endif
 	
 	client_send_multicode(client, 220, msg);
-
-	int i;
-	for(i = 0; i < ps3ntfs_mounts_num; ++i)
-	{
-		sprintf(msg, "ntfs_mount[%d]: %s", i, ps3ntfs_mounts[i].name);
-		client_send_multicode(client, 220, msg);
-	}
 	#endif
 }
 
