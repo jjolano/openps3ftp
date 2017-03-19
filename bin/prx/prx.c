@@ -77,6 +77,106 @@ int prx_exit(void)
 	return SYS_PRX_STOP_OK;
 }
 
+#ifdef _NTFS_SUPPORT_
+#ifndef _PS3NTFS_PRX_
+void ntfs_main(uint64_t ptr)
+{
+	bool is_mounted[8];
+	memset(is_mounted, false, sizeof(is_mounted));
+
+	const DISC_INTERFACE* ntfs_usb_if[8] = {
+		&__io_ntfs_usb000,
+		&__io_ntfs_usb001,
+		&__io_ntfs_usb002,
+		&__io_ntfs_usb003,
+		&__io_ntfs_usb004,
+		&__io_ntfs_usb005,
+		&__io_ntfs_usb006,
+		&__io_ntfs_usb007
+	};
+
+	while(prx_running)
+	{
+		sys_timer_sleep(3);
+
+		// Iterate ports and mount NTFS.
+		int i;
+		for(i = 0; i < 8; i++)
+		{
+			if(PS3_NTFS_IsInserted(i))
+			{
+				if(!is_mounted[i])
+				{
+					sec_t* partitions = NULL;
+					int num_partitions = ntfsFindPartitions(ntfs_usb_if[i], &partitions);
+
+					if(num_partitions > 0 && partitions)
+					{
+						int j;
+						for(j = 0; j < num_partitions; j++)
+						{
+							char name[32];
+							sprintf(name, "ntfs%d-%d", i, j);
+
+							if(ntfsMount(name, ntfs_usb_if[i], partitions[j], CACHE_DEFAULT_PAGE_COUNT, CACHE_DEFAULT_PAGE_SIZE, NTFS_FORCE))
+							{
+								// add to mount struct
+								ps3ntfs_mounts = (ntfs_md*) realloc(ps3ntfs_mounts, ++ps3ntfs_mounts_num * sizeof(ntfs_md));
+
+								ntfs_md* mount = &ps3ntfs_mounts[ps3ntfs_mounts_num - 1];
+
+								strcpy(mount->name, name);
+								mount->interface = ntfs_usb_if[i];
+								mount->startSector = partitions[j];
+							}
+						}
+
+						free(partitions);
+					}
+
+					is_mounted[i] = true;
+				}
+			}
+			else
+			{
+				if(is_mounted[i])
+				{
+					int j;
+					for(j = 0; j < ps3ntfs_mounts_num; j++)
+					{
+						// unmount all partitions of this device
+						if(ps3ntfs_mounts[j].interface == ntfs_usb_if[i])
+						{
+							ntfsUnmount(ps3ntfs_mounts[j].name, true);
+
+							// realloc
+							memmove(&ps3ntfs_mounts[j], &ps3ntfs_mounts[j + 1], (ps3ntfs_mounts_num - j - 1) * sizeof(ntfs_md));
+							ps3ntfs_mounts = (ntfs_md*) realloc(ps3ntfs_mounts, --ps3ntfs_mounts_num * sizeof(ntfs_md));
+
+							--j;
+						}
+					}
+
+					is_mounted[i] = false;
+				}
+			}
+		}
+	}
+
+	// Unmount NTFS.
+	while(ps3ntfs_mounts_num-- > 0)
+	{
+		ntfsUnmount(ps3ntfs_mounts[ps3ntfs_mounts_num].name, true);
+	}
+
+	if(ps3ntfs_mounts != NULL)
+	{
+		free(ps3ntfs_mounts);
+	}
+}
+#endif
+#endif
+
 void prx_main(uint64_t ptr)
 {
 	prx_running = true;
@@ -97,7 +197,6 @@ void prx_main(uint64_t ptr)
 	if(prx_running)
 	{
 		#ifdef _NTFS_SUPPORT_
-		// mount ntfs if not mounted already
 		#ifdef _PS3NTFS_PRX_
 		ntfs_md** ps3ntfs_prx_mnt = ps3ntfs_prx_mounts();
 		int* ps3ntfs_prx_mnt_num = ps3ntfs_prx_num_mounts();
@@ -105,7 +204,8 @@ void prx_main(uint64_t ptr)
 		ps3ntfs_mounts = *ps3ntfs_prx_mnt;
 		ps3ntfs_mounts_num = *ps3ntfs_prx_mnt_num;
 		#else
-		ps3ntfs_mounts_num = ntfsMountAll(&ps3ntfs_mounts, NTFS_FORCE);
+		sys_ppu_thread_t ntfs_tid;
+		sys_ppu_thread_create(&ntfs_tid, ntfs_main, 0, 1001, 0x2000, SYS_PPU_THREAD_CREATE_JOINABLE, (char*) "OpenPS3FTP-NTFS");
 		#endif
 		#endif
 
@@ -141,6 +241,13 @@ void prx_main(uint64_t ptr)
 		}
 		
 		free(ftp_server);
+
+		#ifdef _NTFS_SUPPORT_
+		#ifndef _PS3NTFS_PRX_
+		uint64_t ntfs_exitcode;
+		sys_ppu_thread_join(ntfs_tid, &ntfs_exitcode);
+		#endif
+		#endif
 	}
 
 	// server stopped, free resources
