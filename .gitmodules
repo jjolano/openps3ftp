@@ -1,3 +1,4 @@
 [submodule "external/ps3ntfs"]
 	path = external/ps3ntfs
 	url = https://github.com/jjolano/ps3ntfs.git
+	ignore = untracked
