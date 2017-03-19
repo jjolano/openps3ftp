@@ -1,6 +1,6 @@
 #include "io.h"
 
-int32_t ftpio_open(const char* path, int oflags, int32_t* fd)
+int32_t ftpio_open(char* path, int oflags, int32_t* fd)
 {
 	int32_t ret = -1;
 
@@ -8,25 +8,8 @@ int32_t ftpio_open(const char* path, int oflags, int32_t* fd)
 	if(str_startswith(path, "/dev_ntfs"))
 	{
 		#ifdef _NTFS_SUPPORT_
-		char* path_temp = strdup(path);
-
-		char* mount_path = strchr(path_temp + 1, '/');
-		char mount_name[16];
-
 		char ntfspath[MAX_PATH];
-		
-		if(mount_path != NULL)
-		{
-			strncpy(mount_name, path_temp + 5, mount_path - path_temp);
-			sprintf(ntfspath, "%s:%s", mount_name, mount_path);
-		}
-		else
-		{
-			strcpy(mount_name, path_temp + 5);
-			sprintf(ntfspath, "%s:/", mount_name);
-		}
-
-		free(path_temp);
+		get_ntfspath(ntfspath, path);
 
 		*fd = ps3ntfs_open(ntfspath, oflags, 0);
 
@@ -59,7 +42,7 @@ int32_t ftpio_open(const char* path, int oflags, int32_t* fd)
 	return ret;
 }
 
-int32_t ftpio_opendir(const char* path, int32_t* fd)
+int32_t ftpio_opendir(char* path, int32_t* fd)
 {
 	int32_t ret = -1;
 
@@ -67,25 +50,8 @@ int32_t ftpio_opendir(const char* path, int32_t* fd)
 	if(str_startswith(path, "/dev_ntfs"))
 	{
 		#ifdef _NTFS_SUPPORT_
-		char* path_temp = strdup(path);
-
-		char* mount_path = strchr(path_temp + 1, '/');
-		char mount_name[16];
-
 		char ntfspath[MAX_PATH];
-		
-		if(mount_path != NULL)
-		{
-			strncpy(mount_name, path_temp + 5, mount_path - path_temp);
-			sprintf(ntfspath, "%s:%s", mount_name, mount_path);
-		}
-		else
-		{
-			strcpy(mount_name, path_temp + 5);
-			sprintf(ntfspath, "%s:/", mount_name);
-		}
-
-		free(path_temp);
+		get_ntfspath(ntfspath, path);
 
 		DIR_ITER* dirState = ps3ntfs_diropen(ntfspath);
 
@@ -323,7 +289,7 @@ int32_t ftpio_closedir(int32_t fd)
 	return ret;
 }
 
-int32_t ftpio_rename(const char* old_path, const char* new_path)
+int32_t ftpio_rename(char* old_path, char* new_path)
 {
 	int32_t ret = -1;
 
@@ -336,23 +302,7 @@ int32_t ftpio_rename(const char* old_path, const char* new_path)
 
 		if(str_startswith(old_path, "/dev_ntfs"))
 		{
-			char* old_path_temp = strdup(old_path);
-
-			char* mount_path = strchr(old_path_temp + 1, '/');
-			char mount_name[16];
-
-			if(mount_path != NULL)
-			{
-				strncpy(mount_name, old_path_temp + 5, mount_path - old_path_temp);
-				sprintf(old_ntfspath, "%s:%s", mount_name, mount_path);
-			}
-			else
-			{
-				strcpy(mount_name, old_path_temp + 5);
-				sprintf(old_ntfspath, "%s:/", mount_name);
-			}
-
-			free(old_path_temp);
+			get_ntfspath(old_ntfspath, old_path);
 		}
 		else
 		{
@@ -361,23 +311,7 @@ int32_t ftpio_rename(const char* old_path, const char* new_path)
 
 		if(str_startswith(new_path, "/dev_ntfs"))
 		{
-			char* new_path_temp = strdup(new_path);
-
-			char* mount_path = strchr(new_path_temp + 1, '/');
-			char mount_name[16];
-			
-			if(mount_path != NULL)
-			{
-				strncpy(mount_name, new_path_temp + 5, mount_path - new_path_temp);
-				sprintf(new_ntfspath, "%s:%s", mount_name, mount_path);
-			}
-			else
-			{
-				strcpy(mount_name, new_path_temp + 5);
-				sprintf(new_ntfspath, "%s:/", mount_name);
-			}
-
-			free(new_path_temp);
+			get_ntfspath(new_ntfspath, new_path);
 		}
 		else
 		{
@@ -404,7 +338,7 @@ int32_t ftpio_rename(const char* old_path, const char* new_path)
 	return ret;
 }
 
-int32_t ftpio_chmod(const char* path, mode_t mode)
+int32_t ftpio_chmod(char* path, mode_t mode)
 {
 	int32_t ret = -1;
 
@@ -471,7 +405,7 @@ int32_t ftpio_lseek(int32_t fd, int64_t offset, int32_t whence, uint64_t* pos)
 	return ret;
 }
 
-int32_t ftpio_mkdir(const char* path, mode_t mode)
+int32_t ftpio_mkdir(char* path, mode_t mode)
 {
 	int32_t ret = -1;
 
@@ -479,25 +413,8 @@ int32_t ftpio_mkdir(const char* path, mode_t mode)
 	if(str_startswith(path, "/dev_ntfs"))
 	{
 		#ifdef _NTFS_SUPPORT_
-		char* path_temp = strdup(path);
-
-		char* mount_path = strchr(path_temp + 1, '/');
-		char mount_name[16];
-
 		char ntfspath[MAX_PATH];
-		
-		if(mount_path != NULL)
-		{
-			strncpy(mount_name, path_temp + 5, mount_path - path_temp);
-			sprintf(ntfspath, "%s:%s", mount_name, mount_path);
-		}
-		else
-		{
-			strcpy(mount_name, path_temp + 5);
-			sprintf(ntfspath, "%s:/", mount_name);
-		}
-
-		free(path_temp);
+		get_ntfspath(ntfspath, path);
 
 		ret = ps3ntfs_mkdir(ntfspath, mode);
 		#endif
@@ -519,7 +436,7 @@ int32_t ftpio_mkdir(const char* path, mode_t mode)
 	return ret;
 }
 
-int32_t ftpio_rmdir(const char* path)
+int32_t ftpio_rmdir(char* path)
 {
 	int32_t ret = -1;
 
@@ -527,25 +444,8 @@ int32_t ftpio_rmdir(const char* path)
 	if(str_startswith(path, "/dev_ntfs"))
 	{
 		#ifdef _NTFS_SUPPORT_
-		char* path_temp = strdup(path);
-
-		char* mount_path = strchr(path_temp + 1, '/');
-		char mount_name[16];
-
 		char ntfspath[MAX_PATH];
-		
-		if(mount_path != NULL)
-		{
-			strncpy(mount_name, path_temp + 5, mount_path - path_temp);
-			sprintf(ntfspath, "%s:%s", mount_name, mount_path);
-		}
-		else
-		{
-			strcpy(mount_name, path_temp + 5);
-			sprintf(ntfspath, "%s:/", mount_name);
-		}
-
-		free(path_temp);
+		get_ntfspath(ntfspath, path);
 
 		ret = ps3ntfs_unlink(ntfspath);
 		#endif
@@ -567,7 +467,7 @@ int32_t ftpio_rmdir(const char* path)
 	return ret;
 }
 
-int32_t ftpio_unlink(const char* path)
+int32_t ftpio_unlink(char* path)
 {
 	int32_t ret = -1;
 
@@ -575,25 +475,8 @@ int32_t ftpio_unlink(const char* path)
 	if(str_startswith(path, "/dev_ntfs"))
 	{
 		#ifdef _NTFS_SUPPORT_
-		char* path_temp = strdup(path);
-
-		char* mount_path = strchr(path_temp + 1, '/');
-		char mount_name[16];
-
 		char ntfspath[MAX_PATH];
-		
-		if(mount_path != NULL)
-		{
-			strncpy(mount_name, path_temp + 5, mount_path - path_temp);
-			sprintf(ntfspath, "%s:%s", mount_name, mount_path);
-		}
-		else
-		{
-			strcpy(mount_name, path_temp + 5);
-			sprintf(ntfspath, "%s:/", mount_name);
-		}
-
-		free(path_temp);
+		get_ntfspath(ntfspath, path);
 
 		ret = ps3ntfs_unlink(ntfspath);
 		#endif
@@ -615,7 +498,7 @@ int32_t ftpio_unlink(const char* path)
 	return ret;
 }
 
-int32_t ftpio_stat(const char* path, ftpstat* st)
+int32_t ftpio_stat(char* path, ftpstat* st)
 {
 	int32_t ret = -1;
 
@@ -623,25 +506,8 @@ int32_t ftpio_stat(const char* path, ftpstat* st)
 	if(str_startswith(path, "/dev_ntfs"))
 	{
 		#ifdef _NTFS_SUPPORT_
-		char* path_temp = strdup(path);
-
-		char* mount_path = strchr(path_temp + 1, '/');
-		char mount_name[16];
-
 		char ntfspath[MAX_PATH];
-		
-		if(mount_path != NULL)
-		{
-			strncpy(mount_name, path_temp + 5, mount_path - path_temp);
-			sprintf(ntfspath, "%s:%s", mount_name, mount_path);
-		}
-		else
-		{
-			strcpy(mount_name, path_temp + 5);
-			sprintf(ntfspath, "%s:/", mount_name);
-		}
-
-		free(path_temp);
+		get_ntfspath(ntfspath, path);
 
 		struct stat ntfs_st;
 		ret = ps3ntfs_stat(ntfspath, &ntfs_st);

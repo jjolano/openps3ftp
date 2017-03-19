@@ -4,17 +4,12 @@
 #ifdef _NTFS_SUPPORT_
 bool data_ntfs_list(struct Client* client)
 {
-	struct Path* cwd = (struct Path*) client_get_cvar(client, "cwd");
-	int* fd = (int*) client_get_cvar(client, "fd");
 	int* ntfs_list = (int*) client_get_cvar(client, "ntfs_list");
 
 	if(*ntfs_list == 0)
 	{
 		free(ntfs_list);
 		client_set_cvar(client, "ntfs_list", NULL);
-
-		ftpio_closedir(*fd);
-		*fd = -1;
 
 		client_send_code(client, 226, FTP_226);
 		return true;
@@ -25,11 +20,8 @@ bool data_ntfs_list(struct Client* client)
 
 	sprintf(dirent.d_name, "dev_%s", ps3ntfs_mounts[ps3ntfs_mounts_num - *ntfs_list].name);
 
-	char cwd_str[MAX_PATH];
-	get_working_directory(cwd_str, cwd);
-
 	char path[MAX_PATH];
-	get_absolute_path(path, cwd_str, dirent.d_name);
+	get_absolute_path(path, "/", dirent.d_name);
 
 	if(ftpio_stat(path, &st) == 0)
 	{
@@ -50,8 +42,8 @@ bool data_ntfs_list(struct Client* client)
 
 		if(nwrite == -1 || nwrite < len)
 		{
-			ftpio_closedir(*fd);
-			*fd = -1;
+			free(ntfs_list);
+			client_set_cvar(client, "ntfs_list", NULL);
 
 			client_send_code(client, 451, FTP_451);
 			return true;
@@ -64,17 +56,12 @@ bool data_ntfs_list(struct Client* client)
 
 bool data_ntfs_nlst(struct Client* client)
 {
-	struct Path* cwd = (struct Path*) client_get_cvar(client, "cwd");
-	int* fd = (int*) client_get_cvar(client, "fd");
 	int* ntfs_list = (int*) client_get_cvar(client, "ntfs_list");
 
 	if(*ntfs_list == 0)
 	{
 		free(ntfs_list);
 		client_set_cvar(client, "ntfs_list", NULL);
-
-		ftpio_closedir(*fd);
-		*fd = -1;
 
 		client_send_code(client, 226, FTP_226);
 		return true;
@@ -85,11 +72,8 @@ bool data_ntfs_nlst(struct Client* client)
 
 	sprintf(dirent.d_name, "dev_%s", ps3ntfs_mounts[ps3ntfs_mounts_num - *ntfs_list].name);
 
-	char cwd_str[MAX_PATH];
-	get_working_directory(cwd_str, cwd);
-
 	char path[MAX_PATH];
-	get_absolute_path(path, cwd_str, dirent.d_name);
+	get_absolute_path(path, "/", dirent.d_name);
 
 	if(ftpio_stat(path, &st) == 0)
 	{
@@ -100,8 +84,8 @@ bool data_ntfs_nlst(struct Client* client)
 
 		if(nwrite == -1 || nwrite < len)
 		{
-			ftpio_closedir(*fd);
-			*fd = -1;
+			free(ntfs_list);
+			client_set_cvar(client, "ntfs_list", NULL);
 
 			client_send_code(client, 451, FTP_451);
 			return true;
@@ -137,18 +121,18 @@ bool data_list(struct Client* client)
 		#ifdef _NTFS_SUPPORT_
 		if(cwd->num_levels == 0 && ps3ntfs_mounts != NULL && ps3ntfs_mounts_num > 0) // root
 		{
-			if(ntfs_list_cptr != NULL)
-			{
-				return data_ntfs_list(client);
-			}
-			else
+			if(ntfs_list_cptr == NULL)
 			{
 				int* ntfs_list = (int*) malloc(sizeof(int));
 				*ntfs_list = ps3ntfs_mounts_num;
 
 				client_set_cvar(client, "ntfs_list", (void*) ntfs_list);
-				return false;
+
+				ftpio_closedir(*fd);
+				*fd = -1;
 			}
+
+			return data_ntfs_list(client);
 		}
 		#endif
 
@@ -220,18 +204,18 @@ bool data_nlst(struct Client* client)
 		#ifdef _NTFS_SUPPORT_
 		if(cwd->num_levels == 0 && ps3ntfs_mounts != NULL && ps3ntfs_mounts_num > 0) // root
 		{
-			if(ntfs_list_cptr != NULL)
-			{
-				return data_ntfs_nlst(client);
-			}
-			else
+			if(ntfs_list_cptr == NULL)
 			{
 				int* ntfs_list = (int*) malloc(sizeof(int));
 				*ntfs_list = ps3ntfs_mounts_num;
 
 				client_set_cvar(client, "ntfs_list", (void*) ntfs_list);
-				return false;
+
+				ftpio_closedir(*fd);
+				*fd = -1;
 			}
+
+			return data_ntfs_nlst(client);
 		}
 		#endif
 

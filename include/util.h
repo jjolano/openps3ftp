@@ -17,6 +17,8 @@ struct Path
 	size_t num_levels;
 };
 
+void get_ntfspath(char* ntfspath, char* path);
+
 void get_working_directory(char path_str[MAX_PATH], struct Path* path);
 void set_working_directory(struct Path* path, char new_path[MAX_PATH]);
 void get_absolute_path(char abs_path[MAX_PATH], const char old_path[MAX_PATH], const char new_path[MAX_PATH]);
