@@ -104,13 +104,13 @@ void prx_main(uint64_t ptr)
 
 		if(!*ps3ntfs_prx_mnt)
 		{
-			*ps3ntfs_prx_mnt_num = ntfsMountAll(ps3ntfs_prx_mnt, NTFS_SU|NTFS_FORCE);
+			*ps3ntfs_prx_mnt_num = ntfsMountAll(ps3ntfs_prx_mnt, NTFS_FORCE);
 		}
 
 		ps3ntfs_mounts = *ps3ntfs_prx_mnt;
 		ps3ntfs_mounts_num = *ps3ntfs_prx_mnt_num;
 		#else
-		ps3ntfs_mounts_num = ntfsMountAll(&ps3ntfs_mounts, NTFS_SU|NTFS_FORCE);
+		ps3ntfs_mounts_num = ntfsMountAll(&ps3ntfs_mounts, NTFS_FORCE);
 		#endif
 		#endif
 
