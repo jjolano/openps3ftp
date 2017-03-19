@@ -99,16 +99,8 @@ void prx_main(uint64_t ptr)
 		#ifdef _NTFS_SUPPORT_
 		// mount ntfs if not mounted already
 		#ifdef _PS3NTFS_PRX_
-		ntfs_md** ps3ntfs_prx_mnt = ps3ntfs_prx_mounts();
-		int* ps3ntfs_prx_mnt_num = ps3ntfs_prx_num_mounts();
-
-		if(!*ps3ntfs_prx_mnt)
-		{
-			*ps3ntfs_prx_mnt_num = ntfsMountAll(ps3ntfs_prx_mnt, NTFS_FORCE);
-		}
-
-		ps3ntfs_mounts = *ps3ntfs_prx_mnt;
-		ps3ntfs_mounts_num = *ps3ntfs_prx_mnt_num;
+		ps3ntfs_mounts = ps3ntfs_prx_mounts();
+		ps3ntfs_mounts_num = ps3ntfs_prx_num_mounts();
 		#else
 		ps3ntfs_mounts_num = ntfsMountAll(&ps3ntfs_mounts, NTFS_FORCE);
 		#endif
