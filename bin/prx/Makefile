@@ -23,14 +23,11 @@ PPU_CFLAGS += -Wno-unused-parameter -ffunction-sections -fdata-sections -fno-bui
 PPU_CFLAGS += -DCELL_SDK -DAPP_VER_MIN=\"-g$(GIT_VERSION)\"
 
 PPU_PRX_LDFLAGS += -Wl,--strip-unused-data
-
-ifneq ($(NTFS_STATIC), 1)
 PPU_PRX_LDFLAGS += -nodefaultlibs
-endif
 
 PPU_PRX_LDLIBDIR += -L../../lib -Lvsh/lib
 
-PPU_PRX_LDLIBS += -lopenps3ftp_cell_vsh -lfs_stub
+PPU_PRX_LDLIBS += -lopenps3ftp_cell_vsh -lfs_stub -llv2_stub
 PPU_PRX_LDLIBS += -lsys_net_export_stub -lallocator_export_stub -lstdc_export_stub -lsysPrxForUser_export_stub \
 				-lvshtask_export_stub
 

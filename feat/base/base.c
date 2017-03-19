@@ -6,7 +6,7 @@ bool data_ntfs_list(struct Client* client)
 {
 	int* ntfs_list = (int*) client_get_cvar(client, "ntfs_list");
 
-	if(*ntfs_list == 0)
+	if(*ntfs_list <= 0)
 	{
 		free(ntfs_list);
 		client_set_cvar(client, "ntfs_list", NULL);
@@ -58,7 +58,7 @@ bool data_ntfs_nlst(struct Client* client)
 {
 	int* ntfs_list = (int*) client_get_cvar(client, "ntfs_list");
 
-	if(*ntfs_list == 0)
+	if(*ntfs_list <= 0)
 	{
 		free(ntfs_list);
 		client_set_cvar(client, "ntfs_list", NULL);

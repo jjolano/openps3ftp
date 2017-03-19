@@ -1,6 +1,6 @@
 #include "io.h"
 
-int32_t ftpio_open(char* path, int oflags, int32_t* fd)
+int32_t ftpio_open(const char* path, int oflags, int32_t* fd)
 {
 	int32_t ret = -1;
 
@@ -42,7 +42,7 @@ int32_t ftpio_open(char* path, int oflags, int32_t* fd)
 	return ret;
 }
 
-int32_t ftpio_opendir(char* path, int32_t* fd)
+int32_t ftpio_opendir(const char* path, int32_t* fd)
 {
 	int32_t ret = -1;
 
@@ -289,7 +289,7 @@ int32_t ftpio_closedir(int32_t fd)
 	return ret;
 }
 
-int32_t ftpio_rename(char* old_path, char* new_path)
+int32_t ftpio_rename(const char* old_path, const char* new_path)
 {
 	int32_t ret = -1;
 
@@ -338,7 +338,7 @@ int32_t ftpio_rename(char* old_path, char* new_path)
 	return ret;
 }
 
-int32_t ftpio_chmod(char* path, mode_t mode)
+int32_t ftpio_chmod(const char* path, mode_t mode)
 {
 	int32_t ret = -1;
 
@@ -405,7 +405,7 @@ int32_t ftpio_lseek(int32_t fd, int64_t offset, int32_t whence, uint64_t* pos)
 	return ret;
 }
 
-int32_t ftpio_mkdir(char* path, mode_t mode)
+int32_t ftpio_mkdir(const char* path, mode_t mode)
 {
 	int32_t ret = -1;
 
@@ -436,7 +436,7 @@ int32_t ftpio_mkdir(char* path, mode_t mode)
 	return ret;
 }
 
-int32_t ftpio_rmdir(char* path)
+int32_t ftpio_rmdir(const char* path)
 {
 	int32_t ret = -1;
 
@@ -467,7 +467,7 @@ int32_t ftpio_rmdir(char* path)
 	return ret;
 }
 
-int32_t ftpio_unlink(char* path)
+int32_t ftpio_unlink(const char* path)
 {
 	int32_t ret = -1;
 
@@ -498,7 +498,7 @@ int32_t ftpio_unlink(char* path)
 	return ret;
 }
 
-int32_t ftpio_stat(char* path, ftpstat* st)
+int32_t ftpio_stat(const char* path, ftpstat* st)
 {
 	int32_t ret = -1;
 
@@ -514,6 +514,7 @@ int32_t ftpio_stat(char* path, ftpstat* st)
 
 		if(ret == 0)
 		{
+			memset(st, 0, sizeof(ftpstat));
 			st->st_mode = ntfs_st.st_mode;
 			st->st_uid = ntfs_st.st_uid;
 			st->st_gid = ntfs_st.st_gid;
@@ -557,6 +558,7 @@ int32_t ftpio_fstat(int32_t fd, ftpstat* st)
 
 		if(ret == 0)
 		{
+			memset(st, 0, sizeof(ftpstat));
 			st->st_mode = ntfs_st.st_mode;
 			st->st_uid = ntfs_st.st_uid;
 			st->st_gid = ntfs_st.st_gid;

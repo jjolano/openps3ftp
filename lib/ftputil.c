@@ -1,21 +1,20 @@
 #include "util.h"
 
-void get_ntfspath(char* ntfspath, char* path)
+void get_ntfspath(char* ntfspath, const char* path)
 {
 	char mount_name[16];
-	char* mount_path = strchr(path + 1, '/');
-		
-	if(mount_path != NULL)
-	{
-		strncpy(mount_name, path + 5, mount_path - path - 5);
-		mount_name[mount_path - path - 5] = '\0';
 
-		sprintf(ntfspath, "%s:%s", mount_name, mount_path);
-	}
-	else
+	if(path[10] == '\0')
 	{
 		strcpy(mount_name, path + 5);
 		sprintf(ntfspath, "%s:/", mount_name);
+	}
+
+	if(path[10] == '/')
+	{
+		strncpy(mount_name, path + 5, 5);
+		mount_name[5] = '\0';
+		sprintf(ntfspath, "%s:%s", mount_name, path + 10);
 	}
 }
 
