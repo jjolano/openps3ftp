@@ -17,8 +17,108 @@ bool prx_running = false;
 
 #ifdef _NTFS_SUPPORT_
 #ifndef _PS3NTFS_PRX_
-ntfs_md* ps3ntfs_mounts = NULL;
-int ps3ntfs_mounts_num = 0;
+ntfs_md** ps3ntfs_mounts = NULL;
+int* ps3ntfs_mounts_num = NULL;
+
+void ntfs_main(uint64_t ptr)
+{
+	bool is_mounted[8];
+	memset(is_mounted, false, sizeof(is_mounted));
+
+	const DISC_INTERFACE* ntfs_usb_if[8] = {
+		&__io_ntfs_usb000,
+		&__io_ntfs_usb001,
+		&__io_ntfs_usb002,
+		&__io_ntfs_usb003,
+		&__io_ntfs_usb004,
+		&__io_ntfs_usb005,
+		&__io_ntfs_usb006,
+		&__io_ntfs_usb007
+	};
+
+	while(prx_running)
+	{
+		// Iterate ports and mount NTFS.
+		int i;
+		for(i = 0; i < 8; i++)
+		{
+			if(PS3_NTFS_IsInserted(i))
+			{
+				if(!is_mounted[i])
+				{
+					sec_t* partitions = NULL;
+					int num_partitions = ntfsFindPartitions(ntfs_usb_if[i], &partitions);
+
+					if(num_partitions > 0 && partitions)
+					{
+						int j;
+						for(j = 0; j < num_partitions; j++)
+						{
+							char name[32];
+							sprintf(name, "ntfs%d-%03d", j, i);
+
+							if(ntfsMount(name, ntfs_usb_if[i], partitions[j], CACHE_DEFAULT_PAGE_COUNT, CACHE_DEFAULT_PAGE_SIZE, NTFS_FORCE))
+							{
+								// add to mount struct
+								*ps3ntfs_mounts = (ntfs_md*) realloc(*ps3ntfs_mounts, ++*ps3ntfs_mounts_num * sizeof(ntfs_md));
+
+								ntfs_md* mount = ps3ntfs_mounts[*ps3ntfs_mounts_num - 1];
+
+								strcpy(mount->name, name);
+								mount->interface = ntfs_usb_if[i];
+								mount->startSector = partitions[j];
+							}
+						}
+
+						free(partitions);
+					}
+
+					is_mounted[i] = true;
+				}
+			}
+			else
+			{
+				if(is_mounted[i])
+				{
+					int j;
+					for(j = 0; j < *ps3ntfs_mounts_num; j++)
+					{
+						// unmount all partitions of this device
+						if((*ps3ntfs_mounts)[j].interface == ntfs_usb_if[i])
+						{
+							ntfsUnmount((*ps3ntfs_mounts)[j].name, true);
+
+							// realloc
+							memmove(ps3ntfs_mounts[j], ps3ntfs_mounts[j + 1], (*ps3ntfs_mounts_num - j - 1) * sizeof(ntfs_md));
+							*ps3ntfs_mounts = (ntfs_md*) realloc(*ps3ntfs_mounts, --*ps3ntfs_mounts_num * sizeof(ntfs_md));
+
+							--j;
+						}
+					}
+
+					is_mounted[i] = false;
+				}
+			}
+		}
+
+		sys_timer_sleep(1);
+	}
+
+	sys_timer_sleep(2);
+
+	// Unmount NTFS.
+	while(*ps3ntfs_mounts_num-- > 0)
+	{
+		ntfsUnmount((*ps3ntfs_mounts)[*ps3ntfs_mounts_num].name, true);
+	}
+
+	if(*ps3ntfs_mounts != NULL)
+	{
+		free(*ps3ntfs_mounts);
+	}
+
+	sys_ppu_thread_exit(0);
+}
 #endif
 
 ntfs_md** get_ntfs_mounts(void)
@@ -96,110 +196,6 @@ int prx_exit(void)
 	_sys_ppu_thread_exit(0);
 	return SYS_PRX_STOP_OK;
 }
-
-#ifdef _NTFS_SUPPORT_
-#ifndef _PS3NTFS_PRX_
-void ntfs_main(uint64_t ptr)
-{
-	bool is_mounted[8];
-	memset(is_mounted, false, sizeof(is_mounted));
-
-	const DISC_INTERFACE* ntfs_usb_if[8] = {
-		&__io_ntfs_usb000,
-		&__io_ntfs_usb001,
-		&__io_ntfs_usb002,
-		&__io_ntfs_usb003,
-		&__io_ntfs_usb004,
-		&__io_ntfs_usb005,
-		&__io_ntfs_usb006,
-		&__io_ntfs_usb007
-	};
-
-	while(prx_running)
-	{
-		// Iterate ports and mount NTFS.
-		int i;
-		for(i = 0; i < 8; i++)
-		{
-			if(PS3_NTFS_IsInserted(i))
-			{
-				if(!is_mounted[i])
-				{
-					sec_t* partitions = NULL;
-					int num_partitions = ntfsFindPartitions(ntfs_usb_if[i], &partitions);
-
-					if(num_partitions > 0 && partitions)
-					{
-						int j;
-						for(j = 0; j < num_partitions; j++)
-						{
-							char name[32];
-							sprintf(name, "ntfs%dusb%03d", j, i);
-
-							if(ntfsMount(name, ntfs_usb_if[i], partitions[j], CACHE_DEFAULT_PAGE_COUNT, CACHE_DEFAULT_PAGE_SIZE, NTFS_FORCE))
-							{
-								// add to mount struct
-								*ps3ntfs_mounts = (ntfs_md*) realloc(*ps3ntfs_mounts, ++*ps3ntfs_mounts_num * sizeof(ntfs_md));
-
-								ntfs_md* mount = ps3ntfs_mounts[*ps3ntfs_mounts_num - 1];
-
-								strcpy(mount->name, name);
-								mount->interface = ntfs_usb_if[i];
-								mount->startSector = partitions[j];
-							}
-						}
-
-						free(partitions);
-					}
-
-					is_mounted[i] = true;
-				}
-			}
-			else
-			{
-				if(is_mounted[i])
-				{
-					int j;
-					for(j = 0; j < *ps3ntfs_mounts_num; j++)
-					{
-						// unmount all partitions of this device
-						if((*ps3ntfs_mounts)[j].interface == ntfs_usb_if[i])
-						{
-							ntfsUnmount((*ps3ntfs_mounts)[j].name, true);
-
-							// realloc
-							memmove(ps3ntfs_mounts[j], ps3ntfs_mounts[j + 1], (*ps3ntfs_mounts_num - j - 1) * sizeof(ntfs_md));
-							*ps3ntfs_mounts = (ntfs_md*) realloc(*ps3ntfs_mounts, --*ps3ntfs_mounts_num * sizeof(ntfs_md));
-
-							--j;
-						}
-					}
-
-					is_mounted[i] = false;
-				}
-			}
-		}
-
-		sys_timer_sleep(1);
-	}
-
-	sys_timer_sleep(2);
-
-	// Unmount NTFS.
-	while(*ps3ntfs_mounts_num-- > 0)
-	{
-		ntfsUnmount((*ps3ntfs_mounts)[*ps3ntfs_mounts_num].name, true);
-	}
-
-	if(*ps3ntfs_mounts != NULL)
-	{
-		free(*ps3ntfs_mounts);
-	}
-
-	sys_ppu_thread_exit(0);
-}
-#endif
-#endif
 
 void prx_main(uint64_t ptr)
 {
