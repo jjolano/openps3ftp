@@ -6,6 +6,9 @@ bool data_ntfs_list(struct Client* client)
 {
 	int* ntfs_list = (int*) client_get_cvar(client, "ntfs_list");
 
+	ntfs_md* mounts = *get_ntfs_mounts();
+	int num_mounts = *get_ntfs_num_mounts();
+
 	if(*ntfs_list <= 0)
 	{
 		free(ntfs_list);
@@ -18,7 +21,7 @@ bool data_ntfs_list(struct Client* client)
 	ftpdirent dirent;
 	ftpstat st;
 
-	sprintf(dirent.d_name, "dev_%s", (*ps3ntfs_mounts)[*ps3ntfs_mounts_num - *ntfs_list].name);
+	sprintf(dirent.d_name, "dev_%s", mounts[num_mounts - *ntfs_list].name);
 
 	char path[MAX_PATH];
 	get_absolute_path(path, "/", dirent.d_name);
@@ -58,6 +61,9 @@ bool data_ntfs_nlst(struct Client* client)
 {
 	int* ntfs_list = (int*) client_get_cvar(client, "ntfs_list");
 
+	ntfs_md* mounts = *get_ntfs_mounts();
+	int num_mounts = *get_ntfs_num_mounts();
+
 	if(*ntfs_list <= 0)
 	{
 		free(ntfs_list);
@@ -70,7 +76,7 @@ bool data_ntfs_nlst(struct Client* client)
 	ftpdirent dirent;
 	ftpstat st;
 
-	sprintf(dirent.d_name, "dev_%s", (*ps3ntfs_mounts)[*ps3ntfs_mounts_num - *ntfs_list].name);
+	sprintf(dirent.d_name, "dev_%s", mounts[num_mounts - *ntfs_list].name);
 
 	char path[MAX_PATH];
 	get_absolute_path(path, "/", dirent.d_name);
@@ -102,6 +108,9 @@ bool data_list(struct Client* client)
 	struct Path* cwd = (struct Path*) client_get_cvar(client, "cwd");
 	int* fd = (int*) client_get_cvar(client, "fd");
 
+	ntfs_md* mounts = *get_ntfs_mounts();
+	int num_mounts = *get_ntfs_num_mounts();
+
 	ftpdirent dirent;
 	uint64_t nread = 0;
 
@@ -119,12 +128,12 @@ bool data_list(struct Client* client)
 	if(nread == 0)
 	{
 		#ifdef _NTFS_SUPPORT_
-		if(cwd->num_levels == 0 && *ps3ntfs_mounts != NULL && *ps3ntfs_mounts_num > 0) // root
+		if(cwd->num_levels == 0 && mounts != NULL && num_mounts > 0) // root
 		{
 			if(ntfs_list_cptr == NULL)
 			{
 				int* ntfs_list = (int*) malloc(sizeof(int));
-				*ntfs_list = *ps3ntfs_mounts_num;
+				*ntfs_list = num_mounts;
 
 				client_set_cvar(client, "ntfs_list", (void*) ntfs_list);
 
@@ -185,6 +194,9 @@ bool data_nlst(struct Client* client)
 	struct Path* cwd = (struct Path*) client_get_cvar(client, "cwd");
 	int* fd = (int*) client_get_cvar(client, "fd");
 
+	ntfs_md* mounts = *get_ntfs_mounts();
+	int num_mounts = *get_ntfs_num_mounts();
+
 	ftpdirent dirent;
 	uint64_t nread = 0;
 
@@ -202,12 +214,12 @@ bool data_nlst(struct Client* client)
 	if(nread == 0)
 	{
 		#ifdef _NTFS_SUPPORT_
-		if(cwd->num_levels == 0 && *ps3ntfs_mounts != NULL && *ps3ntfs_mounts_num > 0) // root
+		if(cwd->num_levels == 0 && mounts != NULL && num_mounts > 0) // root
 		{
 			if(ntfs_list_cptr == NULL)
 			{
 				int* ntfs_list = (int*) malloc(sizeof(int));
-				*ntfs_list = *ps3ntfs_mounts_num;
+				*ntfs_list = num_mounts;
 
 				client_set_cvar(client, "ntfs_list", (void*) ntfs_list);
 
@@ -1180,12 +1192,6 @@ void base_connect(struct Client* client)
 
 	// welcome message
 	client_send_multicode(client, 220, WELCOME_MSG);
-
-	#ifdef _NTFS_SUPPORT_
-	char msg[256];
-	sprintf(msg, "NTFS mounts: %d", *ps3ntfs_mounts_num);
-	client_send_multicode(client, 220, msg);
-	#endif
 }
 
 void base_disconnect(struct Client* client)

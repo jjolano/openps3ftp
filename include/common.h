@@ -33,8 +33,8 @@ extern "C" {
 #ifdef _NTFS_SUPPORT_
 #include "ntfs.h"
 
-extern ntfs_md** ps3ntfs_mounts;
-extern int* ps3ntfs_mounts_num;
+extern ntfs_md** get_ntfs_mounts(void);
+extern int* get_ntfs_num_mounts(void);
 #endif
 #endif
 

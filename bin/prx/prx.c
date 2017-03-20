@@ -16,8 +16,28 @@ sys_ppu_thread_t prx_tid;
 bool prx_running = false;
 
 #ifdef _NTFS_SUPPORT_
-ntfs_md** ps3ntfs_mounts = NULL;
-int* ps3ntfs_mounts_num = NULL;
+#ifndef _PS3NTFS_PRX_
+ntfs_md* ps3ntfs_mounts = NULL;
+int ps3ntfs_mounts_num = 0;
+#endif
+
+ntfs_md** get_ntfs_mounts(void)
+{
+	#ifdef _PS3NTFS_PRX_
+	return ps3ntfs_prx_mounts();
+	#else
+	return &ps3ntfs_mounts;
+	#endif
+}
+
+int* get_ntfs_num_mounts(void)
+{
+	#ifdef _PS3NTFS_PRX_
+	return ps3ntfs_prx_num_mounts();
+	#else
+	return &num_mounts;
+	#endif
+}
 #endif
 
 inline void _sys_ppu_thread_exit(uint64_t val)
@@ -201,10 +221,7 @@ void prx_main(uint64_t ptr)
 	if(prx_running)
 	{
 		#ifdef _NTFS_SUPPORT_
-		#ifdef _PS3NTFS_PRX_
-		ps3ntfs_mounts = ps3ntfs_prx_mounts();
-		ps3ntfs_mounts_num = ps3ntfs_prx_num_mounts();
-		#else
+		#ifndef _PS3NTFS_PRX_
 		ntfs_md* mounts = NULL;
 		int mounts_num = 0;
 
@@ -241,10 +258,6 @@ void prx_main(uint64_t ptr)
 		#ifndef _PS3NTFS_PRX_
 		uint64_t ntfs_exitcode;
 		sys_ppu_thread_join(ntfs_tid, &ntfs_exitcode);
-		#else
-		// remove references to ps3ntfs
-		ps3ntfs_mounts = NULL;
-		ps3ntfs_mounts_num = NULL;
 		#endif
 		#endif
 	}
