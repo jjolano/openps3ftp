@@ -291,7 +291,7 @@ uint32_t server_run(struct Server* server)
 
 					struct linger optlinger;
 					optlinger.l_onoff = 1;
-					optlinger.l_linger = 5;
+					optlinger.l_linger = 0;
 					setsockopt(socket_client, SOL_SOCKET, SO_LINGER, &optlinger, sizeof(optlinger));
 
 					struct timeval opttv;

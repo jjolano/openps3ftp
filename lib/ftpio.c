@@ -11,7 +11,7 @@ int32_t ftpio_open(const char* path, int oflags, int32_t* fd)
 		char ntfspath[MAX_PATH];
 		get_ntfspath(ntfspath, path);
 
-		*fd = ps3ntfs_open(ntfspath, oflags, 0);
+		*fd = ps3ntfs_open(ntfspath, oflags, 0777);
 
 		if(*fd != -1)
 		{
@@ -343,6 +343,7 @@ int32_t ftpio_chmod(const char* path, mode_t mode)
 	if(str_startswith(path, "/dev_ntfs"))
 	{
 		// not supported
+		ret = 0;
 	}
 	else
 	{
@@ -507,8 +508,6 @@ int32_t ftpio_stat(const char* path, ftpstat* st)
 		get_ntfspath(ntfspath, path);
 
 		struct stat ntfs_st;
-		memset(&ntfs_st, 0, sizeof(struct stat));
-
 		ret = ps3ntfs_stat(ntfspath, &ntfs_st);
 
 		if(ret == 0)
@@ -554,8 +553,6 @@ int32_t ftpio_fstat(int32_t fd, ftpstat* st)
 		int32_t ntfsfd = (fd & ~NTFS_FD_MASK);
 
 		struct stat ntfs_st;
-		memset(&ntfs_st, 0, sizeof(struct stat));
-
 		ret = ps3ntfs_fstat(ntfsfd, &ntfs_st);
 
 		if(ret == 0)

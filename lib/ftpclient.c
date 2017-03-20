@@ -177,7 +177,7 @@ bool client_data_start(struct Client* client, data_callback callback, short peve
 
 	struct linger optlinger;
 	optlinger.l_onoff = 1;
-	optlinger.l_linger = 5;
+	optlinger.l_linger = 0;
 
 	setsockopt(client->socket_data, SOL_SOCKET, SO_LINGER, &optlinger, sizeof(optlinger));
 
@@ -264,7 +264,7 @@ bool client_pasv_enter(struct Client* client, struct sockaddr_in* pasv_addr)
 
 	struct linger optlinger;
 	optlinger.l_onoff = 1;
-	optlinger.l_linger = 5;
+	optlinger.l_linger = 0;
 	setsockopt(client->socket_pasv, SOL_SOCKET, SO_LINGER, &optlinger, sizeof(optlinger));
 
 	socklen_t len = sizeof(struct sockaddr_in);
