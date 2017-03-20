@@ -240,6 +240,10 @@ void prx_main(uint64_t ptr)
 		#ifndef _PS3NTFS_PRX_
 		uint64_t ntfs_exitcode;
 		sys_ppu_thread_join(ntfs_tid, &ntfs_exitcode);
+		#else
+		// remove references to ps3ntfs
+		ps3ntfs_mounts = NULL;
+		ps3ntfs_mounts_num = NULL;
 		#endif
 		#endif
 	}
