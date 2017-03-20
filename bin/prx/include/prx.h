@@ -1,7 +1,5 @@
 #pragma once
 
-#define _OPENPS3FTP_STRUCTS_
-
 #include <stdbool.h>
 #include <inttypes.h>
 
@@ -24,5 +22,12 @@ void finalize_module(void);
 void prx_unload(void);
 int prx_stop(void);
 int prx_exit(void);
+
+#ifdef _NTFS_SUPPORT_
+#ifndef _PS3NTFS_PRX_
+void ntfs_main(uint64_t ptr);
+#endif
+#endif
+
 void prx_main(uint64_t ptr);
 int prx_start(size_t args, void* argv);

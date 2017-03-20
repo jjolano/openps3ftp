@@ -160,9 +160,10 @@ void ntfs_main(uint64_t ptr)
 			}
 		}
 
-		sys_ppu_thread_yield();
 		sys_timer_sleep(1);
 	}
+
+	sys_timer_sleep(2);
 
 	// Unmount NTFS.
 	while(*ps3ntfs_mounts_num-- > 0)

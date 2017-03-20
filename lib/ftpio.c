@@ -237,6 +237,7 @@ int32_t ftpio_close(int32_t fd)
 	{
 		#ifdef _NTFS_SUPPORT_
 		int32_t ntfsfd = (fd & ~NTFS_FD_MASK);
+
 		ret = ps3ntfs_close(ntfsfd);
 		#endif
 	}
