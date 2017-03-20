@@ -57,7 +57,7 @@ void client_send_code(struct Client* client, int code, const char* message)
 	char* buffer = client->server_ptr->buffer_control;
 	size_t len = sprintf(buffer, "%d %s\r\n", code, message);
 
-	if(send(client->socket_control, buffer, len, 0) != 0)
+	if(send(client->socket_control, buffer, len, 0) < 0)
 	{
 		client_socket_disconnect(client, client->socket_control);
 	}
@@ -68,7 +68,7 @@ void client_send_multicode(struct Client* client, int code, const char* message)
 	char* buffer = client->server_ptr->buffer_control;
 	size_t len = sprintf(buffer, "%d-%s\r\n", code, message);
 
-	if(send(client->socket_control, buffer, len, 0) != 0)
+	if(send(client->socket_control, buffer, len, 0) < 0)
 	{
 		client_socket_disconnect(client, client->socket_control);
 	}
@@ -79,7 +79,7 @@ void client_send_multimessage(struct Client* client, const char* message)
 	char* buffer = client->server_ptr->buffer_control;
 	size_t len = sprintf(buffer, " %s\r\n", message);
 
-	if(send(client->socket_control, buffer, len, 0) != 0)
+	if(send(client->socket_control, buffer, len, 0) < 0)
 	{
 		client_socket_disconnect(client, client->socket_control);
 	}
