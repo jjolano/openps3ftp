@@ -108,8 +108,10 @@ bool data_list(struct Client* client)
 	struct Path* cwd = (struct Path*) client_get_cvar(client, "cwd");
 	int* fd = (int*) client_get_cvar(client, "fd");
 
+	#ifdef _NTFS_SUPPORT_
 	ntfs_md* mounts = *get_ntfs_mounts();
 	int num_mounts = *get_ntfs_num_mounts();
+	#endif
 
 	ftpdirent dirent;
 	uint64_t nread = 0;
@@ -194,8 +196,10 @@ bool data_nlst(struct Client* client)
 	struct Path* cwd = (struct Path*) client_get_cvar(client, "cwd");
 	int* fd = (int*) client_get_cvar(client, "fd");
 
+	#ifdef _NTFS_SUPPORT_
 	ntfs_md* mounts = *get_ntfs_mounts();
 	int num_mounts = *get_ntfs_num_mounts();
+	#endif
 
 	ftpdirent dirent;
 	uint64_t nread = 0;
