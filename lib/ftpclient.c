@@ -181,6 +181,10 @@ bool client_data_start(struct Client* client, data_callback callback, short peve
 
 	setsockopt(client->socket_data, SOL_SOCKET, SO_LINGER, &optlinger, sizeof(optlinger));
 
+
+	int optval = 1;
+	setsockopt(client->socket_data, IPPROTO_TCP, TCP_NODELAY, &optval, sizeof(optval));
+
 	server_pollfds_add(client->server_ptr, client->socket_data, pevents|POLLIN);
 	server_client_add(client->server_ptr, client->socket_data, &client);
 
@@ -256,6 +260,7 @@ bool client_pasv_enter(struct Client* client, struct sockaddr_in* pasv_addr)
 	int optval = 1;
 	setsockopt(client->socket_pasv, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
 	setsockopt(client->socket_pasv, SOL_SOCKET, SO_REUSEPORT, &optval, sizeof(optval));
+	setsockopt(client->socket_pasv, IPPROTO_TCP, TCP_NODELAY, &optval, sizeof(optval));
 
 	struct linger optlinger;
 	optlinger.l_onoff = 1;

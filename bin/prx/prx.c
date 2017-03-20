@@ -16,8 +16,8 @@ sys_ppu_thread_t prx_tid;
 bool prx_running = false;
 
 #ifdef _NTFS_SUPPORT_
-ntfs_md* ps3ntfs_mounts = NULL;
-int ps3ntfs_mounts_num = 0;
+ntfs_md** ps3ntfs_mounts = NULL;
+int* ps3ntfs_mounts_num = NULL;
 #endif
 
 inline void _sys_ppu_thread_exit(uint64_t val)
@@ -97,8 +97,6 @@ void ntfs_main(uint64_t ptr)
 
 	while(prx_running)
 	{
-		sys_timer_sleep(3);
-
 		// Iterate ports and mount NTFS.
 		int i;
 		for(i = 0; i < 8; i++)
@@ -121,9 +119,9 @@ void ntfs_main(uint64_t ptr)
 							if(ntfsMount(name, ntfs_usb_if[i], partitions[j], CACHE_DEFAULT_PAGE_COUNT, CACHE_DEFAULT_PAGE_SIZE, NTFS_FORCE))
 							{
 								// add to mount struct
-								ps3ntfs_mounts = (ntfs_md*) realloc(ps3ntfs_mounts, ++ps3ntfs_mounts_num * sizeof(ntfs_md));
+								*ps3ntfs_mounts = (ntfs_md*) realloc(*ps3ntfs_mounts, ++*ps3ntfs_mounts_num * sizeof(ntfs_md));
 
-								ntfs_md* mount = &ps3ntfs_mounts[ps3ntfs_mounts_num - 1];
+								ntfs_md* mount = ps3ntfs_mounts[*ps3ntfs_mounts_num - 1];
 
 								strcpy(mount->name, name);
 								mount->interface = ntfs_usb_if[i];
@@ -142,16 +140,16 @@ void ntfs_main(uint64_t ptr)
 				if(is_mounted[i])
 				{
 					int j;
-					for(j = 0; j < ps3ntfs_mounts_num; j++)
+					for(j = 0; j < *ps3ntfs_mounts_num; j++)
 					{
 						// unmount all partitions of this device
-						if(ps3ntfs_mounts[j].interface == ntfs_usb_if[i])
+						if((*ps3ntfs_mounts)[j].interface == ntfs_usb_if[i])
 						{
-							ntfsUnmount(ps3ntfs_mounts[j].name, true);
+							ntfsUnmount((*ps3ntfs_mounts)[j].name, true);
 
 							// realloc
-							memmove(&ps3ntfs_mounts[j], &ps3ntfs_mounts[j + 1], (ps3ntfs_mounts_num - j - 1) * sizeof(ntfs_md));
-							ps3ntfs_mounts = (ntfs_md*) realloc(ps3ntfs_mounts, --ps3ntfs_mounts_num * sizeof(ntfs_md));
+							memmove(ps3ntfs_mounts[j], ps3ntfs_mounts[j + 1], (*ps3ntfs_mounts_num - j - 1) * sizeof(ntfs_md));
+							*ps3ntfs_mounts = (ntfs_md*) realloc(*ps3ntfs_mounts, --*ps3ntfs_mounts_num * sizeof(ntfs_md));
 
 							--j;
 						}
@@ -161,18 +159,23 @@ void ntfs_main(uint64_t ptr)
 				}
 			}
 		}
+
+		sys_ppu_thread_yield();
+		sys_timer_sleep(1);
 	}
 
 	// Unmount NTFS.
-	while(ps3ntfs_mounts_num-- > 0)
+	while(*ps3ntfs_mounts_num-- > 0)
 	{
-		ntfsUnmount(ps3ntfs_mounts[ps3ntfs_mounts_num].name, true);
+		ntfsUnmount((*ps3ntfs_mounts)[*ps3ntfs_mounts_num].name, true);
 	}
 
-	if(ps3ntfs_mounts != NULL)
+	if(*ps3ntfs_mounts != NULL)
 	{
-		free(ps3ntfs_mounts);
+		free(*ps3ntfs_mounts);
 	}
+
+	sys_ppu_thread_exit(0);
 }
 #endif
 #endif
@@ -198,45 +201,36 @@ void prx_main(uint64_t ptr)
 	{
 		#ifdef _NTFS_SUPPORT_
 		#ifdef _PS3NTFS_PRX_
-		ntfs_md** ps3ntfs_prx_mnt = ps3ntfs_prx_mounts();
-		int* ps3ntfs_prx_mnt_num = ps3ntfs_prx_num_mounts();
-
-		ps3ntfs_mounts = *ps3ntfs_prx_mnt;
-		ps3ntfs_mounts_num = *ps3ntfs_prx_mnt_num;
+		ps3ntfs_mounts = ps3ntfs_prx_mounts();
+		ps3ntfs_mounts_num = ps3ntfs_prx_num_mounts();
 		#else
-		sys_ppu_thread_t ntfs_tid;
-		sys_ppu_thread_create(&ntfs_tid, ntfs_main, 0, 1001, 0x2000, SYS_PPU_THREAD_CREATE_JOINABLE, (char*) "OpenPS3FTP-NTFS");
-		#endif
-		#endif
+		ntfs_md* mounts = NULL;
+		int mounts_num = 0;
 
-		ftp_server = (struct Server*) malloc(sizeof(struct Server));
+		ps3ntfs_mounts = &mounts;
+		ps3ntfs_mounts_num = &mounts_num;
+
+		sys_ppu_thread_t ntfs_tid;
+		if(sys_ppu_thread_create(&ntfs_tid, ntfs_main, 0, 1001, 0x2000, SYS_PPU_THREAD_CREATE_JOINABLE, (char*) "OpenPS3FTP-NTFS") != 0)
+		{
+			mounts_num = ntfsMountAll(&mounts, NTFS_FORCE);
+		}
+		#endif
+		#endif
 
 		// show startup msg
 		vshtask_notify("OpenPS3FTP " APP_VERSION);
 
+		ftp_server = (struct Server*) malloc(sizeof(struct Server));
+
 		// let ftp library take over thread
 		while(prx_running)
 		{
+			sys_timer_sleep(1);
+			
 			// initialize server struct
 			server_init(ftp_server, ftp_command, 21);
-
-			uint32_t ret = server_run(ftp_server);
-
-			switch(ret)
-			{
-				case 1:
-				vshtask_notify("FTP Error: Another FTP server is using port 21. Trying again in 30 seconds.");
-				sys_timer_sleep(30);
-				break;
-				case 2:
-				case 3:
-				vshtask_notify("FTP Error: Network library error. Trying again in 5 seconds.");
-				sys_timer_sleep(5);
-				break;
-				default:
-				sys_timer_sleep(1);
-			}
-
+			server_run(ftp_server);
 			server_free(ftp_server);
 		}
 		
@@ -253,13 +247,6 @@ void prx_main(uint64_t ptr)
 	// server stopped, free resources
 	command_free(ftp_command);
 	free(ftp_command);
-
-	// exited by server error or command
-	if(prx_running)
-	{
-		prx_running = false;
-		finalize_module();
-	}
 	
 	sys_ppu_thread_exit(0);
 }

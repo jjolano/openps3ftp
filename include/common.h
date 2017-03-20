@@ -18,6 +18,10 @@ extern "C" {
 #include <netinet/in.h>
 #include <netdb.h>
 
+#ifndef PSL1GHT_SDK
+#include <netinet/tcp.h>
+#endif
+
 #ifdef CELL_SDK
 #include <cell.h>
 #include <sys/poll.h>
@@ -29,8 +33,8 @@ extern "C" {
 #ifdef _NTFS_SUPPORT_
 #include "ntfs.h"
 
-extern ntfs_md* ps3ntfs_mounts;
-extern int ps3ntfs_mounts_num;
+extern ntfs_md** ps3ntfs_mounts;
+extern int* ps3ntfs_mounts_num;
 #endif
 #endif
 
@@ -45,6 +49,8 @@ extern int ps3ntfs_mounts_num;
 extern int closesocket(int socket);
 #define socketclose(a)		closesocket(a)
 #define socketpoll(a,b,c)	poll(a,b,c)
+
+#define	TCP_NODELAY	0x01
 #endif
 
 #ifdef LINUX

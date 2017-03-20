@@ -18,7 +18,7 @@ bool data_ntfs_list(struct Client* client)
 	ftpdirent dirent;
 	ftpstat st;
 
-	sprintf(dirent.d_name, "dev_%s", ps3ntfs_mounts[ps3ntfs_mounts_num - *ntfs_list].name);
+	sprintf(dirent.d_name, "dev_%s", (*ps3ntfs_mounts)[*ps3ntfs_mounts_num - *ntfs_list].name);
 
 	char path[MAX_PATH];
 	get_absolute_path(path, "/", dirent.d_name);
@@ -70,7 +70,7 @@ bool data_ntfs_nlst(struct Client* client)
 	ftpdirent dirent;
 	ftpstat st;
 
-	sprintf(dirent.d_name, "dev_%s", ps3ntfs_mounts[ps3ntfs_mounts_num - *ntfs_list].name);
+	sprintf(dirent.d_name, "dev_%s", (*ps3ntfs_mounts)[*ps3ntfs_mounts_num - *ntfs_list].name);
 
 	char path[MAX_PATH];
 	get_absolute_path(path, "/", dirent.d_name);
@@ -119,12 +119,12 @@ bool data_list(struct Client* client)
 	if(nread == 0)
 	{
 		#ifdef _NTFS_SUPPORT_
-		if(cwd->num_levels == 0 && ps3ntfs_mounts != NULL && ps3ntfs_mounts_num > 0) // root
+		if(cwd->num_levels == 0 && *ps3ntfs_mounts != NULL && *ps3ntfs_mounts_num > 0) // root
 		{
 			if(ntfs_list_cptr == NULL)
 			{
 				int* ntfs_list = (int*) malloc(sizeof(int));
-				*ntfs_list = ps3ntfs_mounts_num;
+				*ntfs_list = *ps3ntfs_mounts_num;
 
 				client_set_cvar(client, "ntfs_list", (void*) ntfs_list);
 
@@ -202,12 +202,12 @@ bool data_nlst(struct Client* client)
 	if(nread == 0)
 	{
 		#ifdef _NTFS_SUPPORT_
-		if(cwd->num_levels == 0 && ps3ntfs_mounts != NULL && ps3ntfs_mounts_num > 0) // root
+		if(cwd->num_levels == 0 && *ps3ntfs_mounts != NULL && *ps3ntfs_mounts_num > 0) // root
 		{
 			if(ntfs_list_cptr == NULL)
 			{
 				int* ntfs_list = (int*) malloc(sizeof(int));
-				*ntfs_list = ps3ntfs_mounts_num;
+				*ntfs_list = *ps3ntfs_mounts_num;
 
 				client_set_cvar(client, "ntfs_list", (void*) ntfs_list);
 
@@ -1183,13 +1183,7 @@ void base_connect(struct Client* client)
 
 	#ifdef _NTFS_SUPPORT_
 	char msg[256];
-
-	#ifdef _PS3NTFS_PRX_
-	sprintf(msg, "PS3NTFS mounts: %d", ps3ntfs_mounts_num);
-	#else
-	sprintf(msg, "NTFS mounts: %d", ps3ntfs_mounts_num);
-	#endif
-	
+	sprintf(msg, "NTFS mounts: %d", *ps3ntfs_mounts_num);
 	client_send_multicode(client, 220, msg);
 	#endif
 }

@@ -13,8 +13,10 @@ PPU_CFLAGS += -DCELL_SDK
 
 ifeq ($(LIB_EXTERNAL), 1)
 PPU_LIB_TARGET = libopenps3ftp_cell.a
+PPU_OPTIMIZE_LV = -O2
 else
 PPU_LIB_TARGET = libopenps3ftp_cell_vsh.a
+PPU_OPTIMIZE_LV = -Os
 endif
 endif
 
@@ -26,22 +28,23 @@ PPU_CFLAGS += -DPSL1GHT_SDK -g -Wall -mregnames -mcpu=cell $(MACHDEP)
 
 ifeq ($(LIB_EXTERNAL), 1)
 PPU_LIB_TARGET = libopenps3ftp_psl1ght.a
+PPU_OPTIMIZE_LV = -O2
 else
 PPU_LIB_TARGET = libopenps3ftp_psl1ght_vsh.a
+PPU_OPTIMIZE_LV = -Os
 endif
 endif
 
 ifeq ($(SDK), linux)
-LIB_EXTERNAL := 1
 PPU_CFLAGS += -DLINUX -g -Wall
 PPU_LIB_TARGET = libftp.a
+PPU_OPTIMIZE_LV = -Og
 endif
 
 PPU_SRCS := $(wildcard *.c)
 PPU_OBJS = $(PPU_SRCS:.c=.$(SDK).o)
 PPU_CFLAGS += -ffunction-sections -fdata-sections -fno-builtin-printf -DAPP_VER_MIN=\"-g$(GIT_VERSION)\" -std=gnu99
 
-PPU_OPTIMIZE_LV = -Os
 PPU_INCDIRS += -I../include -I../bin/prx/vsh/include -I../bin/prx/include
 
 ifeq ($(LIB_EXTERNAL), 1)

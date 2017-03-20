@@ -19,7 +19,7 @@ OBJS		+= $(C_SRCS:.c=.c.o)
 
 # Define compilation options
 DEFINES		:= -DLINUX
-CFLAGS		+= -ffunction-sections -fdata-sections -O2 -Wall $(INCLUDE) $(DEFINES)
+CFLAGS		+= -ffunction-sections -fdata-sections -Og -g -Wall $(INCLUDE) $(DEFINES)
 CFLAGS		+= -DAPP_VER_MIN=\"-g$(GIT_VERSION)\"
 CXXFLAGS	+= $(CFLAGS)
 

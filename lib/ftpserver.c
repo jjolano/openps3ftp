@@ -213,6 +213,7 @@ uint32_t server_run(struct Server* server)
 	int optval = 1;
 	setsockopt(server->socket, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
 	setsockopt(server->socket, SOL_SOCKET, SO_REUSEPORT, &optval, sizeof(optval));
+	setsockopt(server->socket, IPPROTO_TCP, TCP_NODELAY, &optval, sizeof(optval));
 
 	struct sockaddr_in server_addr;
 	server_addr.sin_family = AF_INET;
@@ -298,11 +299,13 @@ uint32_t server_run(struct Server* server)
 					opttv.tv_usec = 0;
 					setsockopt(socket_client, SOL_SOCKET, SO_SNDTIMEO, &opttv, sizeof(opttv));
 
+					setsockopt(socket_client, IPPROTO_TCP, TCP_NODELAY, &optval, sizeof(optval));
+
 					struct Client* client = NULL;
 					server_client_add(server, socket_client, &client);
 					server_pollfds_add(server, socket_client, POLLIN|POLLRDNORM);
 
-					client_send_code(client, 220, "Features: p .");
+					client_send_code(client, 220, "FTP Ready.");
 				}
 				else
 				{

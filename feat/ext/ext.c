@@ -34,7 +34,7 @@ void cmd_size(struct Client* client, const char command_name[32], const char* co
 	if(ftpio_stat(path, &st) == 0)
 	{
 		char buffer[32];
-		sprintf(buffer, "%" PRIu64, st.st_size);
+		sprintf(buffer, "%" PRIu64, (uint64_t) st.st_size);
 
 		client_send_code(client, 213, buffer);
 	}
