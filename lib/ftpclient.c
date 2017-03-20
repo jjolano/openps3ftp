@@ -123,12 +123,10 @@ bool client_data_start(struct Client* client, data_callback callback, short peve
 
 			int optval = BUFFER_DATA;
 			setsockopt(client->socket_data, SOL_SOCKET, SO_RCVBUF, &optval, sizeof(optval));
-			setsockopt(client->socket_data, SOL_SOCKET, SO_SNDBUF, &optval, sizeof(optval));
 
 			struct timeval opttv;
 			opttv.tv_sec = 5;
 			opttv.tv_usec = 0;
-
 			setsockopt(client->socket_data, SOL_SOCKET, SO_SNDTIMEO, &opttv, sizeof(opttv));
 
 			if(connect(client->socket_data, (struct sockaddr*) &active_addr, len) != 0)
@@ -166,25 +164,21 @@ bool client_data_start(struct Client* client, data_callback callback, short peve
 
 			int optval = BUFFER_DATA;
 			setsockopt(client->socket_data, SOL_SOCKET, SO_RCVBUF, &optval, sizeof(optval));
-			setsockopt(client->socket_data, SOL_SOCKET, SO_SNDBUF, &optval, sizeof(optval));
 
 			struct timeval opttv;
 			opttv.tv_sec = 5;
 			opttv.tv_usec = 0;
-
 			setsockopt(client->socket_data, SOL_SOCKET, SO_SNDTIMEO, &opttv, sizeof(opttv));
 		}
 	}
 
 	struct linger optlinger;
 	optlinger.l_onoff = 1;
-	optlinger.l_linger = 10;
-
+	optlinger.l_linger = 0;
 	setsockopt(client->socket_data, SOL_SOCKET, SO_LINGER, &optlinger, sizeof(optlinger));
 
-
-	//int optval = 1;
-	//setsockopt(client->socket_data, IPPROTO_TCP, TCP_NODELAY, &optval, sizeof(optval));
+	int optval = 1;
+	setsockopt(client->socket_data, IPPROTO_TCP, TCP_NODELAY, &optval, sizeof(optval));
 
 	server_pollfds_add(client->server_ptr, client->socket_data, pevents|POLLIN);
 	server_client_add(client->server_ptr, client->socket_data, &client);
