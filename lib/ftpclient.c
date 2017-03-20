@@ -46,7 +46,7 @@ void client_send_message(struct Client* client, const char* message)
 	char* buffer = client->server_ptr->buffer_control;
 	size_t len = sprintf(buffer, "%s\r\n", message);
 
-	if(send(client->socket_control, buffer, len, 0) == -1)
+	if(send(client->socket_control, buffer, len, 0) != 0)
 	{
 		client_socket_disconnect(client, client->socket_control);
 	}
@@ -57,7 +57,7 @@ void client_send_code(struct Client* client, int code, const char* message)
 	char* buffer = client->server_ptr->buffer_control;
 	size_t len = sprintf(buffer, "%d %s\r\n", code, message);
 
-	if(send(client->socket_control, buffer, len, 0) == -1)
+	if(send(client->socket_control, buffer, len, 0) != 0)
 	{
 		client_socket_disconnect(client, client->socket_control);
 	}
@@ -68,7 +68,7 @@ void client_send_multicode(struct Client* client, int code, const char* message)
 	char* buffer = client->server_ptr->buffer_control;
 	size_t len = sprintf(buffer, "%d-%s\r\n", code, message);
 
-	if(send(client->socket_control, buffer, len, 0) == -1)
+	if(send(client->socket_control, buffer, len, 0) != 0)
 	{
 		client_socket_disconnect(client, client->socket_control);
 	}
@@ -79,7 +79,7 @@ void client_send_multimessage(struct Client* client, const char* message)
 	char* buffer = client->server_ptr->buffer_control;
 	size_t len = sprintf(buffer, " %s\r\n", message);
 
-	if(send(client->socket_control, buffer, len, 0) == -1)
+	if(send(client->socket_control, buffer, len, 0) != 0)
 	{
 		client_socket_disconnect(client, client->socket_control);
 	}
@@ -115,8 +115,9 @@ bool client_data_start(struct Client* client, data_callback callback, short peve
 
 			client->socket_data = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 
-			if(client->socket_data == -1)
+			if(client->socket_data < 0)
 			{
+				client->socket_data = -1;
 				return false;
 			}
 
@@ -130,7 +131,7 @@ bool client_data_start(struct Client* client, data_callback callback, short peve
 
 			setsockopt(client->socket_data, SOL_SOCKET, SO_SNDTIMEO, &opttv, sizeof(opttv));
 
-			if(connect(client->socket_data, (struct sockaddr*) &active_addr, len) == -1)
+			if(connect(client->socket_data, (struct sockaddr*) &active_addr, len) != 0)
 			{
 				socketclose(client->socket_data);
 				client->socket_data = -1;
@@ -158,7 +159,7 @@ bool client_data_start(struct Client* client, data_callback callback, short peve
 			socketclose(client->socket_pasv);
 			client->socket_pasv = -1;
 
-			if(client->socket_data == -1)
+			if(client->socket_data < 0)
 			{
 				return false;
 			}
@@ -252,8 +253,9 @@ bool client_pasv_enter(struct Client* client, struct sockaddr_in* pasv_addr)
 
 	client->socket_pasv = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 
-	if(client->socket_pasv == -1)
+	if(client->socket_pasv < 0)
 	{
+		client->socket_pasv = -1;
 		return false;
 	}
 
@@ -272,7 +274,7 @@ bool client_pasv_enter(struct Client* client, struct sockaddr_in* pasv_addr)
 
 	pasv_addr->sin_port = 0;
 
-	if(bind(client->socket_pasv, (struct sockaddr*) pasv_addr, len) == -1)
+	if(bind(client->socket_pasv, (struct sockaddr*) pasv_addr, len) != 0)
 	{
 		socketclose(client->socket_pasv);
 		client->socket_pasv = -1;

@@ -203,7 +203,7 @@ void server_init(struct Server* server, struct Command* command_ptr, unsigned sh
 uint32_t server_run(struct Server* server)
 {
 	// assuming server is initialized using server_init
-	if(server->socket == -1)
+	if(server->socket < 0)
 	{
 		// socket failed to create
 		return 1;
@@ -219,7 +219,7 @@ uint32_t server_run(struct Server* server)
 	server_addr.sin_port = htons(server->port);
 	server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
 
-	if(bind(server->socket, (struct sockaddr*) &server_addr, sizeof(struct sockaddr_in)) == -1)
+	if(bind(server->socket, (struct sockaddr*) &server_addr, sizeof(struct sockaddr_in)) != 0)
 	{
 		// failed to bind socket to port
 		socketclose(server->socket);
@@ -246,7 +246,7 @@ uint32_t server_run(struct Server* server)
 			continue;
 		}
 
-		if(p == -1)
+		if(p < 0)
 		{
 			retval = 2;
 			break;
@@ -254,13 +254,8 @@ uint32_t server_run(struct Server* server)
 
 		nfds_t i = server->nfds;
 
-		while(i--)
+		while(p > 0 && i--)
 		{
-			if(p == 0)
-			{
-				break;
-			}
-
 			struct pollfd* pfd = &server->pollfds[i];
 
 			if(pfd->revents)
@@ -283,7 +278,7 @@ uint32_t server_run(struct Server* server)
 
 					int socket_client = accept(server->socket, NULL, NULL);
 
-					if(socket_client == -1)
+					if(socket_client < 0)
 					{
 						continue;
 					}
