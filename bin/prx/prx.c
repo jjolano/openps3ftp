@@ -1,9 +1,5 @@
 #include "prx.h"
 
-#ifdef _PS3NTFS_PRX_
-#include "ps3ntfs.h"
-#endif
-
 SYS_MODULE_START(prx_start);
 SYS_MODULE_STOP(prx_stop);
 SYS_MODULE_EXIT(prx_exit);

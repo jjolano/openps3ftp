@@ -33,7 +33,9 @@ extern "C" {
 #ifdef _NTFS_SUPPORT_
 #include "ntfs.h"
 
-#ifndef _PS3NTFS_PRX_
+#ifdef _PS3NTFS_PRX_
+#include "ps3ntfs.h"
+#else
 extern int spinlock_id;
 extern ntfs_md* mounts;
 extern int num_mounts;
