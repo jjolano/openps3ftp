@@ -3,7 +3,7 @@
 SYS_MODULE_START(prx_start);
 SYS_MODULE_STOP(prx_stop);
 SYS_MODULE_EXIT(prx_exit);
-SYS_MODULE_INFO(FTPD, 0, 4, 2);
+SYS_MODULE_INFO(FTPD, SYS_MODULE_ATTR_EXCLUSIVE_LOAD | SYS_MODULE_ATTR_EXCLUSIVE_START, 4, 2);
 
 struct Server* ftp_server;
 struct Command* ftp_command;
