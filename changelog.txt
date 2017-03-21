@@ -1,3 +1,8 @@
+[Version 4.2b - March 26, 2017]
+- Removed developer FTP command interface, for now.
+- Implemented NTFS support, with auto-mounting code.
+- Various network code optimizations.
+
 [Version 4.2a - March 5, 2017]
 - Rebased standalone app server code to sprx plugin server code.
   * OpenPS3FTP standalone and sprx now share the same server code.
