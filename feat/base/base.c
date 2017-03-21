@@ -129,8 +129,15 @@ bool data_list(struct Client* client)
 	if(nread == 0)
 	{
 		#ifdef _NTFS_SUPPORT_
+		#ifdef _PS3NTFS_PRX_
+		sys_prx_id_t ntfsd = sys_prx_get_module_id_by_name("NTFSD", 0, NULL);
+
+		if(cwd->num_levels == 0 && ntfsd > 0)
+		{
+		#else
 		if(cwd->num_levels == 0)
 		{
+		#endif
 			#ifdef _PS3NTFS_PRX_
 			ps3ntfs_prx_lock();
 			#else
@@ -240,8 +247,15 @@ bool data_nlst(struct Client* client)
 	if(nread == 0)
 	{
 		#ifdef _NTFS_SUPPORT_
+		#ifdef _PS3NTFS_PRX_
+		sys_prx_id_t ntfsd = sys_prx_get_module_id_by_name("NTFSD", 0, NULL);
+
+		if(cwd->num_levels == 0 && ntfsd > 0)
+		{
+		#else
 		if(cwd->num_levels == 0)
 		{
+		#endif
 			#ifdef _PS3NTFS_PRX_
 			ps3ntfs_prx_lock();
 			#else
