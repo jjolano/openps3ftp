@@ -65,8 +65,8 @@ distclean: clean prxclean ps3clean
 
 prx:
 	$(MAKE) -C external/ps3ntfs
-	$(MAKE) -C lib SDK=cell NTFS_SUPPORT=1
-	$(MAKE) -C bin/prx NTFS_SUPPORT=1
+	$(MAKE) -C lib SDK=cell
+	$(MAKE) -C bin/prx
 
 prxclean:
 	$(MAKE) -C external/ps3ntfs clean
