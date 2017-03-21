@@ -37,13 +37,15 @@ PPU_INCDIRS += -I. -Ivsh/include -Iinclude -I../../include -I../../feat
 ifeq ($(NTFS_SUPPORT), 1)
 PPU_CFLAGS += -D_NTFS_SUPPORT_
 PPU_INCDIRS += -I../../external/ps3ntfs/external/libntfs/include
+PPU_INCDIRS += -I../../external/ps3ntfs
 
 ifeq ($(NTFS_STATIC), 1)
+PPU_SRCS += ../../external/ps3ntfs/ps3ntfs.c
+
 PPU_PRX_LDLIBDIR += -L../../external/ps3ntfs/external/libntfs
 PPU_PRX_LDLIBS += -lntfs_prx
 else
 PPU_CFLAGS += -D_PS3NTFS_PRX_
-PPU_INCDIRS += -I../../external/ps3ntfs
 
 PPU_PRX_LDLIBDIR += -L../../external/ps3ntfs
 PPU_PRX_LDLIBS += -lps3ntfs_prx

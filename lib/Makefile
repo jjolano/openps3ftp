@@ -54,6 +54,11 @@ endif
 ifeq ($(NTFS_SUPPORT), 1)
 PPU_CFLAGS += -D_NTFS_SUPPORT_
 PPU_INCDIRS += -I../external/ps3ntfs/external/libntfs/include
+PPU_INCDIRS += -I../external/ps3ntfs
+
+ifneq ($(NTFS_STATIC), 1)
+PPU_CFLAGS += -D_PS3NTFS_PRX_
+endif
 endif
 
 ifeq ($(SDK), cell)

@@ -5,7 +5,7 @@ int32_t ftpio_open(const char* path, int oflags, int32_t* fd)
 	int32_t ret = -1;
 
 	#ifdef CELL_SDK
-	if(str_startswith(path, "/dev_ntfs"))
+	if(str_startswith(path, "/dev_ntfs") && ps3ntfs_running())
 	{
 		#ifdef _NTFS_SUPPORT_
 		char ntfspath[MAX_PATH];
@@ -47,7 +47,7 @@ int32_t ftpio_opendir(const char* path, int32_t* fd)
 	int32_t ret = -1;
 
 	#ifdef CELL_SDK
-	if(str_startswith(path, "/dev_ntfs"))
+	if(str_startswith(path, "/dev_ntfs") && ps3ntfs_running())
 	{
 		#ifdef _NTFS_SUPPORT_
 		char ntfspath[MAX_PATH];
@@ -341,7 +341,7 @@ int32_t ftpio_chmod(const char* path, mode_t mode)
 	int32_t ret = -1;
 
 	#ifdef CELL_SDK
-	if(str_startswith(path, "/dev_ntfs"))
+	if(str_startswith(path, "/dev_ntfs") && ps3ntfs_running())
 	{
 		// not supported
 		ret = 0;
@@ -409,7 +409,7 @@ int32_t ftpio_mkdir(const char* path, mode_t mode)
 	int32_t ret = -1;
 
 	#ifdef CELL_SDK
-	if(str_startswith(path, "/dev_ntfs"))
+	if(str_startswith(path, "/dev_ntfs") && ps3ntfs_running())
 	{
 		#ifdef _NTFS_SUPPORT_
 		char ntfspath[MAX_PATH];
@@ -440,7 +440,7 @@ int32_t ftpio_rmdir(const char* path)
 	int32_t ret = -1;
 
 	#ifdef CELL_SDK
-	if(str_startswith(path, "/dev_ntfs"))
+	if(str_startswith(path, "/dev_ntfs") && ps3ntfs_running())
 	{
 		#ifdef _NTFS_SUPPORT_
 		char ntfspath[MAX_PATH];
@@ -471,7 +471,7 @@ int32_t ftpio_unlink(const char* path)
 	int32_t ret = -1;
 
 	#ifdef CELL_SDK
-	if(str_startswith(path, "/dev_ntfs"))
+	if(str_startswith(path, "/dev_ntfs") && ps3ntfs_running())
 	{
 		#ifdef _NTFS_SUPPORT_
 		char ntfspath[MAX_PATH];
@@ -502,7 +502,7 @@ int32_t ftpio_stat(const char* path, ftpstat* st)
 	int32_t ret = -1;
 
 	#ifdef CELL_SDK
-	if(str_startswith(path, "/dev_ntfs"))
+	if(str_startswith(path, "/dev_ntfs") && ps3ntfs_running())
 	{
 		#ifdef _NTFS_SUPPORT_
 		char ntfspath[MAX_PATH];

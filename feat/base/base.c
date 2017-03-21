@@ -18,10 +18,8 @@ bool data_ntfs_list(struct Client* client)
 	ftpdirent dirent;
 	ftpstat st;
 
-	#ifdef _PS3NTFS_PRX_
 	ntfs_md* mounts = ps3ntfs_prx_mounts();
 	int num_mounts = ps3ntfs_prx_num_mounts();
-	#endif
 
 	sprintf(dirent.d_name, "dev_%s", mounts[num_mounts - *ntfs_list].name);
 
@@ -75,10 +73,8 @@ bool data_ntfs_nlst(struct Client* client)
 	ftpdirent dirent;
 	ftpstat st;
 
-	#ifdef _PS3NTFS_PRX_
 	ntfs_md* mounts = ps3ntfs_prx_mounts();
 	int num_mounts = ps3ntfs_prx_num_mounts();
-	#endif
 
 	sprintf(dirent.d_name, "dev_%s", mounts[num_mounts - *ntfs_list].name);
 
@@ -129,27 +125,14 @@ bool data_list(struct Client* client)
 	if(nread == 0)
 	{
 		#ifdef _NTFS_SUPPORT_
-		#ifdef _PS3NTFS_PRX_
-		sys_prx_id_t ntfsd = sys_prx_get_module_id_by_name("NTFSD", 0, NULL);
-
-		if(cwd->num_levels == 0 && ntfsd > 0)
+		if(cwd->num_levels == 0 && ps3ntfs_running())
 		{
-		#else
-		if(cwd->num_levels == 0)
-		{
-		#endif
-			#ifdef _PS3NTFS_PRX_
 			ps3ntfs_prx_lock();
-			#else
-			sys_spinlock_lock(&spinlock_id);
-			#endif
 
-			#ifdef _PS3NTFS_PRX_
 			ntfs_md* mounts = ps3ntfs_prx_mounts();
 			int num_mounts = ps3ntfs_prx_num_mounts();
-			#endif
 
-			if(mounts != NULL && num_mounts > 0) // root
+			if(mounts != NULL && num_mounts > 0)
 			{
 				if(ntfs_list_cptr == NULL)
 				{
@@ -164,20 +147,12 @@ bool data_list(struct Client* client)
 
 				bool ret = data_ntfs_list(client);
 
-				#ifdef _PS3NTFS_PRX_
 				ps3ntfs_prx_unlock();
-				#else
-				sys_spinlock_unlock(&spinlock_id);
-				#endif
 
 				return ret;
 			}
 
-			#ifdef _PS3NTFS_PRX_
 			ps3ntfs_prx_unlock();
-			#else
-			sys_spinlock_unlock(&spinlock_id);
-			#endif
 		}
 		#endif
 
@@ -247,27 +222,14 @@ bool data_nlst(struct Client* client)
 	if(nread == 0)
 	{
 		#ifdef _NTFS_SUPPORT_
-		#ifdef _PS3NTFS_PRX_
-		sys_prx_id_t ntfsd = sys_prx_get_module_id_by_name("NTFSD", 0, NULL);
-
-		if(cwd->num_levels == 0 && ntfsd > 0)
+		if(cwd->num_levels == 0 && ps3ntfs_running())
 		{
-		#else
-		if(cwd->num_levels == 0)
-		{
-		#endif
-			#ifdef _PS3NTFS_PRX_
 			ps3ntfs_prx_lock();
-			#else
-			sys_spinlock_lock(&spinlock_id);
-			#endif
 
-			#ifdef _PS3NTFS_PRX_
 			ntfs_md* mounts = ps3ntfs_prx_mounts();
 			int num_mounts = ps3ntfs_prx_num_mounts();
-			#endif
 
-			if(mounts != NULL && num_mounts > 0) // root
+			if(mounts != NULL && num_mounts > 0)
 			{
 				if(ntfs_list_cptr == NULL)
 				{
@@ -280,22 +242,14 @@ bool data_nlst(struct Client* client)
 					*fd = -1;
 				}
 
-				bool ret = data_ntfs_nlst(client);
+				bool ret = data_ntfs_list(client);
 
-				#ifdef _PS3NTFS_PRX_
 				ps3ntfs_prx_unlock();
-				#else
-				sys_spinlock_unlock(&spinlock_id);
-				#endif
 
 				return ret;
 			}
 
-			#ifdef _PS3NTFS_PRX_
 			ps3ntfs_prx_unlock();
-			#else
-			sys_spinlock_unlock(&spinlock_id);
-			#endif
 		}
 		#endif
 
