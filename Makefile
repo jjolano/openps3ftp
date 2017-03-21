@@ -64,12 +64,13 @@ endif
 distclean: clean prxclean ps3clean
 
 prx:
-	$(MAKE) -C external/ps3ntfs
+ifeq ($(NTFS_SUPPORT), 1)
+	$(MAKE) -C external/ps3ntfs clean all
+endif
 	$(MAKE) -C lib SDK=cell
 	$(MAKE) -C bin/prx
 
 prxclean:
-	$(MAKE) -C external/ps3ntfs clean
 	$(MAKE) -C lib SDK=cell clean
 	$(MAKE) -C bin/prx clean
 

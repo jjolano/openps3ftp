@@ -17,6 +17,7 @@ bool prx_running = false;
 
 #ifdef _NTFS_SUPPORT_
 #ifndef _PS3NTFS_PRX_
+int spinlock_id;
 ntfs_md* mounts = NULL;
 int num_mounts = 0;
 
@@ -24,6 +25,8 @@ void ntfs_main(uint64_t ptr)
 {
 	bool is_mounted[8];
 	memset(is_mounted, false, sizeof(is_mounted));
+
+	sys_spinlock_initialize(&spinlock_id);
 
 	const DISC_INTERFACE* ntfs_usb_if[8] = {
 		&__io_ntfs_usb000,
@@ -55,6 +58,8 @@ void ntfs_main(uint64_t ptr)
 
 					if(num_partitions > 0 && partitions)
 					{
+						sys_spinlock_lock(&spinlock_id);
+
 						int j;
 						for(j = 0; j < num_partitions; j++)
 						{
@@ -74,6 +79,8 @@ void ntfs_main(uint64_t ptr)
 							}
 						}
 
+						sys_spinlock_unlock(&spinlock_id);
+
 						free(partitions);
 					}
 
@@ -89,6 +96,8 @@ void ntfs_main(uint64_t ptr)
 
 				if(is_mounted[i])
 				{
+					sys_spinlock_lock(&spinlock_id);
+
 					int j;
 					for(j = 0; j < num_mounts; j++)
 					{
@@ -105,6 +114,8 @@ void ntfs_main(uint64_t ptr)
 						}
 					}
 
+					sys_spinlock_unlock(&spinlock_id);
+
 					//sprintf(msg, "Unmounted /dev_usb%03d", i);
 					//vshtask_notify(msg);
 
@@ -119,6 +130,8 @@ void ntfs_main(uint64_t ptr)
 	sys_timer_sleep(2);
 
 	// Unmount NTFS.
+	sys_spinlock_lock(&spinlock_id);
+
 	while(num_mounts-- > 0)
 	{
 		ntfsUnmount(mounts[num_mounts].name, true);
@@ -128,20 +141,10 @@ void ntfs_main(uint64_t ptr)
 	{
 		free(mounts);
 	}
+
+	sys_spinlock_unlock(&spinlock_id);
 	
 	sys_ppu_thread_exit(0);
-}
-#endif
-
-#ifdef _PS3NTFS_PRX_
-ntfs_md* get_ntfs_mounts(void)
-{
-	return ps3ntfs_prx_mounts();
-}
-
-int get_ntfs_num_mounts(void)
-{
-	return ps3ntfs_prx_num_mounts();
 }
 #endif
 #endif
