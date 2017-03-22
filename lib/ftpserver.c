@@ -293,7 +293,7 @@ uint32_t server_run(struct Server* server)
 					opttv.tv_usec = 0;
 					setsockopt(socket_client, SOL_SOCKET, SO_SNDTIMEO, &opttv, sizeof(opttv));
 
-					//setsockopt(socket_client, IPPROTO_TCP, TCP_NODELAY, &optval, sizeof(optval));
+					setsockopt(socket_client, IPPROTO_TCP, TCP_NODELAY, &optval, sizeof(optval));
 
 					struct Client* client = NULL;
 					server_client_add(server, socket_client, &client);
