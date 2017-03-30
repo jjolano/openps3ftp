@@ -148,7 +148,7 @@ int main(void)
 
 	while(gfx->GetAppStatus() && ftp_server->running)
 	{
-		int num_connections = ftp_server->num_clients;
+		int num_connections = ftp_server->nfds - 1;
 
 		if(gfx->GetXMBStatus() == XMB_CLOSE && flipped < 2)
 		{

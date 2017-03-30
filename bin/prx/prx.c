@@ -127,11 +127,11 @@ int prx_start(size_t args, void* argv)
 
 	#ifdef _NTFS_SUPPORT_
 	#ifndef _PS3NTFS_PRX_
-	sys_ppu_thread_create(&ntfs_tid, ps3ntfs_automount, 0, 1001, 0x2000, SYS_PPU_THREAD_CREATE_JOINABLE, (char*) "OpenPS3FTP-NTFS");
+	sys_ppu_thread_create(&ntfs_tid, ps3ntfs_automount, 0, 1001, 0x4000, SYS_PPU_THREAD_CREATE_JOINABLE, (char*) "OpenPS3FTP-NTFS");
 	#endif
 	#endif
 
-	sys_ppu_thread_create(&prx_tid, prx_main, 0, 1000, 0x4000, SYS_PPU_THREAD_CREATE_JOINABLE, (char*) "OpenPS3FTP");
+	sys_ppu_thread_create(&prx_tid, prx_main, 0, 1000, 0x8000, SYS_PPU_THREAD_CREATE_JOINABLE, (char*) "OpenPS3FTP");
 
 	_sys_ppu_thread_exit(0);
 	return SYS_PRX_START_OK;

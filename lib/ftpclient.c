@@ -283,7 +283,7 @@ void client_socket_event(struct Client* client, int socket_ev)
 
 		ssize_t bytes = recv(socket_ev, buffer, BUFFER_CONTROL, 0);
 
-		if(bytes <= 0)
+		if(bytes <= 2)
 		{
 			client_socket_disconnect(client, socket_ev);
 
@@ -292,18 +292,7 @@ void client_socket_event(struct Client* client, int socket_ev)
 			return;
 		}
 
-		char* endl = strchr((char*) buffer, '\r');
-
-		if(endl == NULL)
-		{
-			client_socket_disconnect(client, socket_ev);
-
-			server_pollfds_remove(client->server_ptr, socket_ev);
-			server_client_remove(client->server_ptr, socket_ev);
-			return;
-		}
-
-		*endl = '\0';
+		buffer[bytes - 2] = '\0';
 
 		char command_name[32];
 		char* command_param = client->server_ptr->buffer_command;
@@ -316,7 +305,7 @@ void client_socket_event(struct Client* client, int socket_ev)
 		}
 		else
 		{
-			strcpy(client->lastcmd, command_name);
+			str_toupper(client->lastcmd, command_name, strlen(command_name));
 		}
 	}
 }

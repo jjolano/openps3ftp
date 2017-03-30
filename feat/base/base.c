@@ -125,10 +125,8 @@ bool data_list(struct Client* client)
 	if(nread == 0)
 	{
 		#ifdef _NTFS_SUPPORT_
-		if(cwd->num_levels == 0 && ps3ntfs_running())
+		if(cwd->num_levels == 0 && ps3ntfs_running() && ps3ntfs_prx_lock() == 0)
 		{
-			ps3ntfs_prx_lock();
-
 			ntfs_md* mounts = ps3ntfs_prx_mounts();
 			int num_mounts = ps3ntfs_prx_num_mounts();
 
@@ -148,7 +146,6 @@ bool data_list(struct Client* client)
 				bool ret = data_ntfs_list(client);
 
 				ps3ntfs_prx_unlock();
-
 				return ret;
 			}
 
@@ -222,10 +219,8 @@ bool data_nlst(struct Client* client)
 	if(nread == 0)
 	{
 		#ifdef _NTFS_SUPPORT_
-		if(cwd->num_levels == 0 && ps3ntfs_running())
+		if(cwd->num_levels == 0 && ps3ntfs_running() && ps3ntfs_prx_lock() == 0)
 		{
-			ps3ntfs_prx_lock();
-
 			ntfs_md* mounts = ps3ntfs_prx_mounts();
 			int num_mounts = ps3ntfs_prx_num_mounts();
 
@@ -245,7 +240,6 @@ bool data_nlst(struct Client* client)
 				bool ret = data_ntfs_list(client);
 
 				ps3ntfs_prx_unlock();
-
 				return ret;
 			}
 
@@ -1026,7 +1020,7 @@ void cmd_stat(struct Client* client, const char command_name[32], const char* co
 	sprintf(buffer, "Authenticated: %d", *auth);
 	client_send_multimessage(client, buffer);
 
-	sprintf(buffer, "Total connections: %zu", client->server_ptr->num_clients);
+	sprintf(buffer, "Total connections: %d", (int) (client->server_ptr->nfds - 1));
 	client_send_multimessage(client, buffer);
 
 	client_send_code(client, 211, "End.");

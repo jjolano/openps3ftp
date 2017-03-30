@@ -44,24 +44,6 @@ void server_pollfds_remove(struct Server* server, int fd)
 
 void server_client_add(struct Server* server, int fd, struct Client** client_ptr)
 {
-	++server->num_clients;
-
-	// allocate memory if not already allocated
-	if(server->buffer_control == NULL)
-	{
-		server->buffer_control = (char*) malloc(BUFFER_CONTROL * sizeof(char));
-	}
-
-	if(server->buffer_data == NULL)
-	{
-		server->buffer_data = (char*) malloc(BUFFER_DATA * sizeof(char));
-	}
-
-	if(server->buffer_command == NULL)
-	{
-		server->buffer_command = (char*) malloc(BUFFER_COMMAND * sizeof(char));
-	}
-
 	if(*client_ptr != NULL)
 	{
 		// allocate client for data connection
@@ -125,29 +107,6 @@ void server_client_remove(struct Server* server, int fd)
 		}
 
 		remove_from_tree(&(server->clients), fd);
-		--server->num_clients;
-
-		// free memory if no clients are connected
-		if(server->num_clients == 0)
-		{
-			if(server->buffer_control != NULL)
-			{
-				free(server->buffer_control);
-				server->buffer_control = NULL;
-			}
-
-			if(server->buffer_data != NULL)
-			{
-				free(server->buffer_data);
-				server->buffer_data = NULL;
-			}
-
-			if(server->buffer_command != NULL)
-			{
-				free(server->buffer_command);
-				server->buffer_command = NULL;
-			}
-		}
 	}
 }
 
@@ -160,14 +119,13 @@ void server_init(struct Server* server, struct Command* command_ptr, unsigned sh
 	server->running = false;
 	server->should_stop = false;
 
-	server->buffer_control = NULL;
-	server->buffer_data = NULL;
-	server->buffer_command = NULL;
+	server->buffer_control = (char*) malloc(BUFFER_CONTROL * sizeof(char));
+	server->buffer_data = (char*) malloc(BUFFER_DATA * sizeof(char));
+	server->buffer_command = (char*) malloc(BUFFER_COMMAND * sizeof(char));
 	server->pollfds = NULL;
 	server->clients.root = NULL;
 
 	server->nfds = 0;
-	server->num_clients = 0;
 
 	server->socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 }
@@ -281,8 +239,8 @@ uint32_t server_run(struct Server* server)
 					if(client == NULL)
 					{
 						// remove orphan socket
-						server_pollfds_remove(server, pfd->fd);
 						socketclose(pfd->fd);
+						server_pollfds_remove(server, pfd->fd);
 						continue;
 					}
 
@@ -320,7 +278,7 @@ uint32_t server_run(struct Server* server)
 	server->socket = -1;
 
 	// clear clients
-	while(server->num_clients > 0)
+	while(server->clients.root != NULL)
 	{
 		server_client_remove(server, server->clients.root->data);
 	}

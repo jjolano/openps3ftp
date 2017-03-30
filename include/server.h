@@ -38,7 +38,6 @@ struct Server
 	nfds_t nfds;
 
 	struct ServerClients clients;
-	size_t num_clients;
 
 	char* buffer_control;
 	char* buffer_data;
