@@ -28,6 +28,10 @@ extern "C" {
 
 #ifndef _NO_VSH_EXPORTS_
 #include "vsh_exports.h"
+
+#define toupper(a) sys_toupper(a)
+#else
+#include <ctype.h>
 #endif
 
 #ifdef _NTFS_SUPPORT_
@@ -43,6 +47,8 @@ extern "C" {
 #endif
 
 #ifdef PSL1GHT_SDK
+#include <ctype.h>
+
 #include <net/net.h>
 #include <net/poll.h>
 #include <sys/file.h>
@@ -66,6 +72,7 @@ extern int closesocket(int socket);
 #include <unistd.h>
 #include <errno.h>
 #include <time.h>
+#include <ctype.h>
 
 #include <linux/limits.h>
 

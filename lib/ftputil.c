@@ -18,6 +18,98 @@
 	}
 }*/
 
+struct PTNode* ptnode_init(void)
+{
+	struct PTNode* n = (struct PTNode*) malloc(sizeof(struct PTNode));
+
+	if(n)
+	{
+		int i = 26;
+
+		while(i--)
+		{
+			n->children[i] = NULL;
+		}
+
+		n->ptr = NULL;
+	}
+
+	return n;
+}
+
+void ptnode_insert(struct PTNode* root, const char* key, void* ptr)
+{
+	int height;
+	int length = strlen(key);
+	
+	struct PTNode* current = root;
+
+	for(height = 0; height < length; ++height)
+	{
+		int i = (int) (toupper(key[height]) - 'A');
+
+		if(current->children[i] == NULL)
+		{
+			// create new node
+			current->children[i] = ptnode_init();
+		}
+
+		// move forward in nodes
+		current = current->children[i];
+	}
+
+	current->ptr = ptr;
+}
+
+struct PTNode* ptnode_nodesearch(struct PTNode* root, const char* key)
+{
+	int height;
+	int length = strlen(key);
+
+	struct PTNode* current = root;
+
+	for(height = 0; height < length; ++height)
+	{
+		int i = (int) (toupper(key[height]) - 'A');
+
+		if(current->children[i] == NULL)
+		{
+			// partial string doesn't exist, cancel loop early
+			return NULL;
+		}
+
+		current = current->children[i];
+	}
+
+	return current;
+}
+
+void* ptnode_search(struct PTNode* root, const char* key)
+{
+	struct PTNode* n = ptnode_nodesearch(root, key);
+
+	if(n != NULL)
+	{
+		return n->ptr;
+	}
+
+	return NULL;
+}
+
+void ptnode_free(struct PTNode* root)
+{
+	int i;
+	for(i = 0; i < 26; ++i)
+	{
+		if(root->children[i] != NULL)
+		{
+			ptnode_free(root->children[i]);
+		}
+	}
+
+	free(root);
+}
+
 void get_ntfspath(char* ntfspath, const char* path)
 {
 	char mount_name[16];
@@ -139,7 +231,8 @@ void parse_command_string(char command_name[32], char* command_param, char* to_p
 	}
 
 	// copy strings
-	str_toupper(command_name, to_parse, namelen);
+	strncpy(command_name, to_parse, namelen);
+	command_name[namelen] = '\0';
 
 	if(token != NULL)
 	{

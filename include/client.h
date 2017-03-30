@@ -7,18 +7,10 @@ extern "C" {
 #include "common.h"
 #include "server.h"
 
-struct ClientVariable
-{
-	char name[32];
-	void* ptr;
-};
-
 struct Client
 {
 	struct Server* server_ptr;
-
-	struct ClientVariable* cvar;
-	int cvar_count;
+	struct PTNode* cvar;
 
 	int socket_control;
 	int socket_data;
@@ -29,8 +21,8 @@ struct Client
 };
 
 /* cvar functions */
-void* client_get_cvar(struct Client* client, const char name[32]);
-void client_set_cvar(struct Client* client, const char name[32], void* ptr);
+void* client_get_cvar(struct Client* client, const char* name);
+void client_set_cvar(struct Client* client, const char* name, void* ptr);
 
 /* control socket functions */
 void client_send_message(struct Client* client, const char* message);

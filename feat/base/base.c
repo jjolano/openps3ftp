@@ -980,30 +980,17 @@ void cmd_rnto(struct Client* client, const char command_name[32], const char* co
 
 void cmd_site(struct Client* client, const char command_name[32], const char* command_params)
 {
+	if(command_params[0] == '\0')
+	{
+		client_send_code(client, 501, FTP_501);
+		return;
+	}
+
 	struct Command* site_command = (struct Command*) malloc(sizeof(struct Command));
 
 	command_init(site_command);
 
 	site_command_import(site_command);
-
-	if(command_params[0] == '\0')
-	{
-		// list site commands if no command given
-		client_send_multicode(client, 214, "SITE commands:");
-
-		int i;
-		for(i = 0; i < site_command->num_command_callbacks; ++i)
-		{
-			struct CommandCallback* cb = &site_command->command_callbacks[i];
-			client_send_multimessage(client, cb->name);
-		}
-
-		client_send_code(client, 214, "End.");
-		
-		command_free(site_command);
-		free(site_command);
-		return;
-	}
 
 	char* sitecmd = strdup(command_params);
 

@@ -54,19 +54,12 @@ void command_register_disconnect(struct Command* command, disconnect_callback ca
 
 bool command_call(struct Command* command, const char name[32], const char* param, struct Client* client)
 {
-	if(command->command_callbacks != NULL)
-	{
-		int i;
-		for(i = 0; i < command->num_command_callbacks; ++i)
-		{
-			struct CommandCallback* cb = &command->command_callbacks[i];
+	command_callback callback = ptnode_search(command->command_callbacks, name);
 
-			if(*cb->callback != NULL && strcmp(cb->name, name) == 0)
-			{
-				(*cb->callback)(client, name, param);
-				return true;
-			}
-		}
+	if(callback != NULL)
+	{
+		(*callback)(client, name, param);
+		return true;
 	}
 
 	return false;
@@ -74,45 +67,26 @@ bool command_call(struct Command* command, const char name[32], const char* para
 
 void command_register(struct Command* command, const char name[32], command_callback callback)
 {
-	command->command_callbacks = (struct CommandCallback*) realloc(command->command_callbacks, ++command->num_command_callbacks * sizeof(struct CommandCallback));
-
-	struct CommandCallback* cb = &command->command_callbacks[command->num_command_callbacks - 1];
-
-	strcpy(cb->name, name);
-	cb->callback = callback;
+	ptnode_insert(command->command_callbacks, name, callback);
 }
 
-void command_import(struct Command* command, struct Command* ext_command)
+void command_unregister(struct Command* command, const char name[32])
 {
-	int i;
+	struct PTNode* n = ptnode_nodesearch(command->command_callbacks, name);
 
-	// import commands
-	for(i = 0; i < ext_command->num_command_callbacks; ++i)
+	if(n != NULL)
 	{
-		struct CommandCallback* ext_cb = &ext_command->command_callbacks[i];
-		command_register(command, ext_cb->name, ext_cb->callback);
-	}
-
-	// import events
-	for(i = 0; i < ext_command->num_connect_callbacks; ++i)
-	{
-		struct ConnectCallback* ext_cb = &ext_command->connect_callbacks[i];
-		command_register_connect(command, ext_cb->callback);
-	}
-
-	for(i = 0; i < ext_command->num_disconnect_callbacks; ++i)
-	{
-		struct DisconnectCallback* ext_cb = &ext_command->disconnect_callbacks[i];
-		command_register_connect(command, ext_cb->callback);
+		n->ptr = NULL;
 	}
 }
 
 void command_init(struct Command* command)
 {
-	command->command_callbacks = NULL;
-	command->num_command_callbacks = 0;
+	command->command_callbacks = ptnode_init();
+
 	command->connect_callbacks = NULL;
 	command->num_connect_callbacks = 0;
+
 	command->disconnect_callbacks = NULL;
 	command->num_disconnect_callbacks = 0;
 }
@@ -121,7 +95,7 @@ void command_free(struct Command* command)
 {
 	if(command->command_callbacks != NULL)
 	{
-		free(command->command_callbacks);
+		ptnode_free(command->command_callbacks);
 	}
 
 	if(command->connect_callbacks != NULL)

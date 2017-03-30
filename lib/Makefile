@@ -24,7 +24,7 @@ ifeq ($(SDK), psl1ght)
 include $(PSL1GHT)/ppu_rules
 
 PPU_INCDIRS += -I$(PORTLIBS)/include $(LIBPSL1GHT_INC)
-PPU_CFLAGS += -DPSL1GHT_SDK -g -Wall -mregnames -mcpu=cell $(MACHDEP)
+PPU_CFLAGS += -DPSL1GHT_SDK -Wall -mregnames -mcpu=cell $(MACHDEP)
 
 ifeq ($(LIB_EXTERNAL), 1)
 PPU_LIB_TARGET = libopenps3ftp_psl1ght.a
@@ -38,7 +38,7 @@ endif
 ifeq ($(SDK), linux)
 PPU_CFLAGS += -DLINUX -g -Wall
 PPU_LIB_TARGET = libftp.a
-PPU_OPTIMIZE_LV = -Og
+PPU_OPTIMIZE_LV = -Og -g
 endif
 
 PPU_SRCS := $(wildcard *.c)

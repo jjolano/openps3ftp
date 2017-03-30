@@ -21,7 +21,7 @@ OBJS		+= $(C_SRCS:.c=.c.o)
 DEFINES		:= -DLINUX
 CFLAGS		+= -ffunction-sections -fdata-sections -Og -g -Wall $(INCLUDE) $(DEFINES)
 CFLAGS		+= -DAPP_VER_MIN=\"-g$(GIT_VERSION)\"
-CXXFLAGS	+= $(CFLAGS)
+CXXFLAGS	+= -std=c++11 $(CFLAGS)
 
 # Make rules
 .PHONY: all clean

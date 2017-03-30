@@ -1,4 +1,5 @@
 #include "server.h"
+#include "avlutils.h"
 
 void server_pollfds_add(struct Server* server, int fd, short events)
 {
@@ -43,34 +44,7 @@ void server_pollfds_remove(struct Server* server, int fd)
 
 void server_client_add(struct Server* server, int fd, struct Client** client_ptr)
 {
-	// allocate new client
-	server->clients = (struct ServerClients*) realloc(server->clients, ++server->num_clients * sizeof(struct ServerClients));
-
-	struct ServerClients* server_client = &server->clients[server->num_clients - 1];
-
-	server_client->socket = fd;
-
-	if(*client_ptr != NULL)
-	{
-		// set to existing client
-		server_client->client = *client_ptr;
-		return;
-	}
-
-	// initialize new client
-	server_client->client = (struct Client*) malloc(sizeof(struct Client));
-
-	server_client->client->server_ptr = server;
-
-	server_client->client->cvar = NULL;
-	server_client->client->cvar_count = 0;
-
-	server_client->client->socket_control = fd;
-	server_client->client->socket_data = -1;
-	server_client->client->socket_pasv = -1;
-
-	server_client->client->cb_data = NULL;
-	server_client->client->lastcmd[0] = '\0';
+	++server->num_clients;
 
 	// allocate memory if not already allocated
 	if(server->buffer_control == NULL)
@@ -88,93 +62,91 @@ void server_client_add(struct Server* server, int fd, struct Client** client_ptr
 		server->buffer_command = (char*) malloc(BUFFER_COMMAND * sizeof(char));
 	}
 
-	// call connect callback
-	command_call_connect(server->command_ptr, server_client->client);
+	if(*client_ptr != NULL)
+	{
+		// allocate client for data connection
+		insert_node(&server->clients, fd, *client_ptr);
+		return;
+	}
+	
+	// initialize new client
+	*client_ptr = (struct Client*) malloc(sizeof(struct Client));
 
-	*client_ptr = server_client->client;
+	struct Client* client = *client_ptr;
+
+	client->server_ptr = server;
+
+	client->cvar = ptnode_init();
+
+	client->socket_control = fd;
+	client->socket_data = -1;
+	client->socket_pasv = -1;
+
+	client->cb_data = NULL;
+	client->lastcmd[0] = '\0';
+
+	// call connect callback
+	command_call_connect(server->command_ptr, client);
+
+	// add to nodes
+	insert_node(&(server->clients), fd, client);
 }
 
 void server_client_find(struct Server* server, int fd, struct Client** client_ptr)
 {
 	*client_ptr = NULL;
 
-	if(server->clients != NULL)
-	{
-		size_t i;
+	struct ClientNode** n = search_subtree(&((server->clients).root), fd);
 
-		for(i = 0; i < server->num_clients; ++i)
-		{
-			if(server->clients[i].socket == fd)
-			{
-				*client_ptr = server->clients[i].client;
-				break;
-			}
-		}
+	if(*n != NULL)
+	{
+		*client_ptr = (*n)->client;
 	}
 }
 
 void server_client_remove(struct Server* server, int fd)
 {
-	if(server->clients != NULL)
-	{
-		// find index
-		size_t i;
+	struct Client* client = NULL;
+	server_client_find(server, fd, &client);
 
-		for(i = 0; i < server->num_clients; ++i)
+	if(client != NULL)
+	{
+		if(client->socket_control == fd)
 		{
-			if(server->clients[i].socket == fd)
+			// free client if control socket
+			// call disconnect callback
+			command_call_disconnect(server->command_ptr, client);
+
+			// make sure client is disconnected
+			client_socket_disconnect(client, fd);
+
+			client_free(client);
+			free(client);
+		}
+
+		remove_from_tree(&(server->clients), fd);
+		--server->num_clients;
+
+		// free memory if no clients are connected
+		if(server->num_clients == 0)
+		{
+			if(server->buffer_control != NULL)
 			{
-				struct Client* client = server->clients[i].client;
-
-				if(client->socket_control == fd)
-				{
-					// free client if control socket
-					// call disconnect callback
-					command_call_disconnect(server->command_ptr, client);
-
-					// make sure client is disconnected
-					client_socket_disconnect(client, fd);
-
-					client_free(client);
-					free(client);
-				}
-
-				break;
+				free(server->buffer_control);
+				server->buffer_control = NULL;
 			}
-		}
 
-		if(i == server->num_clients)
-		{
-			// not found, don't do anything
-			return;
-		}
+			if(server->buffer_data != NULL)
+			{
+				free(server->buffer_data);
+				server->buffer_data = NULL;
+			}
 
-		// shift memory
-		memmove(&server->clients[i], &server->clients[i + 1], (server->num_clients - i - 1) * sizeof(struct ServerClients));
-
-		// reallocate memory
-		server->clients = (struct ServerClients*) realloc(server->clients, --server->num_clients * sizeof(struct ServerClients));
-	}
-
-	// free memory if no clients are connected
-	if(server->num_clients == 0)
-	{
-		if(server->buffer_control != NULL)
-		{
-			free(server->buffer_control);
-			server->buffer_control = NULL;
-		}
-
-		if(server->buffer_data != NULL)
-		{
-			free(server->buffer_data);
-			server->buffer_data = NULL;
-		}
-
-		if(server->buffer_command != NULL)
-		{
-			free(server->buffer_command);
-			server->buffer_command = NULL;
+			if(server->buffer_command != NULL)
+			{
+				free(server->buffer_command);
+				server->buffer_command = NULL;
+			}
 		}
 	}
 }
@@ -192,7 +164,7 @@ void server_init(struct Server* server, struct Command* command_ptr, unsigned sh
 	server->buffer_data = NULL;
 	server->buffer_command = NULL;
 	server->pollfds = NULL;
-	server->clients = NULL;
+	server->clients.root = NULL;
 
 	server->nfds = 0;
 	server->num_clients = 0;
@@ -285,7 +257,7 @@ uint32_t server_run(struct Server* server)
 
 					struct linger optlinger;
 					optlinger.l_onoff = 1;
-					optlinger.l_linger = 10;
+					optlinger.l_linger = 15;
 					setsockopt(socket_client, SOL_SOCKET, SO_LINGER, &optlinger, sizeof(optlinger));
 
 					struct timeval opttv;
@@ -350,7 +322,7 @@ uint32_t server_run(struct Server* server)
 	// clear clients
 	while(server->num_clients > 0)
 	{
-		server_client_remove(server, server->clients[0].socket);
+		server_client_remove(server, server->clients.root->data);
 	}
 
 	// clear pollfds
@@ -378,9 +350,9 @@ void server_free(struct Server* server)
 		free(server->pollfds);
 	}
 
-	if(server->clients != NULL)
+	if(server->clients.root != NULL)
 	{
-		free(server->clients);
+		destroy_tree(&(server->clients));
 	}
 
 	if(server->buffer_control != NULL)

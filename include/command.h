@@ -7,12 +7,6 @@ extern "C" {
 #include "common.h"
 #include "client.h"
 
-struct CommandCallback
-{
-	char name[32];
-	command_callback callback;
-};
-
 struct ConnectCallback
 {
 	connect_callback callback;
@@ -25,8 +19,7 @@ struct DisconnectCallback
 
 struct Command
 {
-	struct CommandCallback* command_callbacks;
-	int num_command_callbacks;
+	struct PTNode* command_callbacks;
 
 	struct ConnectCallback* connect_callbacks;
 	int num_connect_callbacks;
@@ -44,7 +37,7 @@ void command_register_disconnect(struct Command* command, disconnect_callback ca
 /* command callback functions */
 bool command_call(struct Command* command, const char name[32], const char* param, struct Client* client);
 void command_register(struct Command* command, const char name[32], command_callback callback);
-void command_import(struct Command* command, struct Command* ext_command);
+void command_unregister(struct Command* command, const char name[32]);
 
 /* internal functions */
 void command_init(struct Command* command);

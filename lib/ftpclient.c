@@ -1,44 +1,13 @@
 #include "client.h"
 
-void* client_get_cvar(struct Client* client, const char name[32])
+void* client_get_cvar(struct Client* client, const char* name)
 {
-	int i;
-
-	for(i = 0; i < client->cvar_count; ++i)
-	{
-		struct ClientVariable* cvar_ptr = &client->cvar[i];
-
-		if(strcmp(cvar_ptr->name, name) == 0)
-		{
-			return cvar_ptr->ptr;
-		}
-	}
-
-	return NULL;
+	return ptnode_search(client->cvar, name);
 }
 
-void client_set_cvar(struct Client* client, const char name[32], void* ptr)
+void client_set_cvar(struct Client* client, const char* name, void* ptr)
 {
-	int i;
-
-	for(i = 0; i < client->cvar_count; ++i)
-	{
-		struct ClientVariable* cvar_ptr = &client->cvar[i];
-
-		if(strcmp(cvar_ptr->name, name) == 0)
-		{
-			cvar_ptr->ptr = ptr;
-			return;
-		}
-	}
-
-	// create new cvar
-	client->cvar = (struct ClientVariable*) realloc(client->cvar, ++client->cvar_count * sizeof(struct ClientVariable));
-
-	struct ClientVariable* cvar_ptr = &client->cvar[client->cvar_count - 1];
-
-	strcpy(cvar_ptr->name, name);
-	cvar_ptr->ptr = ptr;
+	ptnode_insert(client->cvar, name, ptr);
 }
 
 void client_send_message(struct Client* client, const char* message)
@@ -174,7 +143,7 @@ bool client_data_start(struct Client* client, data_callback callback, short peve
 
 	struct linger optlinger;
 	optlinger.l_onoff = 1;
-	optlinger.l_linger = 0;
+	optlinger.l_linger = 15;
 	setsockopt(client->socket_data, SOL_SOCKET, SO_LINGER, &optlinger, sizeof(optlinger));
 
 	int optval = 1;
@@ -321,12 +290,18 @@ void client_socket_event(struct Client* client, int socket_ev)
 			return;
 		}
 
-		if(bytes <= 2)
+		char* endl = strchr((char*) buffer, '\r');
+
+		if(endl == NULL)
 		{
+			client_socket_disconnect(client, socket_ev);
+
+			server_pollfds_remove(client->server_ptr, socket_ev);
+			server_client_remove(client->server_ptr, socket_ev);
 			return;
 		}
 
-		buffer[bytes - 2] = '\0';
+		*endl = '\0';
 
 		char command_name[32];
 		char* command_param = client->server_ptr->buffer_command;
@@ -374,6 +349,6 @@ void client_free(struct Client* client)
 {
 	if(client->cvar != NULL)
 	{
-		free(client->cvar);
+		ptnode_free(client->cvar);
 	}
 }

@@ -1,4 +1,6 @@
 #include <iostream>
+#include <cstdint>
+#include <cinttypes>
 
 #include "server.h"
 #include "client.h"
@@ -18,8 +20,15 @@ void client_disconnect(struct Client* client)
 	std::cout << "Client [fd: " << client->socket_control << "]: disconnected" << std::endl;
 }
 
-int main(void)
+int main(int argc, char* argv[])
 {
+	unsigned short port = 21;
+
+	if(argc == 2)
+	{
+		port = (unsigned short) atoi(argv[1]);
+	}
+
 	struct Command* ftp_command = (struct Command*) malloc(sizeof(struct Command));
 
 	// initialize command struct
@@ -36,13 +45,13 @@ int main(void)
 	struct Server* ftp_server = (struct Server*) malloc(sizeof(struct Server));
 	
 	// initialize server struct
-	server_init(ftp_server, ftp_command, 21);
+	server_init(ftp_server, ftp_command, port);
 
 	std::cout << "Started server!" << std::endl;
 
-	server_run(ftp_server);
+	uint32_t ret = server_run(ftp_server);
 
-	std::cout << "Server stopped!" << std::endl;
+	std::cout << "Server stopped (code: " << ret << ")!" << std::endl;
 
 	server_free(ftp_server);
 	free(ftp_server);

@@ -8,10 +8,19 @@ extern "C" {
 #include "client.h"
 #include "command.h"
 
+struct ClientNode
+{
+	int data;
+	struct Client* client;
+
+	int height;
+	struct ClientNode* left;
+	struct ClientNode* right;
+};
+
 struct ServerClients
 {
-	int socket;
-	struct Client* client;
+	struct ClientNode* root;
 };
 
 struct Server
@@ -28,7 +37,7 @@ struct Server
 	struct pollfd* pollfds;
 	nfds_t nfds;
 
-	struct ServerClients* clients;
+	struct ServerClients clients;
 	size_t num_clients;
 
 	char* buffer_control;
