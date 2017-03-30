@@ -8,15 +8,18 @@ int32_t ftpio_open(const char* path, int oflags, int32_t* fd)
 	if(str_startswith(path, "/dev_ntfs"))
 	{
 		#ifdef _NTFS_SUPPORT_
-		char ntfspath[MAX_PATH];
-		get_ntfspath(ntfspath, path);
-
-		*fd = ps3ntfs_open(ntfspath, oflags, 0777);
-
-		if(*fd != -1)
+		if(ps3ntfs_running())
 		{
-			*fd |= NTFS_FD_MASK;
-			ret = 0;
+			char ntfspath[MAX_PATH];
+			get_ntfspath(ntfspath, path);
+
+			*fd = ps3ntfs_open(ntfspath, oflags, 0777);
+
+			if(*fd != -1)
+			{
+				*fd |= NTFS_FD_MASK;
+				ret = 0;
+			}
 		}
 		#endif
 	}
@@ -50,15 +53,18 @@ int32_t ftpio_opendir(const char* path, int32_t* fd)
 	if(str_startswith(path, "/dev_ntfs"))
 	{
 		#ifdef _NTFS_SUPPORT_
-		char ntfspath[MAX_PATH];
-		get_ntfspath(ntfspath, path);
-
-		DIR_ITER* dirState = ps3ntfs_diropen(ntfspath);
-
-		if(dirState != NULL)
+		if(ps3ntfs_running())
 		{
-			*fd = ((intptr_t) dirState) | NTFS_FD_MASK;
-			ret = 0;
+			char ntfspath[MAX_PATH];
+			get_ntfspath(ntfspath, path);
+
+			DIR_ITER* dirState = ps3ntfs_diropen(ntfspath);
+
+			if(dirState != NULL)
+			{
+				*fd = ((intptr_t) dirState) | NTFS_FD_MASK;
+				ret = 0;
+			}
 		}
 		#endif
 	}
@@ -295,28 +301,31 @@ int32_t ftpio_rename(const char* old_path, const char* new_path)
 	if(str_startswith(old_path, "/dev_ntfs") || str_startswith(new_path, "/dev_ntfs"))
 	{
 		#ifdef _NTFS_SUPPORT_
-		char old_ntfspath[MAX_PATH];
-		char new_ntfspath[MAX_PATH];
+		if(ps3ntfs_running())
+		{
+			char old_ntfspath[MAX_PATH];
+			char new_ntfspath[MAX_PATH];
 
-		if(str_startswith(old_path, "/dev_ntfs"))
-		{
-			get_ntfspath(old_ntfspath, old_path);
-		}
-		else
-		{
-			strcpy(old_ntfspath, old_path);
-		}
+			if(str_startswith(old_path, "/dev_ntfs"))
+			{
+				get_ntfspath(old_ntfspath, old_path);
+			}
+			else
+			{
+				strcpy(old_ntfspath, old_path);
+			}
 
-		if(str_startswith(new_path, "/dev_ntfs"))
-		{
-			get_ntfspath(new_ntfspath, new_path);
-		}
-		else
-		{
-			strcpy(new_ntfspath, new_path);
-		}
+			if(str_startswith(new_path, "/dev_ntfs"))
+			{
+				get_ntfspath(new_ntfspath, new_path);
+			}
+			else
+			{
+				strcpy(new_ntfspath, new_path);
+			}
 
-		ret = ps3ntfs_rename(old_ntfspath, new_ntfspath);
+			ret = ps3ntfs_rename(old_ntfspath, new_ntfspath);
+		}
 		#endif
 	}
 	else
@@ -344,8 +353,11 @@ int32_t ftpio_chmod(const char* path, mode_t mode)
 	if(str_startswith(path, "/dev_ntfs"))
 	{
 		#ifdef _NTFS_SUPPORT_
-		// not supported
-		ret = 0;
+		if(ps3ntfs_running())
+		{
+			// not supported
+			ret = 0;
+		}
 		#endif
 	}
 	else
@@ -414,10 +426,13 @@ int32_t ftpio_mkdir(const char* path, mode_t mode)
 	if(str_startswith(path, "/dev_ntfs"))
 	{
 		#ifdef _NTFS_SUPPORT_
-		char ntfspath[MAX_PATH];
-		get_ntfspath(ntfspath, path);
+		if(ps3ntfs_running())
+		{
+			char ntfspath[MAX_PATH];
+			get_ntfspath(ntfspath, path);
 
-		ret = ps3ntfs_mkdir(ntfspath, mode);
+			ret = ps3ntfs_mkdir(ntfspath, mode);
+		}
 		#endif
 	}
 	else
@@ -445,10 +460,13 @@ int32_t ftpio_rmdir(const char* path)
 	if(str_startswith(path, "/dev_ntfs"))
 	{
 		#ifdef _NTFS_SUPPORT_
-		char ntfspath[MAX_PATH];
-		get_ntfspath(ntfspath, path);
+		if(ps3ntfs_running())
+		{
+			char ntfspath[MAX_PATH];
+			get_ntfspath(ntfspath, path);
 
-		ret = ps3ntfs_unlink(ntfspath);
+			ret = ps3ntfs_unlink(ntfspath);
+		}
 		#endif
 	}
 	else
@@ -476,10 +494,13 @@ int32_t ftpio_unlink(const char* path)
 	if(str_startswith(path, "/dev_ntfs"))
 	{
 		#ifdef _NTFS_SUPPORT_
-		char ntfspath[MAX_PATH];
-		get_ntfspath(ntfspath, path);
+		if(ps3ntfs_running())
+		{
+			char ntfspath[MAX_PATH];
+			get_ntfspath(ntfspath, path);
 
-		ret = ps3ntfs_unlink(ntfspath);
+			ret = ps3ntfs_unlink(ntfspath);
+		}
 		#endif
 	}
 	else
@@ -507,24 +528,27 @@ int32_t ftpio_stat(const char* path, ftpstat* st)
 	if(str_startswith(path, "/dev_ntfs"))
 	{
 		#ifdef _NTFS_SUPPORT_
-		char ntfspath[MAX_PATH];
-		get_ntfspath(ntfspath, path);
-
-		struct stat ntfs_st;
-		ret = ps3ntfs_stat(ntfspath, &ntfs_st);
-
-		if(ret == 0)
+		if(ps3ntfs_running())
 		{
-			memset(st, 0, sizeof(ftpstat));
+			char ntfspath[MAX_PATH];
+			get_ntfspath(ntfspath, path);
 
-			st->st_mode = ntfs_st.st_mode;
-			st->st_uid = ntfs_st.st_uid;
-			st->st_gid = ntfs_st.st_gid;
-			st->st_atime = ntfs_st.st_atime;
-			st->st_mtime = ntfs_st.st_mtime;
-			st->st_ctime = ntfs_st.st_ctime;
-			st->st_size = ntfs_st.st_size;
-			st->st_blksize = ntfs_st.st_blksize;
+			struct stat ntfs_st;
+			ret = ps3ntfs_stat(ntfspath, &ntfs_st);
+
+			if(ret == 0)
+			{
+				memset(st, 0, sizeof(ftpstat));
+
+				st->st_mode = ntfs_st.st_mode;
+				st->st_uid = ntfs_st.st_uid;
+				st->st_gid = ntfs_st.st_gid;
+				st->st_atime = ntfs_st.st_atime;
+				st->st_mtime = ntfs_st.st_mtime;
+				st->st_ctime = ntfs_st.st_ctime;
+				st->st_size = ntfs_st.st_size;
+				st->st_blksize = ntfs_st.st_blksize;
+			}
 		}
 		#endif
 	}
