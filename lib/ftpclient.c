@@ -92,6 +92,7 @@ bool client_data_start(struct Client* client, data_callback callback, short peve
 
 			int optval = BUFFER_DATA;
 			setsockopt(client->socket_data, SOL_SOCKET, SO_RCVBUF, &optval, sizeof(optval));
+			setsockopt(client->socket_data, SOL_SOCKET, SO_SNDBUF, &optval, sizeof(optval));
 
 			struct timeval opttv;
 			opttv.tv_sec = 5;
@@ -133,6 +134,7 @@ bool client_data_start(struct Client* client, data_callback callback, short peve
 
 			int optval = BUFFER_DATA;
 			setsockopt(client->socket_data, SOL_SOCKET, SO_RCVBUF, &optval, sizeof(optval));
+			setsockopt(client->socket_data, SOL_SOCKET, SO_SNDBUF, &optval, sizeof(optval));
 
 			struct timeval opttv;
 			opttv.tv_sec = 5;
@@ -143,7 +145,7 @@ bool client_data_start(struct Client* client, data_callback callback, short peve
 
 	struct linger optlinger;
 	optlinger.l_onoff = 1;
-	optlinger.l_linger = 15;
+	optlinger.l_linger = 0;
 	setsockopt(client->socket_data, SOL_SOCKET, SO_LINGER, &optlinger, sizeof(optlinger));
 
 	int optval = 1;
