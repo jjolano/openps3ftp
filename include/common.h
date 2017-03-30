@@ -43,6 +43,8 @@ extern "C" {
 #define ps3ntfs_running() true
 #endif
 
+#else
+#define ps3ntfs_running() false
 #endif
 #endif
 

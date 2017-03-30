@@ -41,12 +41,12 @@ void ptnode_insert(struct PTNode* root, const char* key, void* ptr)
 {
 	int height;
 	int length = strlen(key);
-	
+
 	struct PTNode* current = root;
 
 	for(height = 0; height < length; ++height)
 	{
-		int i = (int) (toupper(key[height]) - 'A');
+		int i = (int) (toupper((int) key[height]) - 'A');
 
 		if(current->children[i] == NULL)
 		{
@@ -70,7 +70,7 @@ struct PTNode* ptnode_nodesearch(struct PTNode* root, const char* key)
 
 	for(height = 0; height < length; ++height)
 	{
-		int i = (int) (toupper(key[height]) - 'A');
+		int i = (int) (toupper((int) key[height]) - 'A');
 
 		if(current->children[i] == NULL)
 		{
