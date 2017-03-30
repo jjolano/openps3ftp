@@ -2,7 +2,7 @@
 #include "site/site.h"
 
 #ifdef _NTFS_SUPPORT_
-bool data_ntfs_list(struct Client* client)
+bool data_ntfs_list(struct Client* client, ntfs_md* mounts, int num_mounts)
 {
 	int* ntfs_list = (int*) client_get_cvar(client, "ntfs_list");
 
@@ -17,9 +17,6 @@ bool data_ntfs_list(struct Client* client)
 
 	ftpdirent dirent;
 	ftpstat st;
-
-	ntfs_md* mounts = ps3ntfs_prx_mounts();
-	int num_mounts = ps3ntfs_prx_num_mounts();
 
 	sprintf(dirent.d_name, "dev_%s", mounts[num_mounts - *ntfs_list].name);
 
@@ -57,7 +54,7 @@ bool data_ntfs_list(struct Client* client)
 	return false;
 }
 
-bool data_ntfs_nlst(struct Client* client)
+bool data_ntfs_nlst(struct Client* client, ntfs_md* mounts, int num_mounts)
 {
 	int* ntfs_list = (int*) client_get_cvar(client, "ntfs_list");
 	
@@ -72,9 +69,6 @@ bool data_ntfs_nlst(struct Client* client)
 
 	ftpdirent dirent;
 	ftpstat st;
-
-	ntfs_md* mounts = ps3ntfs_prx_mounts();
-	int num_mounts = ps3ntfs_prx_num_mounts();
 
 	sprintf(dirent.d_name, "dev_%s", mounts[num_mounts - *ntfs_list].name);
 
@@ -125,7 +119,7 @@ bool data_list(struct Client* client)
 	if(nread == 0)
 	{
 		#ifdef _NTFS_SUPPORT_
-		if(cwd->num_levels == 0 && ps3ntfs_running() && ps3ntfs_prx_lock() == 0)
+		if(cwd->num_levels == 0 && ps3ntfs_running())
 		{
 			ntfs_md* mounts = ps3ntfs_prx_mounts();
 			int num_mounts = ps3ntfs_prx_num_mounts();
@@ -143,13 +137,8 @@ bool data_list(struct Client* client)
 					*fd = -1;
 				}
 
-				bool ret = data_ntfs_list(client);
-
-				ps3ntfs_prx_unlock();
-				return ret;
+				return data_ntfs_list(client, mounts, num_mounts);
 			}
-
-			ps3ntfs_prx_unlock();
 		}
 		#endif
 
@@ -219,7 +208,7 @@ bool data_nlst(struct Client* client)
 	if(nread == 0)
 	{
 		#ifdef _NTFS_SUPPORT_
-		if(cwd->num_levels == 0 && ps3ntfs_running() && ps3ntfs_prx_lock() == 0)
+		if(cwd->num_levels == 0 && ps3ntfs_running())
 		{
 			ntfs_md* mounts = ps3ntfs_prx_mounts();
 			int num_mounts = ps3ntfs_prx_num_mounts();
@@ -237,13 +226,8 @@ bool data_nlst(struct Client* client)
 					*fd = -1;
 				}
 
-				bool ret = data_ntfs_list(client);
-
-				ps3ntfs_prx_unlock();
-				return ret;
+				return data_ntfs_nlst(client, mounts, num_mounts);
 			}
-
-			ps3ntfs_prx_unlock();
 		}
 		#endif
 
