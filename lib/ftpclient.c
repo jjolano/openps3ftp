@@ -18,6 +18,9 @@ void client_send_message(struct Client* client, const char* message)
 	if(send(client->socket_control, buffer, len, 0) < 0)
 	{
 		client_socket_disconnect(client, client->socket_control);
+
+		server_pollfds_remove(client->server_ptr, client->socket_control);
+		server_client_remove(client->server_ptr, client->socket_control);
 	}
 }
 
@@ -29,6 +32,9 @@ void client_send_code(struct Client* client, int code, const char* message)
 	if(send(client->socket_control, buffer, len, 0) < 0)
 	{
 		client_socket_disconnect(client, client->socket_control);
+
+		server_pollfds_remove(client->server_ptr, client->socket_control);
+		server_client_remove(client->server_ptr, client->socket_control);
 	}
 }
 
@@ -40,6 +46,9 @@ void client_send_multicode(struct Client* client, int code, const char* message)
 	if(send(client->socket_control, buffer, len, 0) < 0)
 	{
 		client_socket_disconnect(client, client->socket_control);
+
+		server_pollfds_remove(client->server_ptr, client->socket_control);
+		server_client_remove(client->server_ptr, client->socket_control);
 	}
 }
 
@@ -51,6 +60,9 @@ void client_send_multimessage(struct Client* client, const char* message)
 	if(send(client->socket_control, buffer, len, 0) < 0)
 	{
 		client_socket_disconnect(client, client->socket_control);
+
+		server_pollfds_remove(client->server_ptr, client->socket_control);
+		server_client_remove(client->server_ptr, client->socket_control);
 	}
 }
 
@@ -90,10 +102,6 @@ bool client_data_start(struct Client* client, data_callback callback, short peve
 				return false;
 			}
 
-			int optval = BUFFER_DATA;
-			setsockopt(client->socket_data, SOL_SOCKET, SO_RCVBUF, &optval, sizeof(optval));
-			setsockopt(client->socket_data, SOL_SOCKET, SO_SNDBUF, &optval, sizeof(optval));
-
 			struct timeval opttv;
 			opttv.tv_sec = 5;
 			opttv.tv_usec = 0;
@@ -132,10 +140,6 @@ bool client_data_start(struct Client* client, data_callback callback, short peve
 				return false;
 			}
 
-			int optval = BUFFER_DATA;
-			setsockopt(client->socket_data, SOL_SOCKET, SO_RCVBUF, &optval, sizeof(optval));
-			setsockopt(client->socket_data, SOL_SOCKET, SO_SNDBUF, &optval, sizeof(optval));
-
 			struct timeval opttv;
 			opttv.tv_sec = 5;
 			opttv.tv_usec = 0;
@@ -143,9 +147,16 @@ bool client_data_start(struct Client* client, data_callback callback, short peve
 		}
 	}
 
+	
 	struct linger optlinger;
 	optlinger.l_onoff = 1;
+
+	#ifndef LINUX
 	optlinger.l_linger = 0;
+	#else
+	optlinger.l_linger = 15;
+	#endif
+	
 	setsockopt(client->socket_data, SOL_SOCKET, SO_LINGER, &optlinger, sizeof(optlinger));
 
 	int optval = 1;
@@ -230,7 +241,13 @@ bool client_pasv_enter(struct Client* client, struct sockaddr_in* pasv_addr)
 
 	struct linger optlinger;
 	optlinger.l_onoff = 1;
+
+	#ifndef LINUX
 	optlinger.l_linger = 0;
+	#else
+	optlinger.l_linger = 15;
+	#endif
+	
 	setsockopt(client->socket_pasv, SOL_SOCKET, SO_LINGER, &optlinger, sizeof(optlinger));
 
 	socklen_t len = sizeof(struct sockaddr_in);

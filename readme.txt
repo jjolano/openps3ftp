@@ -19,7 +19,4 @@ Users:
 - There are two builds included in a standard distribution: CEX and REX.
   CEX is usable on (O/C)FW 3.40 to 3.55, and REX is for any CFW 3.56+.
 
-Known Issues:
-- SPRX crashes the console when shutting down while connected to the server.
-
 Bug reports are welcome at the GitHub repository.

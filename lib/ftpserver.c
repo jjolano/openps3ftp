@@ -67,11 +67,11 @@ void server_client_add(struct Server* server, int fd, struct Client** client_ptr
 	client->cb_data = NULL;
 	client->lastcmd[0] = '\0';
 
-	// call connect callback
-	command_call_connect(server->command_ptr, client);
-
 	// add to nodes
 	insert_node(&(server->clients), fd, client);
+
+	// call connect callback
+	command_call_connect(server->command_ptr, client);
 }
 
 void server_client_find(struct Server* server, int fd, struct Client** client_ptr)
@@ -213,21 +213,27 @@ uint32_t server_run(struct Server* server)
 						continue;
 					}
 
-					struct linger optlinger;
-					optlinger.l_onoff = 1;
-					optlinger.l_linger = 15;
-					setsockopt(socket_client, SOL_SOCKET, SO_LINGER, &optlinger, sizeof(optlinger));
-
 					struct timeval opttv;
 					opttv.tv_sec = 5;
 					opttv.tv_usec = 0;
 					setsockopt(socket_client, SOL_SOCKET, SO_SNDTIMEO, &opttv, sizeof(opttv));
 
+					struct linger optlinger;
+					optlinger.l_onoff = 1;
+
+					#ifndef LINUX
+					optlinger.l_linger = 0;
+					#else
+					optlinger.l_linger = 15;
+					#endif
+					
+					setsockopt(socket_client, SOL_SOCKET, SO_LINGER, &optlinger, sizeof(optlinger));
+
 					setsockopt(socket_client, IPPROTO_TCP, TCP_NODELAY, &optval, sizeof(optval));
 
 					struct Client* client = NULL;
-					server_client_add(server, socket_client, &client);
 					server_pollfds_add(server, socket_client, POLLIN|POLLRDNORM);
+					server_client_add(server, socket_client, &client);
 
 					client_send_code(client, 220, "FTP Ready.");
 				}

@@ -171,7 +171,7 @@ struct ClientNode* remove_node(struct ClientNode* n) {
 
 		n->data = immed_pred->data;
 		n->client = immed_pred->client;
-
+		
 		n->left = remove_from_subtree(n->left, immed_pred->data);
 		return n;
 	}

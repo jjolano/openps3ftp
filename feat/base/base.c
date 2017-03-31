@@ -121,6 +121,8 @@ bool data_list(struct Client* client)
 		#ifdef _NTFS_SUPPORT_
 		if(cwd->num_levels == 0 && ps3ntfs_running())
 		{
+			//ps3ntfs_prx_lock();
+
 			ntfs_md* mounts = ps3ntfs_prx_mounts();
 			int num_mounts = ps3ntfs_prx_num_mounts();
 
@@ -137,8 +139,14 @@ bool data_list(struct Client* client)
 					*fd = -1;
 				}
 
-				return data_ntfs_list(client, mounts, num_mounts);
+				bool ret = data_ntfs_list(client, mounts, num_mounts);
+
+				//ps3ntfs_prx_unlock();
+
+				return ret;
 			}
+			
+			//ps3ntfs_prx_unlock();
 		}
 		#endif
 
@@ -210,6 +218,8 @@ bool data_nlst(struct Client* client)
 		#ifdef _NTFS_SUPPORT_
 		if(cwd->num_levels == 0 && ps3ntfs_running())
 		{
+			//ps3ntfs_prx_lock();
+			
 			ntfs_md* mounts = ps3ntfs_prx_mounts();
 			int num_mounts = ps3ntfs_prx_num_mounts();
 
@@ -226,8 +236,14 @@ bool data_nlst(struct Client* client)
 					*fd = -1;
 				}
 
-				return data_ntfs_nlst(client, mounts, num_mounts);
+				bool ret = data_ntfs_nlst(client, mounts, num_mounts);
+
+				//ps3ntfs_prx_unlock();
+
+				return ret;
 			}
+
+			//ps3ntfs_prx_unlock();
 		}
 		#endif
 

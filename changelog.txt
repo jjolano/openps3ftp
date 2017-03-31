@@ -1,4 +1,6 @@
 [Version 4.3 - 2017]
+- Fixed console hardlock when shutting down while a client is connected.
+- Fixed various memory leaks.
 - Significantly improved performance of multiple simultaneous transfers.
 - Significantly improved performance of directory searching and listing.
 - Improved general server performance and stability through code optimizations.
