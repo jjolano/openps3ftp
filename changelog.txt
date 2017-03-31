@@ -1,4 +1,4 @@
-[Version 4.3 - 2017]
+[Version 4.3 - March 31, 2017]
 - Fixed console hardlock when shutting down while a client is connected.
 - Fixed various memory leaks.
 - Significantly improved performance of multiple simultaneous transfers.
