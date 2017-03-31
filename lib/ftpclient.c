@@ -299,13 +299,23 @@ void client_socket_event(struct Client* client, int socket_ev)
 
 		parse_command_string(command_name, command_param, buffer);
 
+		if(strcmp(command_name, "QUIT") == 0)
+		{
+			client_send_code(client, 221, FTP_221);
+			client_socket_disconnect(client, socket_ev);
+
+			server_pollfds_remove(client->server_ptr, socket_ev);
+			server_client_remove(client->server_ptr, socket_ev);
+			return;
+		}
+
 		if(!command_call(client->server_ptr->command_ptr, command_name, command_param, client))
 		{
 			client_send_code(client, 502, FTP_502);
 		}
 		else
 		{
-			str_toupper(client->lastcmd, command_name, strlen(command_name));
+			strcpy(client->lastcmd, command_name);
 		}
 	}
 }

@@ -231,8 +231,7 @@ void parse_command_string(char command_name[32], char* command_param, char* to_p
 	}
 
 	// copy strings
-	strncpy(command_name, to_parse, namelen);
-	command_name[namelen] = '\0';
+	str_toupper(command_name, to_parse, namelen);
 
 	if(token != NULL)
 	{

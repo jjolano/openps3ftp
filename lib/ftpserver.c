@@ -169,7 +169,7 @@ uint32_t server_run(struct Server* server)
 
 	while(!server->should_stop)
 	{
-		int p = socketpoll(server->pollfds, server->nfds, 1000);
+		int p = socketpoll(server->pollfds, server->nfds, 500);
 
 		if(p == 0)
 		{

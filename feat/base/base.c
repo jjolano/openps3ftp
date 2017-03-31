@@ -748,12 +748,6 @@ void cmd_pwd(struct Client* client, const char command_name[32], const char* com
 	client_send_code(client, 257, buffer);
 }
 
-void cmd_quit(struct Client* client, const char command_name[32], const char* command_params)
-{
-	client_send_code(client, 221, FTP_221);
-	client_socket_disconnect(client, client->socket_control);
-}
-
 void cmd_rest(struct Client* client, const char command_name[32], const char* command_params)
 {
 	uint64_t* rest = (uint64_t*) client_get_cvar(client, "rest");
@@ -1242,7 +1236,6 @@ void base_command_import(struct Command* command)
 	command_register(command, "PASV", cmd_pasv);
 	command_register(command, "PORT", cmd_port);
 	command_register(command, "PWD", cmd_pwd);
-	command_register(command, "QUIT", cmd_quit);
 	command_register(command, "REST", cmd_rest);
 	command_register(command, "RETR", cmd_retr);
 	command_register(command, "RMD", cmd_rmd);

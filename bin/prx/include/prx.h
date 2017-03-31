@@ -29,5 +29,6 @@ void ntfs_main(uint64_t ptr);
 #endif
 #endif
 
+void ftp_main(uint64_t ptr);
 void prx_main(uint64_t ptr);
 int prx_start(size_t args, void* argv);
