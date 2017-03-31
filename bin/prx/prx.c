@@ -107,7 +107,7 @@ void prx_main(uint64_t ptr)
 		
 	// initialize server
 	sys_ppu_thread_t ftp_tid;
-	sys_ppu_thread_create(&ftp_tid, ftp_main, 0, 1000, 0x4000, SYS_PPU_THREAD_CREATE_JOINABLE, (char*) "OpenPS3FTP-FTPD");
+	sys_ppu_thread_create(&ftp_tid, ftp_main, 0, 1000, 0x8000, SYS_PPU_THREAD_CREATE_JOINABLE, (char*) "OpenPS3FTP-FTPD");
 
 	while(prx_running)
 	{
