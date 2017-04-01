@@ -1,5 +1,4 @@
 #include "server.h"
-#include "avlutils.h"
 
 void server_pollfds_add(struct Server* server, int fd, short events)
 {
@@ -47,7 +46,7 @@ void server_client_add(struct Server* server, int fd, struct Client** client_ptr
 	if(*client_ptr != NULL)
 	{
 		// allocate client for data connection
-		insert_node(&server->clients, fd, *client_ptr);
+		avltree_insert(server->clients, fd, *client_ptr);
 		return;
 	}
 	
@@ -68,7 +67,7 @@ void server_client_add(struct Server* server, int fd, struct Client** client_ptr
 	client->lastcmd[0] = '\0';
 
 	// add to nodes
-	insert_node(&(server->clients), fd, client);
+	avltree_insert(server->clients, fd, client);
 
 	// call connect callback
 	command_call_connect(server->command_ptr, client);
@@ -78,11 +77,11 @@ void server_client_find(struct Server* server, int fd, struct Client** client_pt
 {
 	*client_ptr = NULL;
 
-	struct ClientNode** n = search_subtree(&((server->clients).root), fd);
+	struct AVLNode* n = avltree_search(server->clients, fd);
 
-	if(*n != NULL)
+	if(n)
 	{
-		*client_ptr = (*n)->client;
+		*client_ptr = n->data_ptr;
 	}
 }
 
@@ -106,7 +105,7 @@ void server_client_remove(struct Server* server, int fd)
 			free(client);
 		}
 
-		remove_from_tree(&(server->clients), fd);
+		avltree_remove(server->clients, fd);
 	}
 }
 
@@ -123,7 +122,7 @@ void server_init(struct Server* server, struct Command* command_ptr, unsigned sh
 	server->buffer_data = (char*) malloc(BUFFER_DATA * sizeof(char));
 	server->buffer_command = (char*) malloc(BUFFER_COMMAND * sizeof(char));
 	server->pollfds = NULL;
-	server->clients.root = NULL;
+	server->clients = avltree_create();
 
 	server->nfds = 0;
 
@@ -284,9 +283,9 @@ uint32_t server_run(struct Server* server)
 	server->socket = -1;
 
 	// clear clients
-	while(server->clients.root != NULL)
+	while(server->clients->root != NULL)
 	{
-		server_client_remove(server, server->clients.root->data);
+		server_client_remove(server, server->clients->root->key);
 	}
 
 	// clear pollfds
@@ -314,9 +313,9 @@ void server_free(struct Server* server)
 		free(server->pollfds);
 	}
 
-	if(server->clients.root != NULL)
+	if(server->clients != NULL)
 	{
-		destroy_tree(&(server->clients));
+		avltree_destroy(server->clients);
 	}
 
 	if(server->buffer_control != NULL)

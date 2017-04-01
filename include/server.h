@@ -7,21 +7,7 @@ extern "C" {
 #include "common.h"
 #include "client.h"
 #include "command.h"
-
-struct ClientNode
-{
-	int data;
-	struct Client* client;
-
-	int height;
-	struct ClientNode* left;
-	struct ClientNode* right;
-};
-
-struct ServerClients
-{
-	struct ClientNode* root;
-};
+#include "avlutils.h"
 
 struct Server
 {
@@ -37,7 +23,7 @@ struct Server
 	struct pollfd* pollfds;
 	nfds_t nfds;
 
-	struct ServerClients clients;
+	struct AVLTree* clients;
 
 	char* buffer_control;
 	char* buffer_data;

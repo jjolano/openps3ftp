@@ -1,216 +1,295 @@
+#include "common.h"
 #include "avlutils.h"
 
-/* fancy-tree.c and simple-tree.c by Michael Burrell */
+struct AVLTree* avltree_create(void)
+{
+	struct AVLTree* t = malloc(sizeof(struct AVLTree));
 
-struct ClientNode** search_subtree(struct ClientNode** n, int x) {
-	if (*n == NULL) {	// does not exist in the tree
-		return n;
-	} else if (x == (*n)->data) {	// have found it in the tree
-		return n;
-	} else if (x > (*n)->data) {
-		return search_subtree(&(*n)->right, x);
-	} else {
-		return search_subtree(&(*n)->left, x);
+	if(t)
+	{
+		t->root = NULL;
+	}
+
+	return t;
+}
+
+struct AVLNode* avltree_search(struct AVLTree* t, int key)
+{
+	return avlnode_search(t->root, key);
+}
+
+void avltree_insert(struct AVLTree* t, int key, void* data_ptr)
+{
+	struct AVLNode* next = t->root;
+	struct AVLNode* last = NULL;
+
+	// find a suitable location
+	while(next != NULL)
+	{
+		last = next;
+
+		if(key == next->key)
+		{
+			// already exists
+			break;
+		}
+
+		next = key < next->key ? next->left : next->right;
+	}
+
+	if(next == NULL)
+	{
+		// insert node
+		struct AVLNode* n = avlnode_create(key, data_ptr);
+
+		if(last != NULL)
+		{
+			if(key < last->key)
+			{
+				last->left = n;
+			}
+			else
+			{
+				last->right = n;
+			}
+
+			avltree_balance(t);
+		}
+		else
+		{
+			t->root = n;
+		}
 	}
 }
 
-bool exists_in_subtree(struct ClientNode const* n, int x) {
-	if (n == NULL) {
-		return false;
-	} else if (x == n->data) {
-		return true;
-	} else if (x > n->data) {
-		return exists_in_subtree(n->right, x);
-	} else {
-		return exists_in_subtree(n->left, x);
+void avltree_balance(struct AVLTree* t)
+{
+	struct AVLNode* root = avlnode_balance(t->root);
+
+	if(root != t->root)
+	{
+		t->root = root;
 	}
 }
 
-bool exists_in_tree(struct ServerClients const* t, int x) {
-	return exists_in_subtree(t->root, x);
+void avltree_remove(struct AVLTree* t, int key)
+{
+	t->root = avlnode_remove(t->root, key);
 }
 
-int height(struct ClientNode const* n) {
-	int left = n->left == NULL ? 0 : n->left->height;
-	int right = n->right == NULL ? 0 : n->right->height;
-	return 1 + (left > right ? left : right);	// 1 + max(left, right)
+void avltree_destroy(struct AVLTree* t)
+{
+	avlnode_destroy(t->root);
+	free(t);
 }
 
-int balance_factor(struct ClientNode const* n) {
-	int left = n->left == NULL ? 0 : n->left->height;
-	int right = n->right == NULL ? 0 : n->right->height;
-	return right - left;
-}
+struct AVLNode* avlnode_create(int key, void* data_ptr)
+{
+	struct AVLNode* n = malloc(sizeof(struct AVLNode));
 
-struct ClientNode* rebalance(struct ClientNode* n) {
-	if (balance_factor(n) == -2 && balance_factor(n->left) == +1) {	// LR
-		struct ClientNode* const X = n,
-			* const Y = X->left,
-			* const D = X->right,
-			* const A = Y->left,
-			* const Z = Y->right,
-			* const B = Z->left,
-			* const C = Z->right;
-		X->left = Z;
-		X->right = D;
-		Z->left = Y;
-		Z->right = C;
-		Y->left = A;
-		Y->right = B;
-		n = X;	// root stays as X
-		Y->height = height(Y);
-		Z->height = height(Z);
-		X->height = height(X);
-	}
-	if (balance_factor(n) == -2 && balance_factor(n->left) <= 0) {	// LL
-		struct ClientNode* const X = n,
-			* const Y = X->left,
-			* const D = X->right,
-			* const Z = Y->left,
-			* const C = Y->right,
-			* const A = Z->left,
-			* const B = Z->right;
-		Y->left = Z;
-		Y->right = X;
-		Z->left = A;
-		Z->right = B;
-		X->left = C;
-		X->right = D;
-		n = Y;	// the new root of this subtree is Y
-		Z->height = height(Z);
-		X->height = height(X);
-		Y->height = height(Y);
-	}
+	if(n)
+	{
+		n->key = key;
+		n->data_ptr = data_ptr;
 
-	if (balance_factor(n) == +2 && balance_factor(n->right) == -1) {	// RL
-		struct ClientNode* const X = n,
-			* const Y = X->right,
-			* const D = X->left,
-			* const A = Y->right,
-			* const Z = Y->left,
-			* const B = Z->right,
-			* const C = Z->left;
-		X->right = Z;
-		X->left = D;
-		Z->right = Y;
-		Z->left = C;
-		Y->right = A;
-		Y->left = B;
-		n = X;	// root stays as X
-		Y->height = height(Y);
-		Z->height = height(Z);
-		X->height = height(X);
-	}
-	if (balance_factor(n) == +2 && balance_factor(n->right) >= 0) {	// RR
-		struct ClientNode* const X = n,
-			* const Y = X->right,
-			* const D = X->left,
-			* const Z = Y->right,
-			* const C = Y->left,
-			* const A = Z->right,
-			* const B = Z->left;
-		Y->right = Z;
-		Y->left = X;
-		Z->right = A;
-		Z->left = B;
-		X->right = C;
-		X->left = D;
-		n = Y;	// the new root of this subtree is Y
-		Z->height = height(Z);
-		X->height = height(X);
-		Y->height = height(Y);
-	}
-
-	return n;
-}
-
-struct ClientNode* insert_in_subtree(struct ClientNode* n, int x, struct Client* client) {
-	if (n == NULL) {
-		n = malloc(sizeof *n);
-		n->data = x;
-		n->client = client;
 		n->left = NULL;
 		n->right = NULL;
-	} else if (x == n->data) {	// it already exists
-		// do nothing
-	} else if (x > n->data) {
-		n->right = insert_in_subtree(n->right, x, client);
-	} else {
-		n->left = insert_in_subtree(n->left, x, client);
 	}
-	n->height = height(n);
-	return rebalance(n);
-}
 
-void insert_node(struct ServerClients* t, int x, struct Client* client) {
-	t->root = insert_in_subtree(t->root, x, client);
-}
-
-struct ClientNode* immediate_predecessor(struct ClientNode* n) {
-	n = n->left;
-	while (n->right != NULL) {
-		n = n->right;
-	}
 	return n;
 }
 
-struct ClientNode* remove_node(struct ClientNode* n) {
-	if (n->left == NULL && n->right == NULL) {
-		free(n);
-		return NULL;
-	} else if (n->left == NULL && n->right != NULL) {
-		struct ClientNode* only_child = n->right;
-		free(n);
-		return only_child;
-	} else if (n->left != NULL && n->right == NULL) {
-		struct ClientNode* only_child = n->left;
-		free(n);
-		return only_child;		
-	} else {
-		struct ClientNode* immed_pred = immediate_predecessor(n);
+struct AVLNode* avlnode_search(struct AVLNode* n, int key)
+{
+	struct AVLNode* current = n;
 
-		n->data = immed_pred->data;
-		n->client = immed_pred->client;
-		
-		n->left = remove_from_subtree(n->left, immed_pred->data);
-		return n;
+	while(current != NULL && current->key != key)
+	{
+		current = key < current->key ? current->left : current->right;
 	}
+
+	return current;
 }
 
-struct ClientNode* remove_from_subtree(struct ClientNode* n, int x) {
-	if (n == NULL) {
-		// do nothing
-	} else if (x == n->data) {
-		n = remove_node(n);
-	} else if (x > n->data) {
-		n->right = remove_from_subtree(n->right, x);
-	} else {
-		n->left = remove_from_subtree(n->left, x);
+struct AVLNode* avlnode_ip(struct AVLNode* n)
+{
+	struct AVLNode* current = n->left;
+
+	while(current->right != NULL)
+	{
+		current = current->right;
 	}
 
+	return current;
+}
+
+struct AVLNode* avlnode_removenode(struct AVLNode* n)
+{
+	if(n->left != NULL && n->right != NULL)
+	{
+		// swap
+		struct AVLNode* ip = avlnode_ip(n);
+
+		n->key = ip->key;
+		n->data_ptr = ip->data_ptr;
+
+		n->left = avlnode_remove(n->left, ip->key);
+		return n;
+	}
+
+	struct AVLNode* successor = n->left != NULL ? n->left : n->right;
+	free(n);
+	return successor;
+}
+
+struct AVLNode* avlnode_remove(struct AVLNode* n, int key)
+{
 	if(n == NULL)
 	{
 		return NULL;
 	}
 
-	n->height = height(n);
-	return rebalance(n);
+	if(key == n->key)
+	{
+		n = avlnode_removenode(n);
+	}
+	else
+	{
+		if(key < n->key)
+		{
+			n->left = avlnode_remove(n->left, key);
+		}
+		else
+		{
+			n->right = avlnode_remove(n->right, key);
+		}
+	}
+
+	return n != NULL ? avlnode_balance(n) : NULL;
 }
 
-void remove_from_tree(struct ServerClients* t, int x) {
-	t->root = remove_from_subtree(t->root, x);
+int avlnode_height(struct AVLNode* n)
+{
+	int height_left = 0;
+	int height_right = 0;
+
+	if(n->left)
+	{
+		height_left = avlnode_height(n->left);
+	}
+
+	if(n->right)
+	{
+		height_right = avlnode_height(n->right);
+	}
+
+	return height_right > height_left ? ++height_right : ++height_left;
 }
 
-void destroy_subtree(struct ClientNode* n) {
-	if (n == NULL) {
-		// do nothing
-	} else {
-		destroy_subtree(n->left);
-		destroy_subtree(n->right);
+int avlnode_balance_factor(struct AVLNode* n)
+{
+	int bf = 0;
+
+	if(n->left)
+	{
+		bf -= avlnode_height(n->left);
+	}
+
+	if(n->right)
+	{
+		bf += avlnode_height(n->right);
+	}
+
+	return bf;
+}
+
+struct AVLNode* avlnode_rotate_ll(struct AVLNode* n)
+{
+	struct AVLNode* a = n;
+	struct AVLNode* b = a->left;
+
+	a->left = b->right;
+	b->right = a;
+
+	return b;
+}
+
+struct AVLNode* avlnode_rotate_lr(struct AVLNode* n)
+{
+	struct AVLNode* a = n;
+	struct AVLNode* b = a->left;
+	struct AVLNode* c = b->right;
+
+	a->left = c->right;
+	b->right = c->left;
+	c->left = b;
+	c->right = a;
+
+	return c;
+}
+
+struct AVLNode* avlnode_rotate_rl(struct AVLNode* n)
+{
+	struct AVLNode* a = n;
+	struct AVLNode* b = a->right;
+	struct AVLNode* c = b->left;
+
+	a->right = c->left;
+	b->left = c->right;
+	c->right = b;
+	c->left = a;
+
+	return c;
+}
+
+struct AVLNode* avlnode_rotate_rr(struct AVLNode* n)
+{
+	struct AVLNode* a = n;
+	struct AVLNode* b = a->right;
+
+	a->right = b->left;
+	b->left = a;
+
+	return b;
+}
+
+struct AVLNode* avlnode_balance(struct AVLNode* n)
+{
+	struct AVLNode* root = n;
+
+	if(n->left)
+	{
+		n->left = avlnode_balance(n->left);
+	}
+
+	if(n->right)
+	{
+		n->right = avlnode_balance(n->right);
+	}
+
+	int bf = avlnode_balance_factor(n);
+
+	if(bf >= 2)
+	{
+		// right
+		root = avlnode_balance_factor(n->right) < 0 ? avlnode_rotate_rl(n) : avlnode_rotate_rr(n);
+	}
+
+	if(bf <= -2)
+	{
+		// left
+		root = avlnode_balance_factor(n->left) > 0 ? avlnode_rotate_lr(n) : avlnode_rotate_ll(n);
+	}
+
+	return root;
+}
+
+void avlnode_destroy(struct AVLNode* n)
+{
+	if(n)
+	{
+		avlnode_destroy(n->left);
+		avlnode_destroy(n->right);
 		free(n);
 	}
-}
-
-void destroy_tree(struct ServerClients* t) {
-	destroy_subtree(t->root);
 }

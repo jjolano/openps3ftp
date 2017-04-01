@@ -17,19 +17,6 @@ struct Path
 	size_t num_levels;
 };
 
-struct PTNode
-{
-	void* ptr;
-	struct PTNode* children[26];
-};
-
-/* Prefix Tree functions */
-struct PTNode* ptnode_init(void);
-void ptnode_insert(struct PTNode* root, const char* key, void* ptr);
-struct PTNode* ptnode_nodesearch(struct PTNode* root, const char* key);
-void* ptnode_search(struct PTNode* root, const char* key);
-void ptnode_free(struct PTNode* root);
-
 void get_ntfspath(char* ntfspath, const char* path);
 
 void get_working_directory(char path_str[MAX_PATH], struct Path* path);
