@@ -55,6 +55,11 @@ void server_client_add(struct Server* server, int fd, struct Client** client_ptr
 
 	struct Client* client = *client_ptr;
 
+	if(client == NULL)
+	{
+		return;
+	}
+
 	client->server_ptr = server;
 
 	client->cvar = pttree_create();
@@ -231,10 +236,17 @@ uint32_t server_run(struct Server* server)
 					setsockopt(socket_client, IPPROTO_TCP, TCP_NODELAY, &optval, sizeof(optval));
 
 					struct Client* client = NULL;
-					server_pollfds_add(server, socket_client, POLLIN|POLLRDNORM);
 					server_client_add(server, socket_client, &client);
 
-					client_send_code(client, 220, "FTP Ready.");
+					if(client != NULL)
+					{
+						server_pollfds_add(server, socket_client, POLLIN|POLLRDNORM);
+						client_send_code(client, 220, "FTP Ready.");
+					}
+					else
+					{
+						socketclose(socket_client);
+					}
 				}
 				else
 				{
