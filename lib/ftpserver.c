@@ -57,7 +57,7 @@ void server_client_add(struct Server* server, int fd, struct Client** client_ptr
 
 	client->server_ptr = server;
 
-	client->cvar = ptnode_init();
+	client->cvar = pttree_create();
 
 	client->socket_control = fd;
 	client->socket_data = -1;

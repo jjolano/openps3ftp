@@ -19,7 +19,7 @@ struct DisconnectCallback
 
 struct Command
 {
-	struct PTNode* command_callbacks;
+	struct PTTree* command_callbacks;
 
 	struct ConnectCallback* connect_callbacks;
 	int num_connect_callbacks;

@@ -38,7 +38,7 @@ endif
 ifeq ($(SDK), linux)
 PPU_CFLAGS += -DLINUX -g -Wall
 PPU_LIB_TARGET = libftp.a
-PPU_OPTIMIZE_LV = -Og
+PPU_OPTIMIZE_LV = -O0
 endif
 
 PPU_SRCS := $(wildcard *.c)

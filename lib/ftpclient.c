@@ -2,12 +2,13 @@
 
 void* client_get_cvar(struct Client* client, const char* name)
 {
-	return ptnode_search(client->cvar, name);
+	struct PTNode* n = pttree_search(client->cvar, name);
+	return n != NULL ? n->data_ptr : NULL;
 }
 
 void client_set_cvar(struct Client* client, const char* name, void* ptr)
 {
-	ptnode_insert(client->cvar, name, ptr);
+	pttree_insert(client->cvar, name, ptr);
 }
 
 void client_send_message(struct Client* client, const char* message)
@@ -367,6 +368,6 @@ void client_free(struct Client* client)
 {
 	if(client->cvar != NULL)
 	{
-		ptnode_free(client->cvar);
+		pttree_destroy(client->cvar);
 	}
 }

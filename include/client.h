@@ -10,7 +10,7 @@ extern "C" {
 struct Client
 {
 	struct Server* server_ptr;
-	struct PTNode* cvar;
+	struct PTTree* cvar;
 
 	int socket_control;
 	int socket_data;

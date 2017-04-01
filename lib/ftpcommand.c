@@ -54,12 +54,16 @@ void command_register_disconnect(struct Command* command, disconnect_callback ca
 
 bool command_call(struct Command* command, const char name[32], const char* param, struct Client* client)
 {
-	command_callback callback = ptnode_search(command->command_callbacks, name);
+	struct PTNode* n = pttree_search(command->command_callbacks, name);
 
-	if(callback != NULL)
+	if(n != NULL)
 	{
-		(*callback)(client, name, param);
-		return true;
+		if(n->data_ptr != NULL)
+		{
+			command_callback callback = n->data_ptr;
+			(*callback)(client, name, param);
+			return true;
+		}
 	}
 
 	return false;
@@ -67,22 +71,22 @@ bool command_call(struct Command* command, const char name[32], const char* para
 
 void command_register(struct Command* command, const char name[32], command_callback callback)
 {
-	ptnode_insert(command->command_callbacks, name, callback);
+	pttree_insert(command->command_callbacks, name, callback);
 }
 
 void command_unregister(struct Command* command, const char name[32])
 {
-	struct PTNode* n = ptnode_nodesearch(command->command_callbacks, name);
+	struct PTNode* n = pttree_search(command->command_callbacks, name);
 
 	if(n != NULL)
 	{
-		n->ptr = NULL;
+		n->data_ptr = NULL;
 	}
 }
 
 void command_init(struct Command* command)
 {
-	command->command_callbacks = ptnode_init();
+	command->command_callbacks = pttree_create();
 
 	command->connect_callbacks = NULL;
 	command->num_connect_callbacks = 0;
@@ -95,7 +99,7 @@ void command_free(struct Command* command)
 {
 	if(command->command_callbacks != NULL)
 	{
-		ptnode_free(command->command_callbacks);
+		pttree_destroy(command->command_callbacks);
 	}
 
 	if(command->connect_callbacks != NULL)
