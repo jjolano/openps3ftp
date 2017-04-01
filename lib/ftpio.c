@@ -8,7 +8,7 @@ int32_t ftpio_open(const char* path, int oflags, int32_t* fd)
 	if(str_startswith(path, "/dev_ntfs"))
 	{
 		#ifdef _NTFS_SUPPORT_
-		if(ps3ntfs_running())
+		if(ps3ntfs_running() && ps3ntfs_open != NULL)
 		{
 			char ntfspath[MAX_PATH];
 			get_ntfspath(ntfspath, path);
@@ -53,7 +53,7 @@ int32_t ftpio_opendir(const char* path, int32_t* fd)
 	if(str_startswith(path, "/dev_ntfs"))
 	{
 		#ifdef _NTFS_SUPPORT_
-		if(ps3ntfs_running())
+		if(ps3ntfs_running() && ps3ntfs_diropen != NULL)
 		{
 			char ntfspath[MAX_PATH];
 			get_ntfspath(ntfspath, path);
@@ -99,19 +99,22 @@ int32_t ftpio_readdir(int32_t fd, ftpdirent* dirent, uint64_t* nread)
 	if((fd & NTFS_FD_MASK) == NTFS_FD_MASK)
 	{
 		#ifdef _NTFS_SUPPORT_
-		DIR_ITER* dirState = (DIR_ITER*) (intptr_t) (fd & ~NTFS_FD_MASK);
-
-		struct stat filestat;
-		ret = ps3ntfs_dirnext(dirState, dirent->d_name, &filestat);
-
-		if(ret == 0)
+		if(ps3ntfs_running() && ps3ntfs_dirnext != NULL)
 		{
-			*nread = 1;
-		}
-		else
-		{
-			*nread = 0;
-			ret = 0;
+			DIR_ITER* dirState = (DIR_ITER*) (intptr_t) (fd & ~NTFS_FD_MASK);
+
+			struct stat filestat;
+			ret = ps3ntfs_dirnext(dirState, dirent->d_name, &filestat);
+
+			if(ret == 0)
+			{
+				*nread = 1;
+			}
+			else
+			{
+				*nread = 0;
+				ret = 0;
+			}
 		}
 		#endif
 	}
@@ -160,13 +163,16 @@ int32_t ftpio_read(int32_t fd, char* buf, uint64_t nbytes, uint64_t* nread)
 	if((fd & NTFS_FD_MASK) == NTFS_FD_MASK)
 	{
 		#ifdef _NTFS_SUPPORT_
-		int32_t ntfsfd = (fd & ~NTFS_FD_MASK);
-		ssize_t nread_bytes = ps3ntfs_read(ntfsfd, buf, (size_t) nbytes);
-
-		if(nread_bytes > -1)
+		if(ps3ntfs_running() && ps3ntfs_read != NULL)
 		{
-			*nread = (uint64_t) nread_bytes;
-			ret = 0;
+			int32_t ntfsfd = (fd & ~NTFS_FD_MASK);
+			ssize_t nread_bytes = ps3ntfs_read(ntfsfd, buf, (size_t) nbytes);
+
+			if(nread_bytes > -1)
+			{
+				*nread = (uint64_t) nread_bytes;
+				ret = 0;
+			}
 		}
 		#endif
 	}
@@ -201,13 +207,16 @@ int32_t ftpio_write(int32_t fd, char* buf, uint64_t nbytes, uint64_t* nwrite)
 	if((fd & NTFS_FD_MASK) == NTFS_FD_MASK)
 	{
 		#ifdef _NTFS_SUPPORT_
-		int32_t ntfsfd = (fd & ~NTFS_FD_MASK);
-		ssize_t nwrite_bytes = ps3ntfs_write(ntfsfd, buf, (size_t) nbytes);
-
-		if(nwrite_bytes > -1)
+		if(ps3ntfs_running() && ps3ntfs_write != NULL)
 		{
-			*nwrite = (uint64_t) nwrite_bytes;
-			ret = 0;
+			int32_t ntfsfd = (fd & ~NTFS_FD_MASK);
+			ssize_t nwrite_bytes = ps3ntfs_write(ntfsfd, buf, (size_t) nbytes);
+
+			if(nwrite_bytes > -1)
+			{
+				*nwrite = (uint64_t) nwrite_bytes;
+				ret = 0;
+			}
 		}
 		#endif
 	}
@@ -242,9 +251,11 @@ int32_t ftpio_close(int32_t fd)
 	if((fd & NTFS_FD_MASK) == NTFS_FD_MASK)
 	{
 		#ifdef _NTFS_SUPPORT_
-		int32_t ntfsfd = (fd & ~NTFS_FD_MASK);
-
-		ret = ps3ntfs_close(ntfsfd);
+		if(ps3ntfs_running() && ps3ntfs_close != NULL)
+		{
+			int32_t ntfsfd = (fd & ~NTFS_FD_MASK);
+			ret = ps3ntfs_close(ntfsfd);
+		}
 		#endif
 	}
 	else
@@ -272,8 +283,11 @@ int32_t ftpio_closedir(int32_t fd)
 	if((fd & NTFS_FD_MASK) == NTFS_FD_MASK)
 	{
 		#ifdef _NTFS_SUPPORT_
-		DIR_ITER* dirState = (DIR_ITER*) (intptr_t) (fd & ~NTFS_FD_MASK);
-		ret = ps3ntfs_dirclose(dirState);
+		if(ps3ntfs_running() && ps3ntfs_dirclose != NULL)
+		{
+			DIR_ITER* dirState = (DIR_ITER*) (intptr_t) (fd & ~NTFS_FD_MASK);
+			ret = ps3ntfs_dirclose(dirState);
+		}
 		#endif
 	}
 	else
@@ -301,7 +315,7 @@ int32_t ftpio_rename(const char* old_path, const char* new_path)
 	if(str_startswith(old_path, "/dev_ntfs") || str_startswith(new_path, "/dev_ntfs"))
 	{
 		#ifdef _NTFS_SUPPORT_
-		if(ps3ntfs_running())
+		if(ps3ntfs_running() && ps3ntfs_rename != NULL)
 		{
 			char old_ntfspath[MAX_PATH];
 			char new_ntfspath[MAX_PATH];
@@ -353,11 +367,7 @@ int32_t ftpio_chmod(const char* path, mode_t mode)
 	if(str_startswith(path, "/dev_ntfs"))
 	{
 		#ifdef _NTFS_SUPPORT_
-		if(ps3ntfs_running())
-		{
-			// not supported
-			ret = 0;
-		}
+		// not supported
 		#endif
 	}
 	else
@@ -385,13 +395,16 @@ int32_t ftpio_lseek(int32_t fd, int64_t offset, int32_t whence, uint64_t* pos)
 	if((fd & NTFS_FD_MASK) == NTFS_FD_MASK)
 	{
 		#ifdef _NTFS_SUPPORT_
-		int32_t ntfsfd = (fd & ~NTFS_FD_MASK);
-		int64_t new_pos = ps3ntfs_seek64(ntfsfd, offset, whence);
-
-		if(new_pos != -1)
+		if(ps3ntfs_running() && ps3ntfs_seek64 != NULL)
 		{
-			*pos = new_pos;
-			ret = 0;
+			int32_t ntfsfd = (fd & ~NTFS_FD_MASK);
+			int64_t new_pos = ps3ntfs_seek64(ntfsfd, offset, whence);
+
+			if(new_pos != -1)
+			{
+				*pos = new_pos;
+				ret = 0;
+			}
 		}
 		#endif
 	}
@@ -426,7 +439,7 @@ int32_t ftpio_mkdir(const char* path, mode_t mode)
 	if(str_startswith(path, "/dev_ntfs"))
 	{
 		#ifdef _NTFS_SUPPORT_
-		if(ps3ntfs_running())
+		if(ps3ntfs_running() && ps3ntfs_mkdir != NULL)
 		{
 			char ntfspath[MAX_PATH];
 			get_ntfspath(ntfspath, path);
@@ -460,7 +473,7 @@ int32_t ftpio_rmdir(const char* path)
 	if(str_startswith(path, "/dev_ntfs"))
 	{
 		#ifdef _NTFS_SUPPORT_
-		if(ps3ntfs_running())
+		if(ps3ntfs_running() && ps3ntfs_unlink != NULL)
 		{
 			char ntfspath[MAX_PATH];
 			get_ntfspath(ntfspath, path);
@@ -494,7 +507,7 @@ int32_t ftpio_unlink(const char* path)
 	if(str_startswith(path, "/dev_ntfs"))
 	{
 		#ifdef _NTFS_SUPPORT_
-		if(ps3ntfs_running())
+		if(ps3ntfs_running() && ps3ntfs_unlink != NULL)
 		{
 			char ntfspath[MAX_PATH];
 			get_ntfspath(ntfspath, path);
@@ -528,7 +541,7 @@ int32_t ftpio_stat(const char* path, ftpstat* st)
 	if(str_startswith(path, "/dev_ntfs"))
 	{
 		#ifdef _NTFS_SUPPORT_
-		if(ps3ntfs_running())
+		if(ps3ntfs_running() && ps3ntfs_stat != NULL)
 		{
 			char ntfspath[MAX_PATH];
 			get_ntfspath(ntfspath, path);
@@ -577,23 +590,26 @@ int32_t ftpio_fstat(int32_t fd, ftpstat* st)
 	if((fd & NTFS_FD_MASK) == NTFS_FD_MASK)
 	{
 		#ifdef _NTFS_SUPPORT_
-		int32_t ntfsfd = (fd & ~NTFS_FD_MASK);
-
-		struct stat ntfs_st;
-		ret = ps3ntfs_fstat(ntfsfd, &ntfs_st);
-
-		if(ret == 0)
+		if(ps3ntfs_running() && ps3ntfs_fstat != NULL)
 		{
-			memset(st, 0, sizeof(ftpstat));
+			int32_t ntfsfd = (fd & ~NTFS_FD_MASK);
 
-			st->st_mode = ntfs_st.st_mode;
-			st->st_uid = ntfs_st.st_uid;
-			st->st_gid = ntfs_st.st_gid;
-			st->st_atime = ntfs_st.st_atime;
-			st->st_mtime = ntfs_st.st_mtime;
-			st->st_ctime = ntfs_st.st_ctime;
-			st->st_size = ntfs_st.st_size;
-			st->st_blksize = ntfs_st.st_blksize;
+			struct stat ntfs_st;
+			ret = ps3ntfs_fstat(ntfsfd, &ntfs_st);
+
+			if(ret == 0)
+			{
+				memset(st, 0, sizeof(ftpstat));
+
+				st->st_mode = ntfs_st.st_mode;
+				st->st_uid = ntfs_st.st_uid;
+				st->st_gid = ntfs_st.st_gid;
+				st->st_atime = ntfs_st.st_atime;
+				st->st_mtime = ntfs_st.st_mtime;
+				st->st_ctime = ntfs_st.st_ctime;
+				st->st_size = ntfs_st.st_size;
+				st->st_blksize = ntfs_st.st_blksize;
+			}
 		}
 		#endif
 	}

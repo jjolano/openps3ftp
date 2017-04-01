@@ -23,12 +23,8 @@ void prx_unload(void);
 int prx_stop(void);
 int prx_exit(void);
 
-#ifdef _NTFS_SUPPORT_
-#ifndef _PS3NTFS_PRX_
-void ntfs_main(uint64_t ptr);
-#endif
-#endif
-
+void ftp_stop(void);
 void ftp_main(uint64_t ptr);
+
 void prx_main(uint64_t ptr);
 int prx_start(size_t args, void* argv);

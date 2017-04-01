@@ -8,7 +8,12 @@ SYS_MODULE_INFO(FTPD, SYS_MODULE_ATTR_EXCLUSIVE_LOAD | SYS_MODULE_ATTR_EXCLUSIVE
 struct Command* ftp_command = NULL;
 struct Server* ftp_server = NULL;
 
+#ifdef _NTFS_SUPPORT_
+#ifndef _PS3NTFS_PRX_
 sys_ppu_thread_t ntfs_tid;
+#endif
+#endif
+
 sys_ppu_thread_t prx_tid;
 
 volatile bool prx_running = false;
@@ -37,7 +42,7 @@ void prx_unload(void)
 	system_call_3(483, prx, 0, NULL);
 }
 
-int prx_stop(void)
+void ftp_stop(void)
 {
 	prx_running = false;
 
@@ -50,7 +55,11 @@ int prx_stop(void)
 	sys_ppu_thread_join(ntfs_tid, &ntfs_exitcode);
 	#endif
 	#endif
-	
+}
+
+int prx_stop(void)
+{
+	ftp_stop();
 	finalize_module();
 	_sys_ppu_thread_exit(0);
 	return SYS_PRX_STOP_OK;
@@ -58,18 +67,7 @@ int prx_stop(void)
 
 int prx_exit(void)
 {
-	prx_running = false;
-
-	uint64_t prx_exitcode;
-	sys_ppu_thread_join(prx_tid, &prx_exitcode);
-
-	#ifdef _NTFS_SUPPORT_
-	#ifndef _PS3NTFS_PRX_
-	uint64_t ntfs_exitcode;
-	sys_ppu_thread_join(ntfs_tid, &ntfs_exitcode);
-	#endif
-	#endif
-
+	ftp_stop();
 	prx_unload();
 	_sys_ppu_thread_exit(0);
 	return SYS_PRX_STOP_OK;
@@ -79,20 +77,6 @@ void ftp_main(uint64_t ptr)
 {
 	uint32_t ret = 0;
 
-	while(prx_running)
-	{
-		sys_timer_sleep(5);
-
-		server_init(ftp_server, ftp_command, 21);
-		ret = server_run(ftp_server);
-		server_free(ftp_server);
-	}
-
-	sys_ppu_thread_exit(ret);
-}
-
-void prx_main(uint64_t ptr)
-{
 	ftp_command = (struct Command*) malloc(sizeof(struct Command));
 
 	// initialize command struct
@@ -103,27 +87,44 @@ void prx_main(uint64_t ptr)
 	base_command_import(ftp_command);
 	ext_command_import(ftp_command);
 
-	ftp_server = (struct Server*) malloc(sizeof(struct Server));
-		
+	while(prx_running)
+	{
+		sys_timer_sleep(5);
+
+		ftp_server = (struct Server*) malloc(sizeof(struct Server));
+
+		server_init(ftp_server, ftp_command, 21);
+		ret = server_run(ftp_server);
+		server_free(ftp_server);
+
+		free(ftp_server);
+	}
+
+	command_free(ftp_command);
+	free(ftp_command);
+
+	ftp_server = NULL;
+	ftp_command = NULL;
+
+	sys_ppu_thread_exit(ret);
+}
+
+void prx_main(uint64_t ptr)
+{
 	// initialize server
 	sys_ppu_thread_t ftp_tid;
-	sys_ppu_thread_create(&ftp_tid, ftp_main, 0, 1000, 0x8000, SYS_PPU_THREAD_CREATE_JOINABLE, (char*) "OpenPS3FTP-FTPD");
+	sys_ppu_thread_create(&ftp_tid, ftp_main, 0, 1000, 0x4000, SYS_PPU_THREAD_CREATE_JOINABLE, (char*) "OpenPS3FTP-FTPD");
 
 	while(prx_running)
 	{
 		sys_timer_sleep(1);
-		sys_ppu_thread_yield();
 	}
 
+	prx_running = false;
 	server_stop(ftp_server);
 
 	uint64_t ftp_exitcode;
 	sys_ppu_thread_join(ftp_tid, &ftp_exitcode);
-	
-	free(ftp_server);
-	
-	command_free(ftp_command);
-	free(ftp_command);
 	
 	sys_ppu_thread_exit(0);
 }
@@ -134,11 +135,11 @@ int prx_start(size_t args, void* argv)
 
 	#ifdef _NTFS_SUPPORT_
 	#ifndef _PS3NTFS_PRX_
-	sys_ppu_thread_create(&ntfs_tid, ps3ntfs_automount, 0, 950, 0x2000, SYS_PPU_THREAD_CREATE_JOINABLE, (char*) "OpenPS3FTP-NTFS");
+	sys_ppu_thread_create(&ntfs_tid, ps3ntfs_automount, 0, 1001, 0x2000, SYS_PPU_THREAD_CREATE_JOINABLE, (char*) "OpenPS3FTP-NTFS");
 	#endif
 	#endif
 
-	sys_ppu_thread_create(&prx_tid, prx_main, 0, 1001, 0x2000, SYS_PPU_THREAD_CREATE_JOINABLE, (char*) "OpenPS3FTP");
+	sys_ppu_thread_create(&prx_tid, prx_main, 0, 1001, 0x1000, SYS_PPU_THREAD_CREATE_JOINABLE, (char*) "OpenPS3FTP");
 
 	_sys_ppu_thread_exit(0);
 	return SYS_PRX_START_OK;
