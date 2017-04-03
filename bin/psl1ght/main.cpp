@@ -1,3 +1,4 @@
+#include <stdbool.h>
 #include <ppu-lv2.h>
 #include <net/net.h>
 #include <net/netctl.h>
@@ -15,6 +16,10 @@
 #include "feat/feat.h"
 #include "base/base.h"
 #include "ext/ext.h"
+
+#ifdef _NTFS_SUPPORT_
+#include "ps3ntfs.h"
+#endif
 
 #define MOUNT_POINT	"/dev_blind"
 
@@ -137,8 +142,13 @@ int main(void)
 	server_init(ftp_server, ftp_command, 21);
 
 	sys_ppu_thread_t server_tid;
-	sysThreadCreate(&server_tid, server_run_ex, (void*) &ftp_server, 1001, 0x2000, THREAD_JOINABLE, (char*)"ftpd");
+	sysThreadCreate(&server_tid, server_run_ex, (void*) &ftp_server, 1001, 0x4000, THREAD_JOINABLE, (char*) "ftpd");
 	sysThreadYield();
+
+	#ifdef _NTFS_SUPPORT_
+	sys_ppu_thread_t ntfs_tid;
+	sysThreadCreate(&ntfs_tid, ps3ntfs_automount, &ftp_server->running, 1001, 0x2000, THREAD_JOINABLE, (char*) "ntfsd");
+	#endif
 
 	// Start application loop.
 	gfx->AppStart();
@@ -190,6 +200,10 @@ int main(void)
 
 	u64 thread_exit;
 	sysThreadJoin(server_tid, &thread_exit);
+
+	#ifdef _NTFS_SUPPORT_
+	sysThreadJoin(ntfs_tid, &thread_exit);
+	#endif
 
 	server_free(ftp_server);
 	free(ftp_server);

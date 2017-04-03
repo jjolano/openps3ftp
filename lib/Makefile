@@ -39,6 +39,7 @@ ifeq ($(SDK), linux)
 PPU_CFLAGS += -DLINUX -g -Wall
 PPU_LIB_TARGET = libftp.a
 PPU_OPTIMIZE_LV = -Og
+NTFS_SUPPORT := 0
 endif
 
 PPU_SRCS := $(wildcard *.c)
@@ -49,6 +50,7 @@ PPU_INCDIRS += -I../include -I../bin/prx/vsh/include -I../bin/prx/include
 
 ifeq ($(LIB_EXTERNAL), 1)
 PPU_CFLAGS += -D_NO_VSH_EXPORTS_
+NTFS_STATIC := 1
 endif
 
 ifeq ($(NTFS_SUPPORT), 1)

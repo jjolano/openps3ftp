@@ -6,15 +6,6 @@ bool data_ntfs_list(struct Client* client)
 {
 	int* ntfs_list = (int*) client_get_cvar(client, "ntfs_list");
 
-	if(ps3ntfs_prx_mounts == NULL || ps3ntfs_prx_num_mounts == NULL)
-	{
-		free(ntfs_list);
-		client_set_cvar(client, "ntfs_list", NULL);
-
-		client_send_code(client, 226, FTP_226);
-		return true;
-	}
-
 	ps3ntfs_prx_lock();
 
 	ntfs_md* mounts = ps3ntfs_prx_mounts();
@@ -74,15 +65,6 @@ bool data_ntfs_list(struct Client* client)
 bool data_ntfs_nlst(struct Client* client)
 {
 	int* ntfs_list = (int*) client_get_cvar(client, "ntfs_list");
-
-	if(ps3ntfs_prx_mounts == NULL || ps3ntfs_prx_num_mounts == NULL)
-	{
-		free(ntfs_list);
-		client_set_cvar(client, "ntfs_list", NULL);
-
-		client_send_code(client, 226, FTP_226);
-		return true;
-	}
 
 	ps3ntfs_prx_lock();
 

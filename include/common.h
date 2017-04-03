@@ -18,8 +18,15 @@ extern "C" {
 #include <netinet/in.h>
 #include <netdb.h>
 
-#ifndef PSL1GHT_SDK
-#include <netinet/tcp.h>
+#ifdef _NTFS_SUPPORT_
+#include "ntfs.h"
+#include "ps3ntfs.h"
+
+#ifndef _PS3NTFS_PRX_
+#undef ps3ntfs_running
+#define ps3ntfs_running() true
+#endif
+
 #endif
 
 #ifdef CELL_SDK
@@ -32,17 +39,6 @@ extern "C" {
 #define toupper(a) sys_toupper(a)
 #else
 #include <ctype.h>
-#endif
-
-#ifdef _NTFS_SUPPORT_
-#include "ntfs.h"
-#include "ps3ntfs.h"
-
-#ifndef _PS3NTFS_PRX_
-#undef ps3ntfs_running
-#define ps3ntfs_running() true
-#endif
-
 #endif
 
 #endif
@@ -62,6 +58,8 @@ extern int closesocket(int socket);
 #define socketpoll(a,b,c)	poll(a,b,c)
 
 #define	TCP_NODELAY	0x01
+#else
+#include <netinet/tcp.h>
 #endif
 
 #ifdef LINUX
