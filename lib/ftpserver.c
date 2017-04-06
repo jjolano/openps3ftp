@@ -33,8 +33,8 @@ void server_pollfds_remove(struct Server* server, int fd)
 			return;
 		}
 
-		// shift memory
-		memmove(&server->pollfds[i], &server->pollfds[i + 1], (server->nfds - i - 1) * sizeof(struct pollfd));
+		// remove element
+		server->pollfds[i] = server->pollfds[server->nfds - 1];
 
 		// reallocate memory
 		server->pollfds = (struct pollfd*) realloc(server->pollfds, --server->nfds * sizeof(struct pollfd));
