@@ -8,15 +8,9 @@ SYS_MODULE_INFO(FTPD, SYS_MODULE_ATTR_EXCLUSIVE_LOAD | SYS_MODULE_ATTR_EXCLUSIVE
 struct Command* ftp_command = NULL;
 struct Server* ftp_server = NULL;
 
-#ifdef _NTFS_SUPPORT_
-#ifndef _PS3NTFS_PRX_
-sys_ppu_thread_t ntfs_tid;
-#endif
-#endif
-
 sys_ppu_thread_t prx_tid;
 
-volatile bool prx_running = false;
+volatile bool prx_running;
 
 inline void _sys_ppu_thread_exit(uint64_t val)
 {
@@ -46,15 +40,13 @@ void ftp_stop(void)
 {
 	prx_running = false;
 
+	if(ftp_server != NULL)
+	{
+		server_stop(ftp_server);
+	}
+
 	uint64_t prx_exitcode;
 	sys_ppu_thread_join(prx_tid, &prx_exitcode);
-
-	#ifdef _NTFS_SUPPORT_
-	#ifndef _PS3NTFS_PRX_
-	uint64_t ntfs_exitcode;
-	sys_ppu_thread_join(ntfs_tid, &ntfs_exitcode);
-	#endif
-	#endif
 }
 
 int prx_stop(void)
@@ -111,6 +103,13 @@ void ftp_main(uint64_t ptr)
 
 void prx_main(uint64_t ptr)
 {
+	#ifdef _NTFS_SUPPORT_
+	#ifndef _PS3NTFS_PRX_
+	sys_ppu_thread_t ntfs_tid;
+	sys_ppu_thread_create(&ntfs_tid, ps3ntfs_automount, 0, 1001, 0x2000, SYS_PPU_THREAD_CREATE_JOINABLE, (char*) "OpenPS3FTP-NTFS");
+	#endif
+	#endif
+
 	// initialize server
 	sys_ppu_thread_t ftp_tid;
 	sys_ppu_thread_create(&ftp_tid, ftp_main, 0, 1000, 0x4000, SYS_PPU_THREAD_CREATE_JOINABLE, (char*) "OpenPS3FTP-FTPD");
@@ -121,10 +120,21 @@ void prx_main(uint64_t ptr)
 	}
 
 	prx_running = false;
-	server_stop(ftp_server);
+
+	if(ftp_server != NULL)
+	{
+		server_stop(ftp_server);
+	}
 
 	uint64_t ftp_exitcode;
 	sys_ppu_thread_join(ftp_tid, &ftp_exitcode);
+
+	#ifdef _NTFS_SUPPORT_
+	#ifndef _PS3NTFS_PRX_
+	uint64_t ntfs_exitcode;
+	sys_ppu_thread_join(ntfs_tid, &ntfs_exitcode);
+	#endif
+	#endif
 	
 	sys_ppu_thread_exit(0);
 }
@@ -132,12 +142,6 @@ void prx_main(uint64_t ptr)
 int prx_start(size_t args, void* argv)
 {
 	prx_running = true;
-
-	#ifdef _NTFS_SUPPORT_
-	#ifndef _PS3NTFS_PRX_
-	sys_ppu_thread_create(&ntfs_tid, ps3ntfs_automount, 0, 1001, 0x2000, SYS_PPU_THREAD_CREATE_JOINABLE, (char*) "OpenPS3FTP-NTFS");
-	#endif
-	#endif
 
 	sys_ppu_thread_create(&prx_tid, prx_main, 0, 1001, 0x1000, SYS_PPU_THREAD_CREATE_JOINABLE, (char*) "OpenPS3FTP");
 
