@@ -10,6 +10,9 @@ extern "C" {
 #include <stdint.h>
 #include <string.h>
 #include <inttypes.h>
+#include <dirent.h>
+#include <unistd.h>
+#include <errno.h>
 
 #include <sys/socket.h>
 #include <sys/stat.h>
@@ -67,9 +70,6 @@ extern int closesocket(int socket);
 
 #include <poll.h>
 #include <fcntl.h>
-#include <dirent.h>
-#include <unistd.h>
-#include <errno.h>
 #include <time.h>
 #include <ctype.h>
 

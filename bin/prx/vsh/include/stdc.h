@@ -84,10 +84,10 @@ extern int stdc_26F023D5(FILE *stream);                                         
 extern int stdc_273B9711(char *str, const char *fmt, ...);                            // sprintf()
 #define sprintf stdc_273B9711
 
-/*
+
 extern struct dirent *stdc_2B81FB7F(DIR *dirp);                                       // readdir()
 #define readdir stdc_2B81FB7F
-*/
+
 // stdc_2D8BE7E8  // _ZNKSt9exception6_RaiseEv
 
 extern size_t stdc_2F45D39C(const char *str);                                         // strlen()
@@ -126,10 +126,10 @@ extern float stdc_3C057FBD(float x);                                            
 
 extern int stdc_3D85D6F8(const char *str1, const char *str2);                         // strcmp()
 #define strcmp stdc_3D85D6F8
-/*
+
 extern DIR *stdc_3DBC3BEE(const char *name);                                          // opendir()
 #define opendir stdc_3DBC3BEE
-*/
+
 // stdc_3EEEDB0E  // _Dclass()
 
 extern float stdc_411434BB(float x);                                                  // asinf()
@@ -225,7 +225,7 @@ extern float stdc_705D9E24(float);                                              
 // stdc_71293B71  // _FLog()
 
 extern int stdc_717B2502(const char *restrict path, struct stat *restrict buf);       // stat()
-//#define stat stdc_717B2502
+#define stat(a,b) stdc_717B2502(a,b)
 
 extern char *stdc_73EAE03D(const char *s, int c);                                     // strrchr()
 #define strrchr stdc_73EAE03D
@@ -330,10 +330,10 @@ extern float stdc_9A81E583(float numer, float denom);                           
 
 extern long long int stdc_A30D4797(const wchar_t* str, wchar_t** endptr, int base);   // wcstoll()
 #define wcstoll stdc_A30D4797
-/*
+
 extern int stdc_A3440924(DIR *dirp);                                                  // closedir()
 #define closedir stdc_A3440924
-*/
+
 extern int stdc_A5BC0E19(void);                                                       // getchar()
 #define getchar stdc_A5BC0E19
 
@@ -352,6 +352,8 @@ extern void stdc_A9F68EFF(void *base, size_t num, size_t size, int (*compar)(con
 extern char *stdc_AA9635D7(char *dest, const char *src);                              // strcat()
 #define strcat stdc_AA9635D7
 
+extern int stdc_AB77019F(int fd, struct stat *buf);
+#define fstat stdc_AB77019F
 // stdc_AB77019F  // fstat()
 
 extern float stdc_ABDCCC7A(float, float);                                             // f_atan2f()

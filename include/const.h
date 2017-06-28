@@ -1,8 +1,9 @@
 #pragma once
 
+#include <stdio.h>
 #include <inttypes.h>
 
-#define APP_VER_MAJ		"v4.3a"
+#define APP_VER_MAJ		"v4.4"
 
 #ifndef APP_VER_MIN
 #define APP_VER_MIN		""
@@ -48,7 +49,8 @@
 
 #define BUFFER_CONTROL	1 * 1024
 #define BUFFER_COMMAND	1 * 1024
-#define BUFFER_DATA		64 * 1024
+//#define BUFFER_DATA		64 * 1024
+#define BUFFER_DATA		BUFSIZ
 
 #ifndef MAX_PATH
 #define MAX_PATH		CELL_FS_MAX_MP_LENGTH + CELL_FS_MAX_FS_PATH_LENGTH + 1

@@ -14,8 +14,10 @@ typedef void (*connect_callback)(struct Client*);
 typedef void (*disconnect_callback)(struct Client*);
 
 #ifdef CELL_SDK
-#define ftpstat		struct CellFsStat
-#define ftpdirent	struct CellFsDirent
+//#define ftpstat		struct CellFsStat
+//#define ftpdirent	struct CellFsDirent
+#define ftpstat		struct stat
+#define ftpdirent	struct dirent
 #define mode_t		CellFsMode
 
 #define O_CREAT		CELL_FS_O_CREAT
@@ -26,8 +28,10 @@ typedef void (*disconnect_callback)(struct Client*);
 #endif
 
 #ifdef PSL1GHT_SDK
-#define ftpstat		sysFSStat
-#define ftpdirent	sysFSDirent
+//#define ftpstat		sysFSStat
+//#define ftpdirent	sysFSDirent
+#define ftpstat		struct stat
+#define ftpdirent	struct dirent
 #define mode_t		int32_t
 
 #define O_CREAT		SYS_O_CREAT
