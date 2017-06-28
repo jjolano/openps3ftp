@@ -21,6 +21,7 @@ PPU_SRCS = $(wildcard util/*.c) $(wildcard ../../feat/*/*.c) $(wildcard *.c)
 PPU_PRX_TARGET = openps3ftp.prx
 PPU_CFLAGS += -Wno-unused-parameter -ffunction-sections -fdata-sections -fno-builtin-printf -std=gnu99
 PPU_CFLAGS += -DCELL_SDK -DAPP_VER_MIN=\"-g$(GIT_VERSION)\"
+PPU_CFLAGS += -D_FILE_OFFSET_BITS=64
 
 PPU_PRX_LDFLAGS += -Wl,--strip-unused-data
 PPU_PRX_LDFLAGS += -nodefaultlibs

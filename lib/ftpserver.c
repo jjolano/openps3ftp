@@ -226,7 +226,7 @@ uint32_t server_run(struct Server* server)
 					optlinger.l_onoff = 1;
 
 					#ifndef LINUX
-					optlinger.l_linger = 0;
+					optlinger.l_linger = 5;
 					#else
 					optlinger.l_linger = 15;
 					#endif
@@ -234,6 +234,8 @@ uint32_t server_run(struct Server* server)
 					setsockopt(socket_client, SOL_SOCKET, SO_LINGER, &optlinger, sizeof(optlinger));
 
 					setsockopt(socket_client, IPPROTO_TCP, TCP_NODELAY, &optval, sizeof(optval));
+					setsockopt(socket_client, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
+					setsockopt(socket_client, SOL_SOCKET, SO_REUSEPORT, &optval, sizeof(optval));
 
 					struct Client* client = NULL;
 					server_client_add(server, socket_client, &client);

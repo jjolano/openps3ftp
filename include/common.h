@@ -66,8 +66,6 @@ extern int closesocket(int socket);
 #endif
 
 #ifdef LINUX
-#define __USE_FILE_OFFSET64
-
 #include <poll.h>
 #include <fcntl.h>
 #include <time.h>

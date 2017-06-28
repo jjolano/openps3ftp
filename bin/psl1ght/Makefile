@@ -23,6 +23,7 @@ OBJS		+= $(C_SRCS:.c=.c.ppu.o)
 DEFINES		= -DPSL1GHT_SDK
 CXXFLAGS	= -ffunction-sections -fdata-sections -O2 -mregnames -Wall -mcpu=cell $(MACHDEP) $(INCLUDE) $(DEFINES)
 CXXFLAGS	+= -DAPP_VER_MIN=\"-g$(GIT_VERSION)\"
+CXXFLAGS	+= -D_FILE_OFFSET_BITS=64
 CFLAGS		= $(CXXFLAGS)
 LDFLAGS		= -Wl,--gc-sections -s $(MACHDEP) $(LIBPATHS) $(LIBS)
 

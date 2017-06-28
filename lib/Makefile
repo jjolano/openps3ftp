@@ -36,7 +36,7 @@ endif
 endif
 
 ifeq ($(SDK), linux)
-PPU_CFLAGS += -DLINUX -g -Wall
+PPU_CFLAGS += -DLINUX -g -Wall -m32
 PPU_LIB_TARGET = libftp.a
 PPU_OPTIMIZE_LV = -Og
 NTFS_SUPPORT := 0
@@ -62,6 +62,8 @@ ifneq ($(NTFS_STATIC), 1)
 PPU_CFLAGS += -D_PS3NTFS_PRX_
 endif
 endif
+
+PPU_CFLAGS += -D_FILE_OFFSET_BITS=64
 
 ifeq ($(SDK), cell)
 include $(CELL_MK_DIR)/sdk.target.mk
