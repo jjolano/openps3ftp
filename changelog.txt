@@ -1,3 +1,7 @@
+[Version 4.4]
+- Now uses libssftp as the server codebase. (https://github.com/jjolano/libssftp)
+- Fixed some memory leaks when certain commands fail.
+
 [Version 4.3 - March 31, 2017]
 - Fixed console hardlock when shutting down while a client is connected.
 - Fixed various memory leaks.

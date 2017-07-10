@@ -2,3 +2,7 @@
 	path = external/ps3ntfs
 	url = https://github.com/jjolano/ps3ntfs.git
 	ignore = untracked
+[submodule "external/libssftp"]
+	path = external/libssftp
+	url = https://github.com/jjolano/libssftp.git
+	ignore = untracked
