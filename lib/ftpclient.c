@@ -1,4 +1,5 @@
 #include "client.h"
+#include "sys.thread.h"
 
 void* client_get_cvar(struct Client* client, const char* name)
 {
@@ -369,5 +370,10 @@ void client_free(struct Client* client)
 	if(client->cvar != NULL)
 	{
 		pttree_destroy(client->cvar);
+	}
+
+	if(client->mutex != NULL)
+	{
+		sys_mutex_destroy(client->mutex);
 	}
 }

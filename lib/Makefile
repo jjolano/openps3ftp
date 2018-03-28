@@ -36,7 +36,7 @@ endif
 endif
 
 ifeq ($(SDK), linux)
-PPU_CFLAGS += -DLINUX -g -Wall
+PPU_CFLAGS += -DLINUX -g -Wall -pthread
 PPU_LIB_TARGET = libftp.a
 PPU_OPTIMIZE_LV = -Og
 NTFS_SUPPORT := 0

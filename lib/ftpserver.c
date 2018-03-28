@@ -1,4 +1,21 @@
 #include "server.h"
+#include "sys.thread.h"
+
+struct ClientEventJob {
+	struct Client* client;
+	int sock;
+};
+
+void client_event_job(void* arg);
+
+void client_event_job(void* arg)
+{
+	struct ClientEventJob* job = arg;
+	sys_mutex_lock(job->client->mutex);
+	client_socket_event(job->client, job->sock);
+	sys_mutex_unlock(job->client->mutex);
+	free(job);
+}
 
 void server_pollfds_add(struct Server* server, int fd, short events)
 {
@@ -132,6 +149,8 @@ void server_init(struct Server* server, struct Command* command_ptr, unsigned sh
 	server->nfds = 0;
 
 	server->socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+
+	server->pool = threadpool_create(4);
 }
 
 uint32_t server_run(struct Server* server)
@@ -167,6 +186,11 @@ uint32_t server_run(struct Server* server)
 
 	server->running = true;
 	server->should_stop = false;
+
+	if(server->pool != NULL)
+	{
+		threadpool_start(server->pool);
+	}
 
 	// main server loop
 	int retval = 0;
@@ -232,7 +256,6 @@ uint32_t server_run(struct Server* server)
 					#endif
 					
 					setsockopt(socket_client, SOL_SOCKET, SO_LINGER, &optlinger, sizeof(optlinger));
-
 					setsockopt(socket_client, IPPROTO_TCP, TCP_NODELAY, &optval, sizeof(optval));
 
 					struct Client* client = NULL;
@@ -240,6 +263,13 @@ uint32_t server_run(struct Server* server)
 
 					if(client != NULL)
 					{
+						client->mutex = sys_mutex_alloc(1);
+
+						if(client->mutex != NULL)
+						{
+							sys_mutex_create(client->mutex);
+						}
+
 						server_pollfds_add(server, socket_client, POLLIN|POLLRDNORM);
 						client_send_code(client, 220, "FTP Ready.");
 					}
@@ -283,13 +313,34 @@ uint32_t server_run(struct Server* server)
 					}
 
 					// let client handle socket events
-					client_socket_event(client, pfd->fd);
+					if(server->pool == NULL || client->mutex == NULL)
+					{
+						client_socket_event(client, pfd->fd);
+					}
+					else
+					{
+						if(sys_mutex_trylock(client->mutex) == 0)
+						{
+							sys_mutex_unlock(client->mutex);
+
+							struct ClientEventJob* job = malloc(sizeof(struct ClientEventJob));
+							job->client = client;
+							job->sock = pfd->fd;
+
+							threadpool_dispatch(server->pool, client_event_job, job);
+						}
+					}
 				}
 			}
 		}
 	}
 
 	server->running = false;
+
+	if(server->pool != NULL && server->pool->running)
+	{
+		threadpool_stop(server->pool);
+	}
 
 	socketclose(server->socket);
 	server->socket = -1;
@@ -313,6 +364,11 @@ void server_stop(struct Server* server)
 {
 	// set flag
 	server->should_stop = true;
+
+	if(server->pool->running)
+	{
+		threadpool_stop(server->pool);
+	}
 }
 
 void server_free(struct Server* server)
@@ -348,5 +404,10 @@ void server_free(struct Server* server)
 	if(server->socket != -1)
 	{
 		socketclose(server->socket);
+	}
+
+	if(server->pool != NULL)
+	{
+		threadpool_destroy(server->pool);
 	}
 }

@@ -6,6 +6,7 @@ extern "C" {
 
 #include "common.h"
 #include "server.h"
+#include "thread.h"
 
 struct Client
 {
@@ -18,6 +19,8 @@ struct Client
 
 	data_callback cb_data;
 	char lastcmd[32];
+
+	void* mutex;
 };
 
 /* cvar functions */

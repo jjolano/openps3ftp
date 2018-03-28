@@ -8,6 +8,7 @@ extern "C" {
 #include "client.h"
 #include "command.h"
 #include "avlutils.h"
+#include "thread.h"
 
 struct Server
 {
@@ -28,6 +29,8 @@ struct Server
 	char* buffer_control;
 	char* buffer_data;
 	char* buffer_command;
+
+	struct ThreadPool* pool;
 };
 
 /* internal server functions */
