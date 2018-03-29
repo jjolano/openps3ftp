@@ -1,6 +1,6 @@
 <?xml version="1.0" ?>
 <sfo>
-	<value name="APP_VER" type="string">04.02</value>
+	<value name="APP_VER" type="string">04.04</value>
 	<value name="ATTRIBUTE" type="integer">0</value>
 	<value name="BOOTABLE" type="integer">1</value>
 	<value name="CATEGORY" type="string">CB</value>

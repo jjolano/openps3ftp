@@ -1,3 +1,6 @@
+[Version 4.4-experimental]
+- Added multithreading code. Should improve performance at a cost of stability.
+
 [Version 4.3 - March 31, 2017]
 - Fixed console hardlock when shutting down while a client is connected.
 - Fixed various memory leaks.
