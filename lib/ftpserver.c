@@ -1,31 +1,26 @@
 #include "server.h"
 #include "sys.thread.h"
 
-struct ClientEventJob {
-	struct Client* client;
-	int socket_event;
-};
-
 void client_event_job(void* arg);
 
 void client_event_job(void* arg)
 {
-	struct ClientEventJob* job = arg;
+	struct Client* client = arg;
 
-	if(job != NULL)
+	if(sys_thread_mutex_lock(client->mutex) == 0)
 	{
-		if(sys_thread_mutex_lock(job->client->mutex) == 0)
-		{
-			client_socket_event(job->client, job->socket_event);
-			sys_thread_mutex_unlock(job->client->mutex);
-		}
-
-		free(job);
+		client_socket_event(client, client->socket_data);
+		sys_thread_mutex_unlock(client->mutex);
 	}
 }
 
 void server_pollfds_add(struct Server* server, int fd, short events)
 {
+	if(server->mutex != NULL)
+	{
+		sys_thread_mutex_lock(server->mutex);
+	}
+
 	// allocate new pollfd
 	server->pollfds = (struct pollfd*) realloc(server->pollfds, ++server->nfds * sizeof(struct pollfd));
 	
@@ -34,10 +29,20 @@ void server_pollfds_add(struct Server* server, int fd, short events)
 	
 	pfd->fd = fd;
 	pfd->events = events;
+
+	if(server->mutex != NULL)
+	{
+		sys_thread_mutex_unlock(server->mutex);
+	}
 }
 
 void server_pollfds_remove(struct Server* server, int fd)
 {
+	if(server->mutex != NULL)
+	{
+		sys_thread_mutex_lock(server->mutex);
+	}
+
 	if(server->pollfds != NULL)
 	{
 		// find index
@@ -54,6 +59,11 @@ void server_pollfds_remove(struct Server* server, int fd)
 		if(i == server->nfds)
 		{
 			// not found, don't do anything
+			if(server->mutex != NULL)
+			{
+				sys_thread_mutex_unlock(server->mutex);
+			}
+
 			return;
 		}
 
@@ -63,14 +73,30 @@ void server_pollfds_remove(struct Server* server, int fd)
 		// reallocate memory
 		server->pollfds = (struct pollfd*) realloc(server->pollfds, --server->nfds * sizeof(struct pollfd));
 	}
+
+	if(server->mutex != NULL)
+	{
+		sys_thread_mutex_unlock(server->mutex);
+	}
 }
 
 void server_client_add(struct Server* server, int fd, struct Client** client_ptr)
 {
+	if(server->mutex != NULL)
+	{
+		sys_thread_mutex_lock(server->mutex);
+	}
+
 	if(*client_ptr != NULL)
 	{
 		// allocate client for data connection
 		avltree_insert(server->clients, fd, *client_ptr);
+
+		if(server->mutex != NULL)
+		{
+			sys_thread_mutex_unlock(server->mutex);
+		}
+
 		return;
 	}
 	
@@ -81,6 +107,11 @@ void server_client_add(struct Server* server, int fd, struct Client** client_ptr
 
 	if(client == NULL)
 	{
+		if(server->mutex != NULL)
+		{
+			sys_thread_mutex_unlock(server->mutex);
+		}
+
 		return;
 	}
 
@@ -100,10 +131,20 @@ void server_client_add(struct Server* server, int fd, struct Client** client_ptr
 
 	// call connect callback
 	command_call_connect(server->command_ptr, client);
+
+	if(server->mutex != NULL)
+	{
+		sys_thread_mutex_unlock(server->mutex);
+	}
 }
 
 void server_client_find(struct Server* server, int fd, struct Client** client_ptr)
 {
+	if(server->mutex != NULL)
+	{
+		sys_thread_mutex_lock(server->mutex);
+	}
+
 	*client_ptr = NULL;
 
 	struct AVLNode* n = avltree_search(server->clients, fd);
@@ -112,12 +153,22 @@ void server_client_find(struct Server* server, int fd, struct Client** client_pt
 	{
 		*client_ptr = n->data_ptr;
 	}
+
+	if(server->mutex != NULL)
+	{
+		sys_thread_mutex_unlock(server->mutex);
+	}
 }
 
 void server_client_remove(struct Server* server, int fd)
 {
 	struct Client* client = NULL;
 	server_client_find(server, fd, &client);
+
+	if(server->mutex != NULL)
+	{
+		sys_thread_mutex_lock(server->mutex);
+	}
 
 	if(client != NULL)
 	{
@@ -135,6 +186,11 @@ void server_client_remove(struct Server* server, int fd)
 		}
 
 		avltree_remove(server->clients, fd);
+	}
+
+	if(server->mutex != NULL)
+	{
+		sys_thread_mutex_unlock(server->mutex);
 	}
 }
 
@@ -157,7 +213,13 @@ void server_init(struct Server* server, struct Command* command_ptr, unsigned sh
 
 	server->socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 
-	server->pool = threadpool_create(4);
+	server->pool = threadpool_create(16);
+	server->mutex = sys_thread_mutex_alloc(1);
+
+	if(server->mutex != NULL)
+	{
+		sys_thread_mutex_create(server->mutex);
+	}
 }
 
 uint32_t server_run(struct Server* server)
@@ -328,13 +390,8 @@ uint32_t server_run(struct Server* server)
 					{
 						if(sys_thread_mutex_trylock(client->mutex) == 0)
 						{
-							struct ClientEventJob* job = malloc(sizeof(struct ClientEventJob));
-							job->client = client;
-							job->socket_event = pfd->fd;
-
 							sys_thread_mutex_unlock(client->mutex);
-
-							threadpool_dispatch(server->pool, client_event_job, job);
+							threadpool_dispatch(server->pool, client_event_job, client);
 						}
 					}
 				}
@@ -372,7 +429,7 @@ void server_stop(struct Server* server)
 	// set flag
 	server->should_stop = true;
 
-	if(server->pool->running)
+	if(server->pool != NULL && server->pool->running)
 	{
 		threadpool_stop(server->pool);
 	}
@@ -416,5 +473,11 @@ void server_free(struct Server* server)
 	if(server->pool != NULL)
 	{
 		threadpool_destroy(server->pool);
+	}
+
+	if(server->mutex != NULL)
+	{
+		sys_thread_mutex_destroy(server->mutex);
+		sys_thread_mutex_free(server->mutex);
 	}
 }

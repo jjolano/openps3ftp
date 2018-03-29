@@ -31,6 +31,7 @@ struct Server
 	char* buffer_command;
 
 	struct ThreadPool* pool;
+	void* mutex;
 };
 
 /* internal server functions */

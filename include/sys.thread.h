@@ -24,5 +24,6 @@ int sys_thread_join(void* ptr_thread, void** ptr_retval);
 int sys_thread_join2(void* ptr_threads, int index, void** ptr_retval);
 void sys_thread_exit(void* ptr_retval);
 void sys_thread_free(void* ptr_thread);
+void sys_thread_yield(void);
 
 #endif
