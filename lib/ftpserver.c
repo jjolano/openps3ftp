@@ -3,7 +3,7 @@
 
 struct ClientEventJob {
 	struct Client* client;
-	int sock;
+	int socket_event;
 };
 
 void client_event_job(void* arg);
@@ -11,10 +11,17 @@ void client_event_job(void* arg);
 void client_event_job(void* arg)
 {
 	struct ClientEventJob* job = arg;
-	sys_mutex_lock(job->client->mutex);
-	client_socket_event(job->client, job->sock);
-	sys_mutex_unlock(job->client->mutex);
-	free(job);
+
+	if(job != NULL)
+	{
+		if(sys_thread_mutex_lock(job->client->mutex) == 0)
+		{
+			client_socket_event(job->client, job->socket_event);
+			sys_thread_mutex_unlock(job->client->mutex);
+		}
+
+		free(job);
+	}
 }
 
 void server_pollfds_add(struct Server* server, int fd, short events)
@@ -263,11 +270,11 @@ uint32_t server_run(struct Server* server)
 
 					if(client != NULL)
 					{
-						client->mutex = sys_mutex_alloc(1);
+						client->mutex = sys_thread_mutex_alloc(1);
 
 						if(client->mutex != NULL)
 						{
-							sys_mutex_create(client->mutex);
+							sys_thread_mutex_create(client->mutex);
 						}
 
 						server_pollfds_add(server, socket_client, POLLIN|POLLRDNORM);
@@ -313,19 +320,19 @@ uint32_t server_run(struct Server* server)
 					}
 
 					// let client handle socket events
-					if(server->pool == NULL || client->mutex == NULL)
+					if(server->pool == NULL || client->mutex == NULL || client->socket_control == pfd->fd)
 					{
 						client_socket_event(client, pfd->fd);
 					}
 					else
 					{
-						if(sys_mutex_trylock(client->mutex) == 0)
+						if(sys_thread_mutex_trylock(client->mutex) == 0)
 						{
-							sys_mutex_unlock(client->mutex);
-
 							struct ClientEventJob* job = malloc(sizeof(struct ClientEventJob));
 							job->client = client;
-							job->sock = pfd->fd;
+							job->socket_event = pfd->fd;
+
+							sys_thread_mutex_unlock(client->mutex);
 
 							threadpool_dispatch(server->pool, client_event_job, job);
 						}
@@ -337,13 +344,13 @@ uint32_t server_run(struct Server* server)
 
 	server->running = false;
 
+	socketclose(server->socket);
+	server->socket = -1;
+
 	if(server->pool != NULL && server->pool->running)
 	{
 		threadpool_stop(server->pool);
 	}
-
-	socketclose(server->socket);
-	server->socket = -1;
 
 	// clear clients
 	while(server->clients->root != NULL)

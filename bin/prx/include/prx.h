@@ -19,9 +19,7 @@
 
 inline void _sys_ppu_thread_exit(uint64_t val);
 void finalize_module(void);
-void prx_unload(void);
 int prx_stop(void);
-int prx_exit(void);
 
 void ftp_stop(void);
 void ftp_main(uint64_t ptr);

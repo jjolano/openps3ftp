@@ -63,8 +63,6 @@ extern int closesocket(int socket);
 #endif
 
 #ifdef LINUX
-#define __USE_FILE_OFFSET64
-
 #include <poll.h>
 #include <fcntl.h>
 #include <dirent.h>
@@ -74,6 +72,11 @@ extern int closesocket(int socket);
 #include <ctype.h>
 
 #include <linux/limits.h>
+
+#if _POSIX_C_SOURCE >= 200112L
+#define ftell(a) ftello(a)
+#define fseek(a,b,c) fseeko(a,b,c)
+#endif
 
 #define MAX_PATH PATH_MAX
 #define MAX_NAME NAME_MAX

@@ -34,10 +34,35 @@ int32_t ftpio_open(const char* path, int oflags, int32_t* fd)
 		#endif
 	}
 	#else
-	*fd = open(path, oflags);
+	FILE* fp = NULL;
 
-	if(*fd != -1)
+	if(oflags & O_CREAT)
 	{
+		fp = fopen(path, "wb");
+	}
+	else
+	if(oflags & O_APPEND)
+	{
+		fp = fopen(path, "ab+");
+	}
+	else
+	if(oflags & O_RDONLY)
+	{
+		fp = fopen(path, "r");
+	}
+	else
+	if(oflags & O_TRUNC)
+	{
+		fp = fopen(path, "wb+");
+	}
+	else
+	{
+		fp = fopen(path, "rb+");
+	}
+
+	if(fp != NULL)
+	{
+		*fd = (intptr_t) fp;
 		ret = 0;
 	}
 	#endif
@@ -131,7 +156,7 @@ int32_t ftpio_readdir(int32_t fd, ftpdirent* dirent, uint64_t* nread)
 	#else
 	errno = 0;
 
-	DIR* dirp = (DIR*) (intptr_t) fd;
+	DIR* dirp = (DIR*) ((intptr_t) fd);
 
 	ftpdirent* dirent_temp = readdir(dirp);
 	
@@ -187,13 +212,11 @@ int32_t ftpio_read(int32_t fd, char* buf, uint64_t nbytes, uint64_t* nread)
 		#endif
 	}
 	#else
-	ssize_t nread_bytes = read(fd, buf, (size_t) nbytes);
+	FILE* fp = (FILE*) ((intptr_t) fd);
+	size_t nread_bytes = fread(buf, sizeof(char), (size_t) nbytes, fp);
 
-	if(nread_bytes > -1)
-	{
-		*nread = (uint64_t) nread_bytes;
-		ret = 0;
-	}
+	*nread = (uint64_t) nread_bytes;
+	ret = 0;
 	#endif
 
 	return ret;
@@ -231,13 +254,11 @@ int32_t ftpio_write(int32_t fd, char* buf, uint64_t nbytes, uint64_t* nwrite)
 		#endif
 	}
 	#else
-	ssize_t nwrite_bytes = write(fd, buf, (size_t) nbytes);
+	FILE* fp = (FILE*) ((intptr_t) fd);
+	size_t nwrite_bytes = fwrite(buf, sizeof(char), (size_t) nbytes, fp);
 
-	if(nwrite_bytes > -1)
-	{
-		*nwrite = (uint64_t) nwrite_bytes;
-		ret = 0;
-	}
+	*nwrite = (uint64_t) nwrite_bytes;
+	ret = 0;
 	#endif
 
 	return ret;
@@ -269,7 +290,8 @@ int32_t ftpio_close(int32_t fd)
 		#endif
 	}
 	#else
-	ret = close(fd);
+	FILE* fp = (FILE*) ((intptr_t) fd);
+	ret = fclose(fp);
 	#endif
 
 	return ret;
@@ -301,7 +323,7 @@ int32_t ftpio_closedir(int32_t fd)
 		#endif
 	}
 	#else
-	ret = closedir((DIR*) (intptr_t) fd);
+	ret = closedir((DIR*) ((intptr_t) fd));
 	#endif
 
 	return ret;

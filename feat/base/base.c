@@ -1198,17 +1198,40 @@ void base_disconnect(struct Client* client)
 		free(port_addr);
 	}
 
-	if(cwd->dir != NULL)
+	if(cwd != NULL)
 	{
-		free(cwd->dir);
+		if(cwd->dir != NULL)
+		{
+			free(cwd->dir);
+		}
+		
+		free(cwd);
 	}
 
-	free(cwd);
-	free(user);
-	free(rnfr);
-	free(auth);
-	free(fd);
-	free(rest);
+	if(user != NULL)
+	{
+		free(user);
+	}
+	
+	if(rnfr != NULL)
+	{
+		free(rnfr);
+	}
+
+	if(auth != NULL)
+	{
+		free(auth);
+	}
+	
+	if(fd != NULL)
+	{
+		free(fd);
+	}
+	
+	if(rest != NULL)
+	{
+		free(rest);
+	}
 
 	#ifdef _NTFS_SUPPORT_
 	int* ntfs_list = client_get_cvar(client, "ntfs_list");

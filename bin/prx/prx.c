@@ -1,9 +1,8 @@
 #include "prx.h"
 
+SYS_MODULE_INFO(FTPD, 0, 4, 3);
 SYS_MODULE_START(prx_start);
 SYS_MODULE_STOP(prx_stop);
-SYS_MODULE_EXIT(prx_exit);
-SYS_MODULE_INFO(FTPD, SYS_MODULE_ATTR_EXCLUSIVE_LOAD | SYS_MODULE_ATTR_EXCLUSIVE_START, 4, 3);
 
 struct Command* ftp_command = NULL;
 struct Server* ftp_server = NULL;
@@ -30,12 +29,6 @@ void finalize_module(void)
 	system_call_3(482, prx, 0, (uintptr_t) meminfo);
 }
 
-void prx_unload(void)
-{
-	sys_prx_id_t prx = sys_prx_get_my_module_id();
-	system_call_3(483, prx, 0, NULL);
-}
-
 void ftp_stop(void)
 {
 	prx_running = false;
@@ -53,14 +46,6 @@ int prx_stop(void)
 {
 	ftp_stop();
 	finalize_module();
-	_sys_ppu_thread_exit(0);
-	return SYS_PRX_STOP_OK;
-}
-
-int prx_exit(void)
-{
-	ftp_stop();
-	prx_unload();
 	_sys_ppu_thread_exit(0);
 	return SYS_PRX_STOP_OK;
 }
@@ -112,7 +97,7 @@ void prx_main(uint64_t ptr)
 
 	// initialize server
 	sys_ppu_thread_t ftp_tid;
-	sys_ppu_thread_create(&ftp_tid, ftp_main, 0, 1000, 0x4000, SYS_PPU_THREAD_CREATE_JOINABLE, (char*) "OpenPS3FTP-FTPD");
+	sys_ppu_thread_create(&ftp_tid, ftp_main, 0, 1000, 0x10000, SYS_PPU_THREAD_CREATE_JOINABLE, (char*) "OpenPS3FTP-FTPD");
 
 	while(prx_running)
 	{
@@ -146,5 +131,5 @@ int prx_start(size_t args, void* argv)
 	sys_ppu_thread_create(&prx_tid, prx_main, 0, 1001, 0x1000, SYS_PPU_THREAD_CREATE_JOINABLE, (char*) "OpenPS3FTP");
 
 	_sys_ppu_thread_exit(0);
-	return SYS_PRX_START_OK;
+	return SYS_PRX_RESIDENT;
 }

@@ -374,6 +374,7 @@ void client_free(struct Client* client)
 
 	if(client->mutex != NULL)
 	{
-		sys_mutex_destroy(client->mutex);
+		sys_thread_mutex_destroy(client->mutex);
+		sys_thread_mutex_free(client->mutex);
 	}
 }
