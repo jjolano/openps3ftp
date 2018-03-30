@@ -106,11 +106,17 @@ int main(void)
 
 	if(netctl_state != NET_CTL_STATE_IPObtained)
 	{
-		// Unload sysmodules.
-		unload_sysmodules();
-
+		MsgDialog md(gfx);
+		md.Dialog((msgType) (MSG_DIALOG_NORMAL
+			| MSG_DIALOG_BTN_TYPE_OK
+			| MSG_DIALOG_DISABLE_CANCEL_ON),
+			"A network connection is required to use this application.");
+		
 		// Free up graphics.
 		gfx->NoRSX_Exit();
+
+		// Unload sysmodules.
+		unload_sysmodules();
 
 		return -1;
 	}
@@ -140,8 +146,6 @@ int main(void)
 	sys_ppu_thread_t server_tid;
 	sysThreadCreate(&server_tid, server_run_ex, (void*) &ftp_server, 1000, 0x10000, THREAD_JOINABLE, (char*) "ftpd");
 	sysThreadYield();
-
-	sleep(1);
 
 	// Start application loop.
 	gfx->AppStart();
@@ -220,11 +224,11 @@ int main(void)
 	// Unmount dev_blind.
 	sysLv2FsUnmount(MOUNT_POINT);
 
-	// Unload sysmodules.
-	unload_sysmodules();
-
 	// Free up graphics.
 	gfx->NoRSX_Exit();
+
+	// Unload sysmodules.
+	unload_sysmodules();
 	
 	return 0;
 }

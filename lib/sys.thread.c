@@ -24,11 +24,12 @@ struct _sys_thread_data {
 	void* arg;
 };
 
-void* _sys_thread(void*);
+#ifdef CELL_SDK
+void _sys_thread(uint64_t);
 
-void* _sys_thread(void* arg)
+void _sys_thread(uint64_t arg)
 {
-	struct _sys_thread_data* data = arg;
+	struct _sys_thread_data* data = (struct _sys_thread_data*) (intptr_t) arg;
 	void (*func)(void*) = data->func;
 	void* func_arg = data->arg;
 	free(data);
@@ -37,11 +38,12 @@ void* _sys_thread(void* arg)
 	{
 		(*func)(func_arg);
 	}
-
-	return NULL;
+	else
+	{
+		sys_thread_exit(NULL);
+	}
 }
 
-#ifdef CELL_SDK
 inline void* sys_thread_mutex_alloc(int num)
 {
 	return malloc(sizeof(sys_lwmutex_t) * num);
@@ -307,6 +309,23 @@ inline void sys_thread_yield(void)
 #endif
 
 #ifdef LINUX
+void* _sys_thread(void*);
+
+void* _sys_thread(void* arg)
+{
+	struct _sys_thread_data* data = arg;
+	void (*func)(void*) = data->func;
+	void* func_arg = data->arg;
+	free(data);
+
+	if(func != NULL)
+	{
+		(*func)(func_arg);
+	}
+
+	return NULL;
+}
+
 inline void* sys_thread_mutex_alloc(int num)
 {
 	return malloc(sizeof(pthread_mutex_t) * num);

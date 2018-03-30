@@ -57,6 +57,7 @@ ps3-clean:
 ifneq ($(CELL_SDK),)
 	$(MAKE) -C lib SDK=cell LIB_EXTERNAL=1 clean
 	$(MAKE) -C lib SDK=cell clean
+	$(MAKE) -C bin/cell clean
 endif
 	$(MAKE) -C bin/psl1ght clean
 	$(MAKE) -C external/ps3ntfs clean

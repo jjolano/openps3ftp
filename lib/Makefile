@@ -53,6 +53,8 @@ PPU_CFLAGS += -D_NO_VSH_EXPORTS_
 NTFS_STATIC := 1
 endif
 
+ifeq ($(SDK), cell)
+
 ifeq ($(NTFS_SUPPORT), 1)
 PPU_CFLAGS += -D_NTFS_SUPPORT_
 PPU_INCDIRS += -I../external/ps3ntfs/external/libntfs/include
@@ -63,7 +65,6 @@ PPU_CFLAGS += -D_PS3NTFS_PRX_
 endif
 endif
 
-ifeq ($(SDK), cell)
 include $(CELL_MK_DIR)/sdk.target.mk
 else
 .PHONY: all clean
