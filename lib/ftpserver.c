@@ -246,7 +246,7 @@ uint32_t server_run(struct Server* server)
 	{
 		// failed to bind socket to port
 		socketclose(server->socket);
-		return 1;
+		return 10;
 	}
 
 	listen(server->socket, 10);
@@ -331,12 +331,7 @@ uint32_t server_run(struct Server* server)
 
 					struct linger optlinger;
 					optlinger.l_onoff = 1;
-
-					#ifndef LINUX
-					optlinger.l_linger = 0;
-					#else
 					optlinger.l_linger = 15;
-					#endif
 					
 					setsockopt(socket_client, SOL_SOCKET, SO_LINGER, &optlinger, sizeof(optlinger));
 					setsockopt(socket_client, IPPROTO_TCP, TCP_NODELAY, &optval, sizeof(optval));

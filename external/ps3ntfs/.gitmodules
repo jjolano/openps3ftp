@@ -1,0 +1,4 @@
+[submodule "external/libntfs"]
+	path = external/libntfs
+	url = https://github.com/jjolano/libntfs.git
+	branch = 2016.2.22

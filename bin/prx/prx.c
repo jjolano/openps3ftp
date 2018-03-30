@@ -1,6 +1,6 @@
 #include "prx.h"
 
-SYS_MODULE_INFO(FTPD, 0, 4, 3);
+SYS_MODULE_INFO(FTPD, 0, 4, 4);
 SYS_MODULE_START(prx_start);
 SYS_MODULE_STOP(prx_stop);
 

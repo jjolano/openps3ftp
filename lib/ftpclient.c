@@ -152,12 +152,7 @@ bool client_data_start(struct Client* client, data_callback callback, short peve
 	
 	struct linger optlinger;
 	optlinger.l_onoff = 1;
-
-	#ifndef LINUX
-	optlinger.l_linger = 0;
-	#else
 	optlinger.l_linger = 15;
-	#endif
 	
 	setsockopt(client->socket_data, SOL_SOCKET, SO_LINGER, &optlinger, sizeof(optlinger));
 
@@ -243,12 +238,7 @@ bool client_pasv_enter(struct Client* client, struct sockaddr_in* pasv_addr)
 
 	struct linger optlinger;
 	optlinger.l_onoff = 1;
-
-	#ifndef LINUX
-	optlinger.l_linger = 0;
-	#else
 	optlinger.l_linger = 15;
-	#endif
 	
 	setsockopt(client->socket_pasv, SOL_SOCKET, SO_LINGER, &optlinger, sizeof(optlinger));
 

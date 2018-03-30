@@ -1,5 +1,5 @@
 # OpenPS3FTP Makefile - CELL PRX edition
-GIT_VERSION := $(shell git describe --dirty --always)
+GIT_VERSION := $(shell git describe --always)
 
 SCETOOL_FLAGS := -0 SELF
 SCETOOL_FLAGS += -1 TRUE

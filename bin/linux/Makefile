@@ -1,5 +1,5 @@
 # FTP Makefile
-GIT_VERSION := $(shell git describe --dirty --always)
+GIT_VERSION := $(shell git describe --always)
 
 TARGET		:= ftp.elf
 

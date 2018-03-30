@@ -1,6 +1,6 @@
 # libOpenPS3FTP Makefile
 SDK ?= linux
-GIT_VERSION := $(shell git describe --dirty --always)
+GIT_VERSION := $(shell git describe --always)
 
 ifeq ($(SDK), cell)
 CELL_SDK ?= /usr/local/cell
@@ -8,7 +8,6 @@ CELL_MK_DIR ?= $(CELL_SDK)/samples/mk
 
 include $(CELL_MK_DIR)/sdk.makedef.mk
 
-OBJS_DIR = .
 PPU_CFLAGS += -DCELL_SDK
 
 ifeq ($(LIB_EXTERNAL), 1)
@@ -17,6 +16,7 @@ PPU_OPTIMIZE_LV = -O2
 else
 PPU_LIB_TARGET = libopenps3ftp_cell_vsh.a
 PPU_OPTIMIZE_LV = -Os
+OBJS_DIR = objs_vsh
 endif
 endif
 

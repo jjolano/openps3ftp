@@ -17,10 +17,6 @@
 #include "base/base.h"
 #include "ext/ext.h"
 
-#ifdef _NTFS_SUPPORT_
-#include "ps3ntfs.h"
-#endif
-
 #define MOUNT_POINT	"/dev_blind"
 
 using namespace std;
@@ -76,8 +72,8 @@ LV2_SYSCALL sysLv2FsUnmount(const char* path)
 void server_run_ex(void* arg)
 {
 	struct Server* ftp_server = (struct Server*) arg;
-	server_run(ftp_server);
-	sysThreadExit(0);
+	uint32_t ret = server_run(ftp_server);
+	sysThreadExit(ret);
 }
 
 int main(void)
@@ -139,16 +135,13 @@ int main(void)
 	struct Server* ftp_server = (struct Server*) malloc(sizeof(struct Server));
 	
 	// initialize server struct
-	server_init(ftp_server, ftp_command, 21);
+	server_init(ftp_server, ftp_command, 2121);
 
 	sys_ppu_thread_t server_tid;
-	sysThreadCreate(&server_tid, server_run_ex, (void*) &ftp_server, 1001, 0x4000, THREAD_JOINABLE, (char*) "ftpd");
+	sysThreadCreate(&server_tid, server_run_ex, (void*) &ftp_server, 1000, 0x10000, THREAD_JOINABLE, (char*) "ftpd");
 	sysThreadYield();
 
-	#ifdef _NTFS_SUPPORT_
-	sys_ppu_thread_t ntfs_tid;
-	sysThreadCreate(&ntfs_tid, ps3ntfs_automount, &ftp_server->running, 1001, 0x2000, THREAD_JOINABLE, (char*) "ntfsd");
-	#endif
+	sleep(1);
 
 	// Start application loop.
 	gfx->AppStart();
@@ -156,7 +149,7 @@ int main(void)
 	int flipped = 0;
 	int last_num_connections = 0;
 
-	while(gfx->GetAppStatus() && ftp_server->running)
+	while(gfx->GetAppStatus())
 	{
 		int num_connections = ftp_server->nfds - 1;
 
@@ -165,7 +158,7 @@ int main(void)
 			bg.Mono(COLOR_BLACK);
 
 			text.Printf(100, 100, COLOR_WHITE, "OpenPS3FTP " APP_VERSION);
-			text.Printf(100, 150, COLOR_WHITE, "IP Address: %s", netctl_info.ip_address);
+			text.Printf(100, 150, COLOR_WHITE, "IP Address: %s (port: %d)", netctl_info.ip_address, ftp_server->port);
 			text.Printf(100, 200, COLOR_WHITE, "Connections: %d", num_connections);
 
 			flipped++;
@@ -191,6 +184,11 @@ int main(void)
 			setRenderTarget(gfx->context, &gfx->buffers[gfx->currentBuffer]);
 			sysUtilCheckCallback();
 		}
+
+		 if(!ftp_server->running)
+		 {
+			 break;
+		 }
 	}
 
 	gfx->Flip();
@@ -201,9 +199,17 @@ int main(void)
 	u64 thread_exit;
 	sysThreadJoin(server_tid, &thread_exit);
 
-	#ifdef _NTFS_SUPPORT_
-	sysThreadJoin(ntfs_tid, &thread_exit);
-	#endif
+	if(thread_exit != 0 && gfx->GetAppStatus())
+	{
+		char errmsg[32];
+		sprintf(errmsg, "Server exited with error code %d.", (int) thread_exit);
+
+		MsgDialog md(gfx);
+		md.Dialog((msgType) (MSG_DIALOG_NORMAL
+			| MSG_DIALOG_BTN_TYPE_OK
+			| MSG_DIALOG_DISABLE_CANCEL_ON),
+			errmsg);
+	}
 
 	server_free(ftp_server);
 	free(ftp_server);

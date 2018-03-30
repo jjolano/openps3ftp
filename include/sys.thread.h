@@ -1,6 +1,10 @@
 #ifndef _UTIL_SYS_H_
 #define _UTIL_SYS_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void* sys_thread_mutex_alloc(int num);
 int sys_thread_mutex_create(void* ptr_mutex);
 int sys_thread_mutex_lock(void* ptr_mutex);
@@ -25,5 +29,9 @@ int sys_thread_join2(void* ptr_threads, int index, void** ptr_retval);
 void sys_thread_exit(void* ptr_retval);
 void sys_thread_free(void* ptr_thread);
 void sys_thread_yield(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

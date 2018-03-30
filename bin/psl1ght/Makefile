@@ -1,9 +1,10 @@
 # OpenPS3FTP Makefile
-GIT_VERSION := $(shell git describe --dirty --always)
+GIT_VERSION := $(shell git describe --always)
+CONTENTID	?= UP0001-NPXS91337_00-0000000000000000
 
 include $(PSL1GHT)/ppu_rules
 
-TARGET		:= openps3ftp.elf
+TARGET		:= ftp.elf
 
 # Libraries
 LIBPATHS	:= -L../../lib -L$(PORTLIBS)/lib $(LIBPSL1GHT_LIB)
@@ -26,16 +27,24 @@ CXXFLAGS	+= -DAPP_VER_MIN=\"-g$(GIT_VERSION)\"
 CFLAGS		= $(CXXFLAGS)
 LDFLAGS		= -Wl,--gc-sections -s $(MACHDEP) $(LIBPATHS) $(LIBS)
 
-# NTFS support
-ifeq ($(NTFS_SUPPORT), 1)
-LIBPATHS	+= -L../../external/libntfs_ext
-LIBS		+= -lntfs_ext
+# scetool: github.com/naehrwert/scetool
+SCETOOL_FLAGS := -0 SELF
+SCETOOL_FLAGS += -1 TRUE
+SCETOOL_FLAGS += -s FALSE
+SCETOOL_FLAGS += -3 1010000001000003
+SCETOOL_FLAGS += -4 01000002
+SCETOOL_FLAGS += -5 NPDRM
+SCETOOL_FLAGS += -A 0001000000000000
+SCETOOL_FLAGS += -6 0003004000000000
+SCETOOL_FLAGS += -8 4000000000000000000000000000000000000000000000000000000000000002
+SCETOOL_FLAGS += -9 00000000000000000000000000000000000000000000007B0000000100000000
+SCETOOL_FLAGS += -b FREE
+SCETOOL_FLAGS += -c EXEC
+SCETOOL_FLAGS += -g EBOOT.BIN
+SCETOOL_FLAGS += -j TRUE
 
-INCLUDE		+= -I../../external/libntfs_ext/include
-
-C_SRCS		+= ps3ntfs.c
-DEFINES		+= -D_NTFS_SUPPORT_
-endif
+MAKE_FSELF = $(FSELF) $(1) $(2)
+MAKE_SELF_NPDRM = scetool $(SCETOOL_FLAGS) -f $(3) -2 $(4) -e $(1) $(2)
 
 # Make rules
 .PHONY: all clean
@@ -43,11 +52,18 @@ endif
 all: $(TARGET)
 
 clean: 
-	rm -f $(TARGET) $(OBJS)
+	rm -f $(TARGET) $(OBJS) EBOOT.BIN
 
 $(TARGET): $(OBJS)
 	$(CXX) $^ $(LDFLAGS) -o $@
 	$(SPRX) $@
+
+EBOOT.BIN: $(TARGET)
+ifeq ($(UNSIGNED), 1)
+	$(call MAKE_FSELF,$<,$@)
+else
+	$(call MAKE_SELF_NPDRM,$<,$@,$(CONTENTID),04)
+endif
 
 %.cpp.ppu.o: %.cpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@
