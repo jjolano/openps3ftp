@@ -9,7 +9,7 @@ void client_event_job(void* arg)
 
 	if(sys_thread_mutex_lock(client->mutex) == 0)
 	{
-		client_socket_event(client, client->socket_data);
+		client_socket_event(client, client->socket_event);
 		sys_thread_mutex_unlock(client->mutex);
 	}
 }
@@ -126,6 +126,10 @@ void server_client_add(struct Server* server, int fd, struct Client** client_ptr
 	client->cb_data = NULL;
 	client->lastcmd[0] = '\0';
 
+	client->buffer_control = (char*) malloc(BUFFER_CONTROL * sizeof(char));
+	client->buffer_data = (char*) malloc(BUFFER_DATA * sizeof(char));
+	client->buffer_command = (char*) malloc(BUFFER_COMMAND * sizeof(char));
+
 	// add to nodes
 	avltree_insert(server->clients, fd, client);
 
@@ -165,13 +169,13 @@ void server_client_remove(struct Server* server, int fd)
 	struct Client* client = NULL;
 	server_client_find(server, fd, &client);
 
-	if(server->mutex != NULL)
-	{
-		sys_thread_mutex_lock(server->mutex);
-	}
-
 	if(client != NULL)
 	{
+		if(server->mutex != NULL)
+		{
+			sys_thread_mutex_lock(server->mutex);
+		}
+
 		if(client->socket_control == fd)
 		{
 			// free client if control socket
@@ -186,11 +190,11 @@ void server_client_remove(struct Server* server, int fd)
 		}
 
 		avltree_remove(server->clients, fd);
-	}
 
-	if(server->mutex != NULL)
-	{
-		sys_thread_mutex_unlock(server->mutex);
+		if(server->mutex != NULL)
+		{
+			sys_thread_mutex_unlock(server->mutex);
+		}
 	}
 }
 
@@ -203,9 +207,6 @@ void server_init(struct Server* server, struct Command* command_ptr, unsigned sh
 	server->running = false;
 	server->should_stop = false;
 
-	server->buffer_control = (char*) malloc(BUFFER_CONTROL * sizeof(char));
-	server->buffer_data = (char*) malloc(BUFFER_DATA * sizeof(char));
-	server->buffer_command = (char*) malloc(BUFFER_COMMAND * sizeof(char));
 	server->pollfds = NULL;
 	server->clients = avltree_create();
 
@@ -213,7 +214,7 @@ void server_init(struct Server* server, struct Command* command_ptr, unsigned sh
 
 	server->socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 
-	server->pool = threadpool_create(16);
+	server->pool = threadpool_create(NUM_THREADS);
 	server->mutex = sys_thread_mutex_alloc(1);
 
 	if(server->mutex != NULL)
@@ -266,10 +267,21 @@ uint32_t server_run(struct Server* server)
 
 	while(!server->should_stop)
 	{
-		int p = socketpoll(server->pollfds, server->nfds, 500);
+		if(server->mutex != NULL)
+		{
+			sys_thread_mutex_lock(server->mutex);
+		}
+		
+		int p = socketpoll(server->pollfds, server->nfds, 1);
+
+		if(server->mutex != NULL)
+		{
+			sys_thread_mutex_unlock(server->mutex);
+		}
 
 		if(p == 0)
 		{
+			sys_thread_yield();
 			continue;
 		}
 
@@ -285,17 +297,19 @@ uint32_t server_run(struct Server* server)
 		{
 			struct pollfd* pfd = &server->pollfds[i];
 
-			if(pfd->revents)
+			if(pfd != NULL && pfd->revents)
 			{
 				p--;
 
+				int pfd_fd = pfd->fd;
+
 				if(pfd->revents & POLLNVAL)
 				{
-					server_pollfds_remove(server, pfd->fd);
+					server_pollfds_remove(server, pfd_fd);
 					continue;
 				}
 
-				if(pfd->fd == server->socket)
+				if(pfd_fd == server->socket)
 				{
 					if(pfd->revents & (POLLERR|POLLHUP))
 					{
@@ -350,47 +364,51 @@ uint32_t server_run(struct Server* server)
 				else
 				{
 					struct Client* client = NULL;
-					server_client_find(server, pfd->fd, &client);
+					server_client_find(server, pfd_fd, &client);
 
 					if(client == NULL)
 					{
-						// remove orphan socket
-						socketclose(pfd->fd);
-						server_pollfds_remove(server, pfd->fd);
+						socketclose(pfd_fd);
+						server_pollfds_remove(server, pfd_fd);
+						
 						continue;
 					}
+
+					char temp[2];
 
 					// handle disconnections
 					if(pfd->revents & (POLLERR|POLLHUP)
 					|| (
 						pfd->events & POLLOUT &&
 						pfd->revents & POLLIN &&
-						recv(pfd->fd, server->buffer_data, BUFFER_DATA, MSG_PEEK) <= 0
+						recv(pfd_fd, temp, sizeof(temp), MSG_PEEK) <= 0
 					))
 					{
-						client_socket_disconnect(client, pfd->fd);
+						client_socket_disconnect(client, pfd_fd);
 
-						if(pfd->fd == client->socket_control)
+						if(pfd_fd == client->socket_control)
 						{
 							// control connection disconnected, remove from clients
-							server_client_remove(server, pfd->fd);
+							server_client_remove(server, pfd_fd);
 						}
 
 						// remove from pollfds
-						server_pollfds_remove(server, pfd->fd);
+						server_pollfds_remove(server, pfd_fd);
 						continue;
 					}
 
 					// let client handle socket events
-					if(server->pool == NULL || client->mutex == NULL || client->socket_control == pfd->fd)
+					if(server->pool == NULL || client->mutex == NULL || client->socket_control == pfd_fd)
 					{
-						client_socket_event(client, pfd->fd);
+						client_socket_event(client, pfd_fd);
 					}
 					else
 					{
 						if(sys_thread_mutex_trylock(client->mutex) == 0)
 						{
+							client->socket_event = pfd_fd;
 							sys_thread_mutex_unlock(client->mutex);
+
 							threadpool_dispatch(server->pool, client_event_job, client);
 						}
 					}
@@ -448,21 +466,6 @@ void server_free(struct Server* server)
 	if(server->clients != NULL)
 	{
 		avltree_destroy(server->clients);
-	}
-
-	if(server->buffer_control != NULL)
-	{
-		free(server->buffer_control);
-	}
-
-	if(server->buffer_data != NULL)
-	{
-		free(server->buffer_data);
-	}
-
-	if(server->buffer_command != NULL)
-	{
-		free(server->buffer_command);
 	}
 
 	if(server->socket != -1)

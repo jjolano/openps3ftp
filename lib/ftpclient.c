@@ -14,7 +14,7 @@ void client_set_cvar(struct Client* client, const char* name, void* ptr)
 
 void client_send_message(struct Client* client, const char* message)
 {
-	char* buffer = client->server_ptr->buffer_control;
+	char* buffer = client->buffer_control;
 	size_t len = sprintf(buffer, "%s\r\n", message);
 
 	if(send(client->socket_control, buffer, len, 0) < 0)
@@ -28,7 +28,7 @@ void client_send_message(struct Client* client, const char* message)
 
 void client_send_code(struct Client* client, int code, const char* message)
 {
-	char* buffer = client->server_ptr->buffer_control;
+	char* buffer = client->buffer_control;
 	size_t len = sprintf(buffer, "%d %s\r\n", code, message);
 
 	if(send(client->socket_control, buffer, len, 0) < 0)
@@ -42,7 +42,7 @@ void client_send_code(struct Client* client, int code, const char* message)
 
 void client_send_multicode(struct Client* client, int code, const char* message)
 {
-	char* buffer = client->server_ptr->buffer_control;
+	char* buffer = client->buffer_control;
 	size_t len = sprintf(buffer, "%d-%s\r\n", code, message);
 
 	if(send(client->socket_control, buffer, len, 0) < 0)
@@ -56,7 +56,7 @@ void client_send_multicode(struct Client* client, int code, const char* message)
 
 void client_send_multimessage(struct Client* client, const char* message)
 {
-	char* buffer = client->server_ptr->buffer_control;
+	char* buffer = client->buffer_control;
 	size_t len = sprintf(buffer, " %s\r\n", message);
 
 	if(send(client->socket_control, buffer, len, 0) < 0)
@@ -298,7 +298,7 @@ void client_socket_event(struct Client* client, int socket_ev)
 
 	if(socket_ev == client->socket_control)
 	{
-		char* buffer = client->server_ptr->buffer_control;
+		char* buffer = client->buffer_control;
 
 		ssize_t bytes = recv(socket_ev, buffer, BUFFER_CONTROL, 0);
 
@@ -314,7 +314,7 @@ void client_socket_event(struct Client* client, int socket_ev)
 		buffer[bytes - 2] = '\0';
 
 		char command_name[32];
-		char* command_param = client->server_ptr->buffer_command;
+		char* command_param = client->buffer_command;
 
 		parse_command_string(command_name, command_param, buffer);
 
@@ -376,5 +376,20 @@ void client_free(struct Client* client)
 	{
 		sys_thread_mutex_destroy(client->mutex);
 		sys_thread_mutex_free(client->mutex);
+	}
+
+	if(client->buffer_control != NULL)
+	{
+		free(client->buffer_control);
+	}
+
+	if(client->buffer_data != NULL)
+	{
+		free(client->buffer_data);
+	}
+
+	if(client->buffer_command != NULL)
+	{
+		free(client->buffer_command);
 	}
 }

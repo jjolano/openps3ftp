@@ -21,6 +21,11 @@ struct Client
 	char lastcmd[32];
 
 	void* mutex;
+	int socket_event;
+
+	char* buffer_control;
+	char* buffer_data;
+	char* buffer_command;
 };
 
 /* cvar functions */

@@ -26,10 +26,6 @@ struct Server
 
 	struct AVLTree* clients;
 
-	char* buffer_control;
-	char* buffer_data;
-	char* buffer_command;
-
 	struct ThreadPool* pool;
 	void* mutex;
 };

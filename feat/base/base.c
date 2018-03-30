@@ -33,7 +33,7 @@ bool data_ntfs_list(struct Client* client)
 
 	if(ftpio_stat(path, &st) == 0)
 	{
-		char* buffer = client->server_ptr->buffer_data;
+		char* buffer = client->buffer_data;
 
 		char mode[11];
 		get_file_mode(mode, &st);
@@ -93,7 +93,7 @@ bool data_ntfs_nlst(struct Client* client)
 
 	if(ftpio_stat(path, &st) == 0)
 	{
-		char* buffer = client->server_ptr->buffer_data;
+		char* buffer = client->buffer_data;
 
 		ssize_t len = sprintf(buffer, "%s\r\n", dirent.d_name);
 		ssize_t nwrite = send(client->socket_data, buffer, (size_t) len, 0);
@@ -169,7 +169,7 @@ bool data_list(struct Client* client)
 	ftpstat st;
 	if(ftpio_stat(path, &st) == 0)
 	{
-		char* buffer = client->server_ptr->buffer_data;
+		char* buffer = client->buffer_data;
 
 		char mode[11];
 		get_file_mode(mode, &st);
@@ -253,7 +253,7 @@ bool data_nlst(struct Client* client)
 	ftpstat st;
 	if(ftpio_stat(path, &st) == 0)
 	{
-		char* buffer = client->server_ptr->buffer_data;
+		char* buffer = client->buffer_data;
 
 		ssize_t len = sprintf(buffer, "%s\r\n", dirent.d_name);
 		ssize_t nwrite = send(client->socket_data, buffer, (size_t) len, 0);
@@ -273,7 +273,7 @@ bool data_nlst(struct Client* client)
 
 bool data_retr(struct Client* client)
 {
-	char* buffer = client->server_ptr->buffer_data;
+	char* buffer = client->buffer_data;
 	int* fd = (int*) client_get_cvar(client, "fd");
 
 	uint64_t nread;
@@ -312,7 +312,7 @@ bool data_retr(struct Client* client)
 
 bool data_stor(struct Client* client)
 {
-	char* buffer = client->server_ptr->buffer_data;
+	char* buffer = client->buffer_data;
 	int* fd = (int*) client_get_cvar(client, "fd");
 
 	ssize_t nread = recv(client->socket_data, buffer, BUFFER_DATA, 0);
