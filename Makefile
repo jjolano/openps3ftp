@@ -1,7 +1,7 @@
 # OpenPS3FTP Makefile
 
 # Make rules
-.PHONY: all clean distclean native-lib native-elf native-clean ps3-lib ps3-elf ps3-eboot ps3-prx ps3-pkg ps3-dist ps3-clean ps3-distclean
+.PHONY: all clean distclean native-lib native-elf native-clean ps3-lib ps3-elf ps3-eboot ps3-prxlib ps3-prx ps3-pkg ps3-dist ps3-clean ps3-distclean
 
 all: native-elf
 
@@ -21,8 +21,9 @@ native-clean:
 
 ps3-lib: 
 	$(MAKE) -C lib SDK=psl1ght LIB_EXTERNAL=1
+ifneq ($(CELL_SDK),)
 	$(MAKE) -C lib SDK=cell LIB_EXTERNAL=1
-	$(MAKE) -C lib SDK=cell
+endif
 
 ps3-elf: ps3-lib
 	$(MAKE) -C bin/psl1ght
@@ -30,11 +31,16 @@ ps3-elf: ps3-lib
 ps3-eboot: ps3-elf
 	$(MAKE) -C bin/psl1ght EBOOT.BIN
 
-ps3-prx: ps3-lib
+ifneq ($(CELL_SDK),)
+ps3-prxlib: 
+	$(MAKE) -C lib SDK=cell
+
+ps3-prx: ps3-prxlib
 ifeq ($(NTFS_SUPPORT), 1)
 	$(MAKE) -C external/ps3ntfs
 endif
 	$(MAKE) -C bin/prx
+endif
 
 ps3-pkg: ps3-eboot
 	cp bin/psl1ght/EBOOT.BIN pkg/EBOOT.BIN
@@ -48,8 +54,10 @@ ps3-dist: ps3-eboot
 
 ps3-clean: 
 	$(MAKE) -C lib SDK=psl1ght LIB_EXTERNAL=1 clean
+ifneq ($(CELL_SDK),)
 	$(MAKE) -C lib SDK=cell LIB_EXTERNAL=1 clean
 	$(MAKE) -C lib SDK=cell clean
+endif
 	$(MAKE) -C bin/psl1ght clean
 	$(MAKE) -C external/ps3ntfs clean
 	$(MAKE) -C bin/prx clean
