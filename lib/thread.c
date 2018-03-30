@@ -112,10 +112,9 @@ void threadpool_dispatch(struct ThreadPool* pool, void (*func)(void*), void* arg
 			pool->job.arg = arg;
 
 			// Signal the conditional and unlock the mutex.
-			sys_thread_cond_signal(pool->cond_job);
-
 			while(pool->running && pool->job.func != NULL)
 			{
+				sys_thread_cond_signal(pool->cond_job);
 				sys_thread_cond_wait(pool->cond_get, pool->mutex);
 			}
 
@@ -127,11 +126,6 @@ void threadpool_dispatch(struct ThreadPool* pool, void (*func)(void*), void* arg
 void threadpool_thread(void* arg)
 {
 	struct ThreadPool* pool = arg;
-
-	if(pool == NULL)
-	{
-		return;
-	}
 
 	do
 	{

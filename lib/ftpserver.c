@@ -38,13 +38,13 @@ void server_pollfds_add(struct Server* server, int fd, short events)
 
 void server_pollfds_remove(struct Server* server, int fd)
 {
-	if(server->mutex != NULL)
-	{
-		sys_thread_mutex_lock(server->mutex);
-	}
-
 	if(server->pollfds != NULL)
 	{
+		if(server->mutex != NULL)
+		{
+			sys_thread_mutex_lock(server->mutex);
+		}
+
 		// find index
 		nfds_t i;
 
@@ -72,11 +72,11 @@ void server_pollfds_remove(struct Server* server, int fd)
 
 		// reallocate memory
 		server->pollfds = (struct pollfd*) realloc(server->pollfds, --server->nfds * sizeof(struct pollfd));
-	}
 
-	if(server->mutex != NULL)
-	{
-		sys_thread_mutex_unlock(server->mutex);
+		if(server->mutex != NULL)
+		{
+			sys_thread_mutex_unlock(server->mutex);
+		}
 	}
 }
 
