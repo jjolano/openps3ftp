@@ -130,7 +130,11 @@ inline void* sys_thread_alloc(int num)
 
 inline int sys_thread_create(void* ptr_thread, void (*func)(void*), void* arg)
 {
-	return sys_ppu_thread_create((sys_ppu_thread_t*) ptr_thread, func, (uint64_t) arg, 1001, 0x4000, SYS_PPU_THREAD_CREATE_JOINABLE, "");
+	struct _sys_thread_data* data = malloc(sizeof(struct _sys_thread_data));
+	data->func = func;
+	data->arg = arg;
+
+	return sys_ppu_thread_create((sys_ppu_thread_t*) ptr_thread, _sys_thread, (uint64_t) data, 1002, 0x2000, SYS_PPU_THREAD_CREATE_JOINABLE, "");
 }
 
 inline int sys_thread_create2(void* ptr_threads, int index, void (*func)(void*), void* arg)
@@ -267,7 +271,7 @@ inline void* sys_thread_alloc(int num)
 
 inline int sys_thread_create(void* ptr_thread, void (*func)(void*), void* arg)
 {
-	return sysThreadCreate((sys_ppu_thread_t*) ptr_thread, func, arg, 1001, 0x4000, THREAD_JOINABLE, "");
+	return sysThreadCreate((sys_ppu_thread_t*) ptr_thread, func, arg, 1002, 0x2000, THREAD_JOINABLE, "");
 }
 
 inline int sys_thread_create2(void* ptr_threads, int index, void (*func)(void*), void* arg)
