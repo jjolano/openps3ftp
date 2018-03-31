@@ -272,7 +272,7 @@ uint32_t server_run(struct Server* server)
 			sys_thread_mutex_lock(server->mutex);
 		}
 		
-		int p = socketpoll(server->pollfds, server->nfds, 1);
+		int p = socketpoll(server->pollfds, server->nfds, 0);
 
 		if(server->mutex != NULL)
 		{
@@ -282,6 +282,7 @@ uint32_t server_run(struct Server* server)
 		if(p == 0)
 		{
 			sys_thread_yield();
+			usleep(300);
 			continue;
 		}
 
@@ -291,6 +292,8 @@ uint32_t server_run(struct Server* server)
 			break;
 		}
 
+		int op = p;
+
 		nfds_t i = server->nfds;
 
 		while(p > 0 && i--)
@@ -299,13 +302,12 @@ uint32_t server_run(struct Server* server)
 
 			if(pfd != NULL && pfd->revents)
 			{
-				p--;
-
 				int pfd_fd = pfd->fd;
 
 				if(pfd->revents & POLLNVAL)
 				{
 					server_pollfds_remove(server, pfd_fd);
+					p--;
 					continue;
 				}
 
@@ -321,6 +323,7 @@ uint32_t server_run(struct Server* server)
 
 					if(socket_client < 0)
 					{
+						p--;
 						continue;
 					}
 
@@ -355,6 +358,8 @@ uint32_t server_run(struct Server* server)
 					{
 						socketclose(socket_client);
 					}
+
+					p--;
 				}
 				else
 				{
@@ -366,6 +371,7 @@ uint32_t server_run(struct Server* server)
 						socketclose(pfd_fd);
 						server_pollfds_remove(server, pfd_fd);
 						
+						p--;
 						continue;
 					}
 
@@ -389,13 +395,21 @@ uint32_t server_run(struct Server* server)
 
 						// remove from pollfds
 						server_pollfds_remove(server, pfd_fd);
+
+						p--;
 						continue;
 					}
 
 					// let client handle socket events
 					if(server->pool == NULL || client->mutex == NULL || client->socket_control == pfd_fd)
 					{
-						client_socket_event(client, pfd_fd);
+						if(sys_thread_mutex_trylock(client->mutex) == 0)
+						{
+							client_socket_event(client, pfd_fd);
+							sys_thread_mutex_unlock(client->mutex);
+
+							p--;
+						}
 					}
 					else
 					{
@@ -405,10 +419,18 @@ uint32_t server_run(struct Server* server)
 							sys_thread_mutex_unlock(client->mutex);
 
 							threadpool_dispatch(server->pool, client_event_job, client);
+
+							p--;
 						}
 					}
 				}
 			}
+		}
+
+		if(p == op)
+		{
+			sys_thread_yield();
+			usleep(300);
 		}
 	}
 

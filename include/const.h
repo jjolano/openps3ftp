@@ -48,7 +48,7 @@
 
 #define BUFFER_CONTROL	1 * 1024
 #define BUFFER_COMMAND	1 * 1024
-#define BUFFER_DATA		128 * 1024
+#define BUFFER_DATA		32 * 1024
 
 #define NUM_THREADS		4
 

@@ -16,6 +16,12 @@ inline void _sys_ppu_thread_exit(uint64_t val)
 	system_call_1(41, val);
 }
 
+inline int usleep(int usec)
+{
+	system_call_1(141, (uint64_t) usec);
+	return_to_user_prog(int);
+}
+
 void finalize_module(void)
 {
 	uint64_t meminfo[5];

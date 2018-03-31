@@ -41,10 +41,12 @@ extern "C" {
 #include <ctype.h>
 #endif
 
+extern int usleep(int usec);
 #endif
 
 #ifdef PSL1GHT_SDK
 #include <ctype.h>
+#include <unistd.h>
 
 #include <net/net.h>
 #include <net/poll.h>
