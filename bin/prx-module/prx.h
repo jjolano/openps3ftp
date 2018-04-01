@@ -8,13 +8,6 @@
 #include <sys/ppu_thread.h>
 #include <sys/timer.h>
 
-#include "server.h"
-#include "command.h"
-
-#include "feat/feat.h"
-#include "base/base.h"
-#include "ext/ext.h"
-
 #include "vsh_exports/vsh_exports.h"
 
 void prxmb_if_action(const char* action);
