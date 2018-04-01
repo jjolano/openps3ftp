@@ -1,0 +1,409 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+
+<XMBML version="1.0">
+
+	<View id="seg_cfw_settings">
+		<Attributes>
+			<Table key="cfw_settings">
+				<Pair key="icon_rsc"><String>tex_album_icon</String></Pair>
+				<Pair key="icon_notation"><String>WNT_XmbItemAlbum</String></Pair>
+				<Pair key="title"><String>★ Custom Firmware Tools</String></Pair>
+				<Pair key="info"><String></String></Pair>
+			</Table>
+			<Table key="ftp_start_action">
+				<Pair key="icon_rsc"><String>item_tex_ps3util</String></Pair>
+				<Pair key="title"><String>★ Start FTP Server</String></Pair>
+				<Pair key="info"><String></String></Pair>
+				<Pair key="module_name"><String>idle_plugin</String></Pair>
+				<Pair key="module_action"><String>ftp_start</String></Pair>
+			</Table>
+			<Table key="ftp_stop_action">
+				<Pair key="icon_rsc"><String>item_tex_ps3util</String></Pair>
+				<Pair key="title"><String>★ Stop FTP Server</String></Pair>
+				<Pair key="info"><String></String></Pair>
+				<Pair key="module_name"><String>idle_plugin</String></Pair>
+				<Pair key="module_action"><String>ftp_stop</String></Pair>
+			</Table>
+		</Attributes>
+		<Items>
+			<Query class="type:x-xmb/folder-pixmap" key="cfw_settings" attr="cfw_settings" src="#seg_settings_menu"/>
+			<Item class="type:x-xmb/module-action" key="ftp_start_action" attr="ftp_start_action" />
+			<Item class="type:x-xmb/module-action" key="ftp_stop_action" attr="ftp_stop_action" />
+		</Items>
+	</View>
+
+	<View id="seg_settings_menu">
+		<Attributes>
+			<Table key="soft_reboot_action">
+				<Pair key="icon_rsc"><String>tex_repeat_status</String></Pair>
+				<Pair key="title"><String>★ Soft Reboot</String></Pair>
+				<Pair key="info"><String></String></Pair>
+				<Pair key="module_name"><String>xai_plugin</String></Pair>
+				<Pair key="module_action"><String>soft_reboot_action</String></Pair>
+				<Pair key="ingame"><String>disable</String></Pair>
+				<Pair key="bar_action"><String>none</String></Pair>
+				<Pair key="lbl_half"><String>1</String></Pair>
+			</Table>
+			<Table key="hard_reboot_action">
+				<Pair key="icon_rsc"><String>tex_repeat_status</String></Pair>
+				<Pair key="title"><String>★ Hard Reboot</String></Pair>
+				<Pair key="info"><String></String></Pair>
+				<Pair key="module_name"><String>xai_plugin</String></Pair>
+				<Pair key="module_action"><String>hard_reboot_action</String></Pair>
+				<Pair key="ingame"><String>disable</String></Pair>
+				<Pair key="bar_action"><String>none</String></Pair>
+				<Pair key="lbl_half"><String>1</String></Pair>
+			</Table>
+			<Table key="toggle_dlna">
+				<Pair key="icon_rsc"><String>item_tex_dlna_default</String></Pair>
+				<Pair key="title"><String>Toggle DLNA</String></Pair>
+				<Pair key="info"><String></String></Pair>
+				<Pair key="module_name"><String>xai_plugin</String></Pair>
+				<Pair key="module_action"><String>toggle_dlna</String></Pair>
+				<Pair key="bar_action"><String>none</String></Pair>
+				<Pair key="lbl_half"><String>1</String></Pair>
+			</Table>
+			<Table key="dump_tools">
+				<Pair key="icon_rsc"><String>tex_album_icon</String></Pair>
+				<Pair key="icon_notation"><String>WNT_XmbItemAlbum</String></Pair>
+				<Pair key="title"><String>★ Dump Tools</String></Pair>
+			</Table>
+			<Table key="rebug_tools">
+				<Pair key="icon_rsc"><String>tex_album_icon</String></Pair>
+				<Pair key="icon_notation"><String>WNT_XmbItemAlbum</String></Pair>
+				<Pair key="title"><String>★ Rebug Settings</String></Pair>
+			</Table>
+			<Table key="recovery_menu">
+				<Pair key="icon_rsc"><String>tex_album_icon</String></Pair>
+				<Pair key="icon_notation"><String>WNT_XmbItemAlbum</String></Pair>
+				<Pair key="title"><String>★ Service Tools</String></Pair>
+			</Table>
+			<Table key="ingame_settings">
+				<Pair key="icon_rsc"><String>tex_album_icon</String></Pair>
+				<Pair key="icon_notation"><String>WNT_XmbItemAlbum</String></Pair>
+				<Pair key="title"><String>★ In-Game Settings</String></Pair>
+			</Table>
+		</Attributes>
+		<Items>
+			<Item class="type:x-xmb/module-action" key="soft_reboot_action"		attr="soft_reboot_action"/>
+			<Item class="type:x-xmb/module-action" key="hard_reboot_action"		attr="hard_reboot_action"/>
+<!--		<Item class="type:x-xmb/module-action" key="toggle_dlna"			attr="toggle_dlna"/> -->
+			
+			<Query class="type:x-xmb/folder-pixmap" key="rebug_tools"			attr="rebug_tools"		src="#seg_rebug_tools"/>
+<!--		<Query class="type:x-xmb/folder-pixmap" key="ingame_settings"		attr="ingame_settings"	src="#seg_ingame_settings"/> -->
+			<Query class="type:x-xmb/folder-pixmap" key="dump_tools"			attr="dump_tools"		src="#seg_dump_tools"/>
+			<Query class="type:x-xmb/folder-pixmap" key="recovery_menu"			attr="recovery_menu"	src="#seg_recovery_menu"/>
+		</Items>
+	</View>
+
+	<View id="seg_ingame_settings">
+		<Attributes>
+			<Table key="enable_screenshot">
+				<Pair key="icon_rsc"><String>photo_tex_load</String></Pair>
+				<Pair key="title"><String>Enable In-Game Screenshot</String></Pair>
+				<Pair key="info"><String></String></Pair>
+				<Pair key="module_name"><String>xai_plugin</String></Pair>
+				<Pair key="module_action"><String>enable_screenshot</String></Pair>
+				<Pair key="bar_action"><String>none</String></Pair>
+				<Pair key="lbl_half"><String>1</String></Pair>
+			</Table>
+			<Table key="enable_recording">
+				<Pair key="icon_rsc"><String>item_tex_Players</String></Pair>
+				<Pair key="title"><String>Enable Gameplay Recording</String></Pair>
+				<Pair key="info"><String></String></Pair>
+				<Pair key="module_name"><String>xai_plugin</String></Pair>
+				<Pair key="module_action"><String>enable_recording</String></Pair>
+				<Pair key="bar_action"><String>none</String></Pair>
+				<Pair key="lbl_half"><String>1</String></Pair>
+			</Table>
+			<Table key="override_sfo">
+				<Pair key="icon_rsc"><String>item_tex_disc_icon</String></Pair>
+				<Pair key="title"><String>Override Disc SFO</String></Pair>
+				<Pair key="info"><String>SFO Attribute to enables RemotePlay + SystemBGM on Disc Games with no Updates</String></Pair>
+				<Pair key="module_name"><String>xai_plugin</String></Pair>
+				<Pair key="module_action"><String>override_sfo</String></Pair>
+				<Pair key="bar_action"><String>none</String></Pair>
+				<Pair key="lbl_half"><String>1</String></Pair>
+			</Table>
+		</Attributes>
+		<Items>
+			<Item class="type:x-xmb/module-action" key="enable_screenshot"		attr="enable_screenshot"/>
+			<Item class="type:x-xmb/module-action" key="enable_recording"		attr="enable_recording"/>
+			<Item class="type:x-xmb/module-action" key="override_sfo"			attr="override_sfo"/>
+		</Items>
+	</View>
+
+	<View id="seg_dump_tools">
+		<Attributes>
+			<!-- <Table key="view_log">
+				<Pair key="icon_rsc"><String>item_tex_ps3util</String></Pair>
+				<Pair key="title"><String>View Log</String></Pair>
+				<Pair key="info"><String>http://localhost/dev_hdd0/tmp/cfw_settings.log  (webMAN MOD is required for this function) </String></Pair>
+				<Pair key="module_name"><String>webrender_plugin</String></Pair>
+				<Pair key="module_action"><String>http://localhost/dev_hdd0/tmp/cfw_settings.log</String></Pair>
+			</Table> -->
+			<Table key="view_log">
+				<Pair key="icon_rsc"><String>item_tex_ps3util</String></Pair>
+				<Pair key="title"><String>View Log</String></Pair>
+				<Pair key="info"><String>http://localhost/dev_hdd0/tmp/cfw_settings.log
+				(webMAN MOD is required for this function)</String></Pair>
+				<Pair key="module_name"><String>webrender_plugin</String></Pair>
+				<Pair key="module_action"><String>http://localhost/dev_hdd0/tmp/cfw_settings.log</String></Pair>
+			</Table>			
+			<Table key="clean_log">
+				<Pair key="icon_rsc"><String>item_tex_ps3util</String></Pair>
+				<Pair key="title"><String>Clean Log File</String></Pair>
+				<Pair key="info"><String>/dev_hdd0/tmp/cfw_settings.log</String></Pair>
+				<Pair key="module_name"><String>xai_plugin</String></Pair>
+				<Pair key="module_action"><String>clean_log</String></Pair>
+				<Pair key="bar_action"><String>none</String></Pair>
+				<Pair key="lbl_half"><String>1</String></Pair>
+			</Table>
+			<Table key="dump_idps">
+				<Pair key="icon_rsc"><String>item_tex_NewFriend</String></Pair>
+				<Pair key="title"><String>Dump IDPS</String></Pair>
+				<Pair key="info"><String>Saves IDPS to log file</String></Pair>
+				<Pair key="module_name"><String>xai_plugin</String></Pair>
+				<Pair key="module_action"><String>dump_idps</String></Pair>
+				<Pair key="bar_action"><String>none</String></Pair>
+				<Pair key="lbl_half"><String>1</String></Pair>
+			</Table>
+			<Table key="log_klic">
+				<Pair key="icon_rsc"><String>item_tex_ps3util</String></Pair>
+				<Pair key="title"><String>Log KLicense usage</String></Pair>
+				<Pair key="info"><String>Saves filename and klicensee to log file</String></Pair>
+				<Pair key="module_name"><String>xai_plugin</String></Pair>
+				<Pair key="module_action"><String>log_klic</String></Pair>
+				<Pair key="bar_action"><String>none</String></Pair>
+				<Pair key="lbl_half"><String>1</String></Pair>
+			</Table>
+			<Table key="log_secureid">
+				<Pair key="icon_rsc"><String>item_tex_ps3util</String></Pair>
+				<Pair key="title"><String>Log Secure File ID usage</String></Pair>
+				<Pair key="info"><String>Writes save data name and file id key to log file</String></Pair>
+				<Pair key="module_name"><String>xai_plugin</String></Pair>
+				<Pair key="module_action"><String>log_secureid</String></Pair>
+				<Pair key="bar_action"><String>none</String></Pair>
+				<Pair key="lbl_half"><String>1</String></Pair>
+			</Table>
+			<Table key="dump_disc_key">
+				<Pair key="icon_rsc"><String>item_tex_disc_bd</String></Pair>
+				<Pair key="title"><String>Dump Disc Hash Key</String></Pair>
+				<Pair key="info"><String>Retrieves disc hash key from an ORIGINAL game disc</String></Pair>
+				<Pair key="module_name"><String>xai_plugin</String></Pair>
+				<Pair key="module_action"><String>dump_disc_key</String></Pair>
+				<Pair key="bar_action"><String>none</String></Pair>
+				<Pair key="lbl_half"><String>1</String></Pair>
+			</Table>
+			<Table key="backup_registry">
+				<Pair key="icon_rsc"><String>item_tex_cam_icon</String></Pair>
+				<Pair key="title"><String>Backup xRegistry.sys</String></Pair>
+				<Pair key="info"><String></String></Pair>
+				<Pair key="module_name"><String>xai_plugin</String></Pair>
+				<Pair key="module_action"><String>backup_registry</String></Pair>
+				<Pair key="bar_action"><String>none</String></Pair>
+				<Pair key="lbl_half"><String>1</String></Pair>
+			</Table>
+		</Attributes>
+		<Items>
+			<Item class="type:x-xmb/module-action" key="view_log"			attr="view_log"/>
+			<Item class="type:x-xmb/module-action" key="clean_log"			attr="clean_log"/>
+			<Item class="type:x-xmb/module-action" key="dump_idps"			attr="dump_idps"/>
+			<Item class="type:x-xmb/module-action" key="log_klic"			attr="log_klic"/>
+			<Item class="type:x-xmb/module-action" key="log_secureid"		attr="log_secureid"/>
+			<Item class="type:x-xmb/module-action" key="dump_disc_key"		attr="dump_disc_key"/>
+			<Item class="type:x-xmb/module-action" key="backup_registry"	attr="backup_registry"/>
+		</Items>
+	</View>
+
+	<View id="seg_rebug_tools">
+		<Attributes>
+			<Table key="cobra_mode">
+				<Pair key="icon_rsc"><String>friend_tex_load</String></Pair>
+				<Pair key="title"><String>Toggle Cobra Mode</String></Pair>
+				<Pair key="info"><String></String></Pair>
+				<Pair key="module_name"><String>xai_plugin</String></Pair>
+				<Pair key="module_action"><String>cobra_mode</String></Pair>
+				<Pair key="ingame"><String>disable</String></Pair>
+				<Pair key="bar_action"><String>none</String></Pair>
+				<Pair key="lbl_half"><String>1</String></Pair>
+			</Table>
+			<Table key="rebug_mode">
+				<Pair key="icon_rsc"><String>friend_tex_load</String></Pair>
+				<Pair key="title"><String>Toggle Rebug Mode</String></Pair>
+				<Pair key="info"><String></String></Pair>
+				<Pair key="module_name"><String>xai_plugin</String></Pair>
+				<Pair key="module_action"><String>rebug_mode</String></Pair>
+				<Pair key="ingame"><String>disable</String></Pair>
+				<Pair key="bar_action"><String>none</String></Pair>
+				<Pair key="lbl_half"><String>1</String></Pair>
+			</Table>
+			<Table key="debugmenu_mode">
+				<Pair key="icon_rsc"><String>friend_tex_load</String></Pair>
+				<Pair key="title"><String>Toggle Debug Settings Menu</String></Pair>
+				<Pair key="info"><String></String></Pair>
+				<Pair key="module_name"><String>xai_plugin</String></Pair>
+				<Pair key="module_action"><String>debugsettings_mode</String></Pair>
+				<Pair key="ingame"><String>disable</String></Pair>
+				<Pair key="bar_action"><String>none</String></Pair>
+				<Pair key="lbl_half"><String>1</String></Pair>
+			</Table>
+			<Table key="toolbox_menu">
+				<Pair key="icon_rsc"><String>tex_album_icon</String></Pair>
+				<Pair key="icon_notation"><String>WNT_XmbItemAlbum</String></Pair>
+				<Pair key="title"><String>★ Rebug Toolbox</String></Pair>
+			</Table>
+		</Attributes>
+		<Items>
+			<Item class="type:x-xmb/module-action"	key="cobra_mode"		attr="cobra_mode"/>
+			<Item class="type:x-xmb/module-action"	key="rebug_mode"		attr="rebug_mode"/>
+			<Item class="type:x-xmb/module-action"	key="debugmenu_mode"	attr="debugmenu_mode"/>
+<!--		<Query class="type:x-xmb/folder-pixmap"	key="toolbox_menu"		attr="toolbox_menu" src="#seg_toolbox_menu"/> -->
+		</Items>
+	</View>
+
+	<View id="seg_toolbox_menu">
+		<Attributes>
+			<Table key="download_toolbox">
+				<Pair key="icon_rsc"><String>tex_loading_icon</String></Pair>
+				<Pair key="title"><String>Download latest Rebug Toolbox</String></Pair>
+				<Pair key="info"><String></String></Pair>
+				<Pair key="module_name"><String>xai_plugin</String></Pair>
+				<Pair key="module_action"><String>download_toolbox</String></Pair>
+				<Pair key="ingame"><String>disable</String></Pair>
+				<Pair key="bar_action"><String>none</String></Pair>
+				<Pair key="lbl_half"><String>1</String></Pair>
+			</Table>
+			<Table key="install_toolbox">
+				<Pair key="icon_rsc"><String>item_tex_cam_icon</String></Pair>
+				<Pair key="title"><String>Install downloaded Rebug Toolbox</String></Pair>
+				<Pair key="info"><String></String></Pair>
+				<Pair key="module_name"><String>xai_plugin</String></Pair>
+				<Pair key="module_action"><String>install_toolbox</String></Pair>
+				<Pair key="ingame"><String>disable</String></Pair>
+				<Pair key="bar_action"><String>none</String></Pair>
+				<Pair key="lbl_half"><String>1</String></Pair>
+			</Table>
+		</Attributes>
+		<Items>
+			<Item class="type:x-xmb/module-action" key="download_toolbox"	attr="download_toolbox"/>
+			<Item class="type:x-xmb/module-action" key="install_toolbox"	attr="install_toolbox"/>
+		</Items>
+	</View>
+
+	<View id="seg_recovery_menu">
+		<Attributes>
+			<Table key="applicable_version">
+				<Pair key="icon_rsc"><String>item_tex_cam_icon</String></Pair>
+				<Pair key="title"><String>Display applicable version</String></Pair>
+				<Pair key="info"><String>Displays Minimum Downgrade Version</String></Pair>
+				<Pair key="module_name"><String>xai_plugin</String></Pair>
+				<Pair key="module_action"><String>applicable_version</String></Pair>
+				<Pair key="ingame"><String>disable</String></Pair>
+				<Pair key="bar_action"><String>none</String></Pair>
+				<Pair key="lbl_half"><String>1</String></Pair>
+			</Table>
+			<Table key="fs_check">
+				<Pair key="icon_rsc"><String>item_tex_cam_icon</String></Pair>
+				<Pair key="title"><String>Check File system</String></Pair>
+				<Pair key="info"><String>Reboots and allows you to check and repair filesystem</String></Pair>
+				<Pair key="module_name"><String>xai_plugin</String></Pair>
+				<Pair key="module_action"><String>fs_check</String></Pair>
+				<Pair key="ingame"><String>disable</String></Pair>
+				<Pair key="bar_action"><String>none</String></Pair>
+				<Pair key="lbl_half"><String>1</String></Pair>
+			</Table>
+			<Table key="rebuild_db">
+				<Pair key="icon_rsc"><String>item_tex_cam_icon</String></Pair>
+				<Pair key="title"><String>Rebuild Database</String></Pair>
+				<Pair key="info"><String>Reboots with Database rebuilding flag set</String></Pair>
+				<Pair key="module_name"><String>xai_plugin</String></Pair>
+				<Pair key="module_action"><String>rebuild_db</String></Pair>
+				<Pair key="ingame"><String>disable</String></Pair>
+				<Pair key="bar_action"><String>none</String></Pair>
+				<Pair key="lbl_half"><String>1</String></Pair>
+			</Table>
+			<Table key="recovery_mode">
+				<Pair key="icon_rsc"><String>tex_loading_icon</String></Pair>
+				<Pair key="title"><String>Toggle Recovery Mode</String></Pair>
+				<Pair key="info"><String>Reboot to Recovery Mode (Not supported on NAND models!)</String></Pair>
+				<Pair key="module_name"><String>xai_plugin</String></Pair>
+				<Pair key="module_action"><String>recovery_mode</String></Pair>
+				<Pair key="ingame"><String>disable</String></Pair>
+				<Pair key="bar_action"><String>none</String></Pair>
+				<Pair key="lbl_half"><String>1</String></Pair>
+			</Table>
+			<Table key="fsm_tools">
+				<Pair key="icon_rsc"><String>tex_album_icon</String></Pair>
+				<Pair key="icon_notation"><String>WNT_XmbItemAlbum</String></Pair>
+				<Pair key="title"><String>★ Advanced Service Tools</String></Pair>
+			</Table>
+		</Attributes>
+		<Items>
+			<Item class="type:x-xmb/module-action"  key="applicable_version"	attr="applicable_version"/>
+			<Item class="type:x-xmb/module-action"  key="fs_check"				attr="fs_check"/>
+			<Item class="type:x-xmb/module-action"  key="rebuild_db"			attr="rebuild_db"/>
+			<Item class="type:x-xmb/module-action"  key="recovery_mode"			attr="recovery_mode"/>
+			<Query class="type:x-xmb/folder-pixmap" key="fsm_tools"				attr="fsm_tools"	src="#seg_fsm_tools"/>
+		</Items>
+	</View>
+
+	<View id="seg_fsm_tools">
+		<Attributes>
+			<Table key="rsod_fix">
+				<Pair key="icon_rsc"><String>item_tex_cam_icon</String></Pair>
+				<Pair key="title"><String>RSOD fix</String></Pair>
+				<Pair key="info"><String>Re-initialize VTRM-Region to attempt to fix RSOD</String></Pair>
+				<Pair key="module_name"><String>xai_plugin</String></Pair>
+				<Pair key="module_action"><String>rsod_fix</String></Pair>
+				<Pair key="bar_action"><String>none</String></Pair>
+				<Pair key="lbl_half"><String>1</String></Pair>
+			</Table>
+			<Table key="enable_hvdbg">
+				<Pair key="icon_rsc"><String>item_tex_cam_icon</String></Pair>
+				<Pair key="title"><String>Enable HV Proc Output</String></Pair>
+				<Pair key="info"><String></String></Pair>
+				<Pair key="module_name"><String>xai_plugin</String></Pair>
+				<Pair key="module_action"><String>enable_hvdbg</String></Pair>
+				<Pair key="bar_action"><String>none</String></Pair>
+				<Pair key="lbl_half"><String>1</String></Pair>
+			</Table>
+			<Table key="service_mode">
+				<Pair key="icon_rsc"><String>tex_urgent_ws</String></Pair>
+				<Pair key="title"><String>Toggle Factory Service Mode</String></Pair>
+				<Pair key="info"><String>Enter/Exit Factory Service Mode (**DO NOT INSTALL CFW WHILE ON FSM**)</String></Pair>
+				<Pair key="module_name"><String>xai_plugin</String></Pair>
+				<Pair key="module_action"><String>service_mode</String></Pair>
+				<Pair key="ingame"><String>disable</String></Pair>
+				<Pair key="bar_action"><String>none</String></Pair>
+				<Pair key="lbl_half"><String>1</String></Pair>
+			</Table>
+			<Table key="remarry_bd">
+				<Pair key="icon_rsc"><String>item_tex_disc_cd_ps2</String></Pair>
+				<Pair key="title"><String>Remarry Bluray Drive</String></Pair>
+				<Pair key="info"><String>Requires: Enter to FSM and copy "eid_root_key" to /dev_usb</String></Pair>
+				<Pair key="module_name"><String>xai_plugin</String></Pair>
+				<Pair key="module_action"><String>remarry_bd</String></Pair>
+				<Pair key="bar_action"><String>none</String></Pair>
+				<Pair key="lbl_half"><String>1</String></Pair>
+			</Table>
+			<Table key="usb_firm_loader">
+				<Pair key="icon_rsc"><String>item_tex_cam_icon</String></Pair>
+				<Pair key="title"><String>USB Firmware Loader</String></Pair>
+				<Pair key="info"><String>Redirect /dev_flash access to a mounted /dev_usb</String></Pair>
+				<Pair key="module_name"><String>xai_plugin</String></Pair>
+				<Pair key="module_action"><String>usb_firm_loader</String></Pair>
+				<Pair key="bar_action"><String>none</String></Pair>
+				<Pair key="lbl_half"><String>1</String></Pair>
+			</Table>
+		</Attributes>
+		<Items>
+			<Item class="type:x-xmb/module-action" key="rsod_fix"			attr="rsod_fix"/>
+<!--		<Item class="type:x-xmb/module-action" key="usb_firm_loader"	attr="usb_firm_loader"/> -->
+<!--		<Item class="type:x-xmb/module-action" key="enable_hvdbg"		attr="enable_hvdbg"/> -->
+			<Item class="type:x-xmb/module-action" key="service_mode"		attr="service_mode"/>
+			<Item class="type:x-xmb/module-action" key="remarry_bd"			attr="remarry_bd"/>
+		</Items>
+	</View>
+
+</XMBML>
