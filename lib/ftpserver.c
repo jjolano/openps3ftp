@@ -214,7 +214,7 @@ void server_init(struct Server* server, struct Command* command_ptr, unsigned sh
 
 	server->nfds = 0;
 
-	server->socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+	server->socket = -1;
 
 	server->pool = threadpool_create(NUM_THREADS);
 	server->mutex = sys_thread_mutex_alloc(1);
@@ -228,6 +228,8 @@ void server_init(struct Server* server, struct Command* command_ptr, unsigned sh
 uint32_t server_run(struct Server* server)
 {
 	// assuming server is initialized using server_init
+	server->socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+	
 	if(server->socket < 0)
 	{
 		// socket failed to create

@@ -73,15 +73,24 @@ extern int closesocket(int socket);
 #include <time.h>
 #include <ctype.h>
 
-#include <linux/limits.h>
+#include <limits.h>
 
 #if _POSIX_C_SOURCE >= 200112L
 #define ftell(a) ftello(a)
 #define fseek(a,b,c) fseeko(a,b,c)
 #endif
 
+#ifndef PATH_MAX
+#define MAX_PATH 1056
+#else
 #define MAX_PATH PATH_MAX
+#endif
+
+#ifndef NAME_MAX
+#define MAX_NAME 256
+#else
 #define MAX_NAME NAME_MAX
+#endif
 
 #define socketclose(a)		close(a)
 #define socketpoll(a,b,c)	poll(a,b,c)

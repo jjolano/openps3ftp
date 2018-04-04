@@ -4,7 +4,7 @@ GIT_VERSION := $(shell git describe --always)
 TARGET		:= ftp.elf
 
 # Libraries
-LDFLAGS		+= -Wl,--gc-sections -L../../lib -pthread
+LDFLAGS		+= -L../../lib -pthread
 LDLIBS		+= -lftp
 
 # Includes
