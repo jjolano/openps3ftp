@@ -11,19 +11,12 @@ SYS_MODULE_STOP(_stop);
 
 int _start(size_t args, void* argp);
 int _stop(void);
-void ftp_main(uint64_t ptr);
-
-void ftp_main(uint64_t ptr)
-{
-	uint32_t ret = 0;
-
-	vshtask_notify("It worked!");
-
-	sys_ppu_thread_exit(ret);
-}
 
 void prxmb_if_action(const char* action)
 {
+	vshtask_notify(action);
+
+	/*
 	if(strcmp(action, "ftp_start") == 0)
 	{
 		// initialize server
@@ -34,7 +27,7 @@ void prxmb_if_action(const char* action)
 	if(strcmp(action, "ftp_stop") == 0)
 	{
 		
-	}
+	}*/
 }
 
 int _start(size_t args, void* argp)

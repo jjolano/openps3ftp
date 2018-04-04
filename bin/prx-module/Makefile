@@ -10,6 +10,7 @@ SCETOOL_FLAGS += -4 01000002
 SCETOOL_FLAGS += -5 APP
 SCETOOL_FLAGS += -A 0001000000000000
 SCETOOL_FLAGS += -6 0003004000000000
+SCETOOL_FLAGS += -8 4000000000000000000000000000000000000000000000000000000000000000
 
 CELL_SDK ?= /usr/local/cell
 CELL_MK_DIR ?= $(CELL_SDK)/samples/mk
@@ -20,13 +21,12 @@ OBJS_DIR = .
 PPU_SRCS = $(wildcard *.c)
 PPU_PRX_TARGET = idle_plugin.prx
 PPU_CFLAGS += -Wno-unused-parameter -ffunction-sections -fdata-sections -fno-builtin-printf
-PPU_CFLAGS += -DCELL_SDK -DAPP_VER_MIN=\"-g$(GIT_VERSION)\"
 
 PPU_PRX_LDFLAGS += -Wl,--strip-unused-data -nodefaultlibs
 PPU_PRX_LDLIBDIR += -L../../lib -Lvsh_exports/lib
 
 PPU_PRX_LDLIBS += -lsys_net_export_stub
-PPU_PRX_LDLIBS += -lfs_stub -llv2_stub -lallocator_export_stub -lstdc_export_stub
+PPU_PRX_LDLIBS += -lfs_stub -lallocator_export_stub -lstdc_export_stub
 PPU_PRX_LDLIBS += -lpaf_export_stub -lsysPrxForUser_export_stub -lvshtask_export_stub
 
 PPU_OPTIMIZE_LV = -Os

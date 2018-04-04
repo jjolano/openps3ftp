@@ -16,6 +16,8 @@
 				<Pair key="info"><String></String></Pair>
 				<Pair key="module_name"><String>idle_plugin</String></Pair>
 				<Pair key="module_action"><String>ftp_start</String></Pair>
+				<Pair key="bar_action"><String>none</String></Pair>
+				<Pair key="lbl_half"><String>1</String></Pair>
 			</Table>
 			<Table key="ftp_stop_action">
 				<Pair key="icon_rsc"><String>item_tex_ps3util</String></Pair>
@@ -23,6 +25,8 @@
 				<Pair key="info"><String></String></Pair>
 				<Pair key="module_name"><String>idle_plugin</String></Pair>
 				<Pair key="module_action"><String>ftp_stop</String></Pair>
+				<Pair key="bar_action"><String>none</String></Pair>
+				<Pair key="lbl_half"><String>1</String></Pair>
 			</Table>
 		</Attributes>
 		<Items>
