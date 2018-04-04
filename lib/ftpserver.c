@@ -345,17 +345,7 @@ uint32_t server_run(struct Server* server)
 						p--;
 						continue;
 					}
-
-					struct timeval opttv;
-					opttv.tv_sec = 5;
-					opttv.tv_usec = 0;
-					setsockopt(socket_client, SOL_SOCKET, SO_SNDTIMEO, &opttv, sizeof(opttv));
-
-					struct linger optlinger;
-					optlinger.l_onoff = 1;
-					optlinger.l_linger = 15;
 					
-					setsockopt(socket_client, SOL_SOCKET, SO_LINGER, &optlinger, sizeof(optlinger));
 					setsockopt(socket_client, IPPROTO_TCP, TCP_NODELAY, &optval, sizeof(optval));
 
 					struct Client* client = NULL;
@@ -404,12 +394,15 @@ uint32_t server_run(struct Server* server)
 						recv(pfd_fd, temp, sizeof(temp), MSG_PEEK) <= 0
 					))
 					{
-						client_socket_disconnect(client, pfd_fd);
-
-						if(pfd_fd == client->socket_control)
+						if(sys_thread_mutex_lock(client->mutex) == 0)
 						{
-							// control connection disconnected, remove from clients
-							server_client_remove(server, pfd_fd);
+							client_socket_disconnect(client, pfd_fd);
+
+							if(pfd_fd == client->socket_control)
+							{
+								// control connection disconnected, remove from clients
+								server_client_remove(server, pfd_fd);
+							}
 						}
 
 						// remove from pollfds
