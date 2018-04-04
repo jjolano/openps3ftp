@@ -9,8 +9,10 @@ void client_event_job(void* arg)
 
 	if(sys_thread_mutex_lock(client->mutex) == 0)
 	{
-		client_socket_event(client, client->socket_event);
-		sys_thread_mutex_unlock(client->mutex);
+		if(client_socket_event(client, client->socket_event) == 0)
+		{
+			sys_thread_mutex_unlock(client->mutex);
+		}
 	}
 }
 
@@ -271,16 +273,16 @@ uint32_t server_run(struct Server* server)
 		{
 			sys_thread_mutex_lock(server->mutex);
 		}
-		
-		int p = socketpoll(server->pollfds, server->nfds, 0);
 
-		if(server->mutex != NULL)
-		{
-			sys_thread_mutex_unlock(server->mutex);
-		}
+		int p = socketpoll(server->pollfds, server->nfds, 0);
 
 		if(p == 0)
 		{
+			if(server->mutex != NULL)
+			{
+				sys_thread_mutex_unlock(server->mutex);
+			}
+
 			sys_thread_yield();
 			usleep(300);
 			continue;
@@ -288,19 +290,36 @@ uint32_t server_run(struct Server* server)
 
 		if(p < 0)
 		{
+			if(server->mutex != NULL)
+			{
+				sys_thread_mutex_unlock(server->mutex);
+			}
+
 			retval = 2;
 			break;
 		}
 
-		int op = p;
-
 		nfds_t i = server->nfds;
+		struct pollfd* pfds = malloc(sizeof(struct pollfd) * i);
 
-		while(p > 0 && i--)
+		if(pfds == NULL)
 		{
-			struct pollfd* pfd = &server->pollfds[i];
+			retval = 20;
+			break;
+		}
 
-			if(pfd != NULL && pfd->revents)
+		memcpy(pfds, server->pollfds, sizeof(struct pollfd) * i);
+
+		if(server->mutex != NULL)
+		{
+			sys_thread_mutex_unlock(server->mutex);
+		}
+
+		while(p > 0 && i-- > 0)
+		{
+			struct pollfd* pfd = &pfds[i];
+
+			if(pfd->revents)
 			{
 				int pfd_fd = pfd->fd;
 
@@ -405,8 +424,10 @@ uint32_t server_run(struct Server* server)
 					{
 						if(sys_thread_mutex_trylock(client->mutex) == 0)
 						{
-							client_socket_event(client, pfd_fd);
-							sys_thread_mutex_unlock(client->mutex);
+							if(client_socket_event(client, pfd_fd) == 0)
+							{
+								sys_thread_mutex_unlock(client->mutex);
+							}
 
 							p--;
 						}
@@ -427,11 +448,7 @@ uint32_t server_run(struct Server* server)
 			}
 		}
 
-		if(p == op)
-		{
-			sys_thread_yield();
-			usleep(300);
-		}
+		free(pfds);
 	}
 
 	server->running = false;

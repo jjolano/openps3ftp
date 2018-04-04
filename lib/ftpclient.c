@@ -262,11 +262,11 @@ bool client_pasv_enter(struct Client* client, struct sockaddr_in* pasv_addr)
 	return true;
 }
 
-void client_socket_event(struct Client* client, int socket_ev)
+int client_socket_event(struct Client* client, int socket_ev)
 {
 	if(socket_ev == -1)
 	{
-		return;
+		return 0;
 	}
 
 	if(socket_ev == client->socket_data)
@@ -278,12 +278,16 @@ void client_socket_event(struct Client* client, int socket_ev)
 			if(ended)
 			{
 				client_data_end(client);
+				return 0;
 			}
 		}
 		else
 		{
 			client_data_end(client);
+			return 0;
 		}
+
+		return 0;
 	}
 
 	if(socket_ev == client->socket_control)
@@ -298,7 +302,7 @@ void client_socket_event(struct Client* client, int socket_ev)
 
 			server_pollfds_remove(client->server_ptr, socket_ev);
 			server_client_remove(client->server_ptr, socket_ev);
-			return;
+			return 1;
 		}
 
 		buffer[bytes - 2] = '\0';
@@ -315,7 +319,7 @@ void client_socket_event(struct Client* client, int socket_ev)
 
 			server_pollfds_remove(client->server_ptr, socket_ev);
 			server_client_remove(client->server_ptr, socket_ev);
-			return;
+			return 1;
 		}
 
 		if(!command_call(client->server_ptr->command_ptr, command_name, command_param, client))
@@ -327,6 +331,8 @@ void client_socket_event(struct Client* client, int socket_ev)
 			strcpy(client->lastcmd, command_name);
 		}
 	}
+
+	return 0;
 }
 
 void client_socket_disconnect(struct Client* client, int socket_dc)

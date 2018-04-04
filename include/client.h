@@ -44,7 +44,7 @@ void client_data_end(struct Client* client);
 bool client_pasv_enter(struct Client* client, struct sockaddr_in* pasv_addr);
 
 /* event functions */
-void client_socket_event(struct Client* client, int socket_ev);
+int client_socket_event(struct Client* client, int socket_ev);
 void client_socket_disconnect(struct Client* client, int socket_dc);
 
 /* internal functions */
