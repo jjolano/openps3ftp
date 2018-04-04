@@ -4,12 +4,9 @@ SYS_MODULE_INFO(FTPD, 0, 4, 4);
 SYS_MODULE_START(prx_start);
 SYS_MODULE_STOP(prx_stop);
 
-struct Command* ftp_command = NULL;
-struct Server* ftp_server = NULL;
-
+struct Server ftp_server;
 sys_ppu_thread_t prx_tid;
-
-volatile bool prx_running;
+bool prx_running;
 
 inline void _sys_ppu_thread_exit(uint64_t val)
 {
@@ -18,8 +15,7 @@ inline void _sys_ppu_thread_exit(uint64_t val)
 
 inline int usleep(int usec)
 {
-	system_call_1(141, (uint64_t) usec);
-	return_to_user_prog(int);
+	return sys_timer_usleep(usec);
 }
 
 void finalize_module(void)
@@ -38,11 +34,7 @@ void finalize_module(void)
 void ftp_stop(void)
 {
 	prx_running = false;
-
-	if(ftp_server != NULL)
-	{
-		server_stop(ftp_server);
-	}
+	server_stop(&ftp_server);
 
 	uint64_t prx_exitcode;
 	sys_ppu_thread_join(prx_tid, &prx_exitcode);
@@ -60,34 +52,33 @@ void ftp_main(uint64_t ptr)
 {
 	uint32_t ret = 0;
 
-	ftp_command = (struct Command*) malloc(sizeof(struct Command));
-
 	// initialize command struct
-	command_init(ftp_command);
+	struct Command ftp_command;
+	command_init(&ftp_command);
 
 	// import commands...
-	feat_command_import(ftp_command);
-	base_command_import(ftp_command);
-	ext_command_import(ftp_command);
+	feat_command_import(&ftp_command);
+	base_command_import(&ftp_command);
+	ext_command_import(&ftp_command);
 
 	while(prx_running)
 	{
 		sys_timer_sleep(5);
 
-		ftp_server = (struct Server*) malloc(sizeof(struct Server));
+		server_init(&ftp_server, &ftp_command, 21);
+		ret = server_run(&ftp_server);
 
-		server_init(ftp_server, ftp_command, 21);
-		ret = server_run(ftp_server);
-		server_free(ftp_server);
+		if(ret != 0)
+		{
+			char msg[32];
+			sprintf(msg, "OpenPS3FTP error %d", ret);
+			vshtask_notify(msg);
+		}
 
-		free(ftp_server);
+		server_free(&ftp_server);
 	}
 
-	command_free(ftp_command);
-	free(ftp_command);
-
-	ftp_server = NULL;
-	ftp_command = NULL;
+	command_free(&ftp_command);
 
 	sys_ppu_thread_exit(ret);
 }
@@ -112,13 +103,13 @@ void prx_main(uint64_t ptr)
 
 	prx_running = false;
 
-	if(ftp_server != NULL)
+	if(&ftp_server != NULL)
 	{
-		server_stop(ftp_server);
+		server_stop(&ftp_server);
 	}
 
 	uint64_t ftp_exitcode;
-	sys_ppu_thread_join(ftp_tid, &ftp_exitcode);
+	sys_ppu_thread_join(&ftp_tid, &ftp_exitcode);
 
 	#ifdef _NTFS_SUPPORT_
 	#ifndef _PS3NTFS_PRX_

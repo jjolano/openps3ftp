@@ -20,16 +20,22 @@ native-clean:
 	$(MAKE) -C bin/linux clean
 
 ps3-lib: 
+ifneq ($(PSL1GHT),)
 	$(MAKE) -C lib SDK=psl1ght LIB_EXTERNAL=1
+endif
 ifneq ($(CELL_SDK),)
 	$(MAKE) -C lib SDK=cell LIB_EXTERNAL=1
 endif
 
 ps3-elf: ps3-lib
+ifneq ($(PSL1GHT),)
 	$(MAKE) -C bin/psl1ght
+endif
 
 ps3-eboot: ps3-elf
+ifneq ($(PSL1GHT),)
 	$(MAKE) -C bin/psl1ght EBOOT.BIN
+endif
 
 ifneq ($(CELL_SDK),)
 ps3-prxlib: 
@@ -53,15 +59,17 @@ ps3-dist: ps3-eboot
 	$(MAKE) -C pkg dist
 
 ps3-clean: 
+ifneq ($(PSL1GHT),)
 	$(MAKE) -C lib SDK=psl1ght LIB_EXTERNAL=1 clean
+	$(MAKE) -C bin/psl1ght clean
+endif
 ifneq ($(CELL_SDK),)
+	$(MAKE) -C external/ps3ntfs clean
 	$(MAKE) -C lib SDK=cell LIB_EXTERNAL=1 clean
 	$(MAKE) -C lib SDK=cell clean
 	$(MAKE) -C bin/cell clean
-endif
-	$(MAKE) -C bin/psl1ght clean
-	$(MAKE) -C external/ps3ntfs clean
 	$(MAKE) -C bin/prx clean
+endif
 
 ps3-distclean: ps3-clean
 	$(MAKE) -C pkg distclean

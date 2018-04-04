@@ -382,26 +382,26 @@ int userMain(void)
 	cellNetCtlGetInfo(CELL_NET_CTL_INFO_IP_ADDRESS, &netctl_info);
 
 	// Create server thread.
-	struct Command* ftp_command = (struct Command*) malloc(sizeof(struct Command));
+	struct Command ftp_command;
 
 	// initialize command struct
-	command_init(ftp_command);
+	command_init(&ftp_command);
 
 	// import commands...
-	feat_command_import(ftp_command);
-	base_command_import(ftp_command);
-	ext_command_import(ftp_command);
+	feat_command_import(&ftp_command);
+	base_command_import(&ftp_command);
+	ext_command_import(&ftp_command);
 
-	struct Server* ftp_server = (struct Server*) malloc(sizeof(struct Server));
+	struct Server ftp_server;
 	
 	// initialize server struct
-	server_init(ftp_server, ftp_command, 2121);
+	server_init(&ftp_server, &ftp_command, 2121);
 
 	sys_ppu_thread_t server_tid;
-	sys_ppu_thread_create(&server_tid, server_run_ex, (uint64_t) ftp_server, 1000, 0x10000, SYS_PPU_THREAD_CREATE_JOINABLE, (char*)"ftpd");
+	sys_ppu_thread_create(&server_tid, server_run_ex, (uint64_t) &ftp_server, 1000, 0x10000, SYS_PPU_THREAD_CREATE_JOINABLE, (char*)"ftpd");
 	sys_ppu_thread_yield();
 
-	ret = cellSysutilRegisterCallback(0, sysutil_exit_callback, ftp_server);
+	ret = cellSysutilRegisterCallback(0, sysutil_exit_callback, &ftp_server);
 
 	if(ret != CELL_OK)
 	{
@@ -425,7 +425,7 @@ int userMain(void)
 	}
 
 	// Application loop
-	while(ftp_server->running)
+	while(ftp_server.running)
 	{
 		ret = cellSysutilCheckCallback();
 
@@ -438,8 +438,8 @@ int userMain(void)
 
 		// draw text
 		cellDbgFontPrintf(0.1f, 0.1f, 1.0f, 0xffffffff, "CellPS3FTP (OpenPS3FTP) " APP_VERSION);
-		cellDbgFontPrintf(0.1f, 0.2f, 1.0f, 0xffffffff, "IP Address: %s (port %d)", netctl_info.ip_address, ftp_server->port);
-		cellDbgFontPrintf(0.1f, 0.3f, 1.0f, 0xffffffff, "Connections: %d", ftp_server->nfds - 1);
+		cellDbgFontPrintf(0.1f, 0.2f, 1.0f, 0xffffffff, "IP Address: %s (port %d)", netctl_info.ip_address, ftp_server.port);
+		cellDbgFontPrintf(0.1f, 0.3f, 1.0f, 0xffffffff, "Connections: %d", ftp_server.nfds - 1);
 		
 		cellDbgFontDrawGcm();
 
@@ -447,7 +447,7 @@ int userMain(void)
 	}
 
 	// Join server thread and wait for exit...
-	server_stop(ftp_server);
+	server_stop(&ftp_server);
 
 	uint64_t thread_exit;
 	sys_ppu_thread_join(server_tid, &thread_exit);
@@ -457,12 +457,8 @@ int userMain(void)
 		system_call_1(838, (uint64_t)"/dev_blind");
 	}
 
-	server_free(ftp_server);
-	free(ftp_server);
-	ftp_server = NULL;
-
-	command_free(ftp_command);
-	free(ftp_command);
+	server_free(&ftp_server);
+	command_free(&ftp_command);
 
 	cellDbgFontExitGcm();
 	blackout();

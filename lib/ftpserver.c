@@ -253,7 +253,7 @@ uint32_t server_run(struct Server* server)
 		return 10;
 	}
 
-	listen(server->socket, 10);
+	listen(server->socket, 5);
 
 	// add to pollfds
 	server_pollfds_add(server, server->socket, POLLIN);
@@ -276,36 +276,16 @@ uint32_t server_run(struct Server* server)
 			sys_thread_mutex_lock(server->mutex);
 		}
 
-		int p = socketpoll(server->pollfds, server->nfds, 0);
-
-		if(p == 0)
-		{
-			if(server->mutex != NULL)
-			{
-				sys_thread_mutex_unlock(server->mutex);
-			}
-
-			sys_thread_yield();
-			usleep(300);
-			continue;
-		}
-
-		if(p < 0)
-		{
-			if(server->mutex != NULL)
-			{
-				sys_thread_mutex_unlock(server->mutex);
-			}
-
-			retval = 2;
-			break;
-		}
-
 		nfds_t i = server->nfds;
 		struct pollfd* pfds = malloc(sizeof(struct pollfd) * i);
 
 		if(pfds == NULL)
 		{
+			if(server->mutex != NULL)
+			{
+				sys_thread_mutex_unlock(server->mutex);
+			}
+
 			retval = 20;
 			break;
 		}
@@ -315,6 +295,22 @@ uint32_t server_run(struct Server* server)
 		if(server->mutex != NULL)
 		{
 			sys_thread_mutex_unlock(server->mutex);
+		}
+
+		int p = socketpoll(pfds, server->nfds, 500);
+
+		if(p == 0)
+		{
+			free(pfds);
+			sys_thread_yield();
+			continue;
+		}
+
+		if(p < 0)
+		{
+			free(pfds);
+			retval = 2;
+			break;
 		}
 
 		while(p > 0 && i-- > 0)

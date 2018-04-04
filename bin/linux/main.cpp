@@ -11,7 +11,7 @@
 #include "base/base.h"
 #include "ext/ext.h"
 
-struct Server* ftp_server = NULL;
+struct Server ftp_server;
 
 void client_connect(struct Client* client)
 {
@@ -25,9 +25,9 @@ void client_disconnect(struct Client* client)
 
 void sig_handler(int signo)
 {
-	if(signo == SIGINT && ftp_server != NULL)
+	if(signo == SIGINT)
 	{
-		server_stop(ftp_server);
+		server_stop(&ftp_server);
 	}
 }
 
@@ -42,36 +42,30 @@ int main(int argc, char* argv[])
 		port = (unsigned short) atoi(argv[1]);
 	}
 
-	struct Command* ftp_command = (struct Command*) malloc(sizeof(struct Command));
+	struct Command ftp_command;
 
 	// initialize command struct
-	command_init(ftp_command);
+	command_init(&ftp_command);
 
 	// import commands...
-	feat_command_import(ftp_command);
-	base_command_import(ftp_command);
-	ext_command_import(ftp_command);
+	feat_command_import(&ftp_command);
+	base_command_import(&ftp_command);
+	ext_command_import(&ftp_command);
 
-	command_register_connect(ftp_command, client_connect);
-	command_register_disconnect(ftp_command, client_disconnect);
-
-	ftp_server = (struct Server*) malloc(sizeof(struct Server));
+	command_register_connect(&ftp_command, client_connect);
+	command_register_disconnect(&ftp_command, client_disconnect);
 	
 	// initialize server struct
-	server_init(ftp_server, ftp_command, port);
+	server_init(&ftp_server, &ftp_command, port);
 
 	std::cout << "Started server!" << std::endl;
 
-	uint32_t ret = server_run(ftp_server);
+	uint32_t ret = server_run(&ftp_server);
 
 	std::cout << "Server stopped (code: " << ret << ")!" << std::endl;
 
-	server_free(ftp_server);
-	free(ftp_server);
-	ftp_server = NULL;
-
-	command_free(ftp_command);
-	free(ftp_command);
+	server_free(&ftp_server);
+	command_free(&ftp_command);
 
 	return 0;
 }
