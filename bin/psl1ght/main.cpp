@@ -157,6 +157,11 @@ int main(void)
 	{
 		int num_connections = ftp_server.nfds - 1;
 
+		if(num_connections < 0)
+		{
+			num_connections = 0;
+		}
+
 		if(gfx->GetXMBStatus() == XMB_CLOSE && flipped < 2)
 		{
 			bg.Mono(COLOR_BLACK);

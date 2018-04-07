@@ -269,28 +269,22 @@ uint32_t server_run(struct Server* server)
 	// main server loop
 	int retval = 0;
 
-	while(!server->should_stop)
+	nfds_t i = 0;
+	struct pollfd* pfds = NULL;
+
+	while(!server->should_stop && retval == 0)
 	{
 		if(server->mutex != NULL)
 		{
 			sys_thread_mutex_lock(server->mutex);
 		}
 
-		nfds_t i = server->nfds;
-		struct pollfd* pfds = malloc(sizeof(struct pollfd) * i);
-
-		if(pfds == NULL)
+		if(i != server->nfds)
 		{
-			if(server->mutex != NULL)
-			{
-				sys_thread_mutex_unlock(server->mutex);
-			}
-
-			retval = 20;
-			break;
+			i = server->nfds;
+			pfds = realloc(pfds, sizeof(struct pollfd) * i);
+			memcpy(pfds, server->pollfds, sizeof(struct pollfd) * i);
 		}
-
-		memcpy(pfds, server->pollfds, sizeof(struct pollfd) * i);
 
 		if(server->mutex != NULL)
 		{
@@ -301,14 +295,12 @@ uint32_t server_run(struct Server* server)
 
 		if(p == 0)
 		{
-			free(pfds);
 			sys_thread_yield();
 			continue;
 		}
 
 		if(p < 0)
 		{
-			free(pfds);
 			retval = 2;
 			break;
 		}
@@ -438,7 +430,10 @@ uint32_t server_run(struct Server* server)
 				}
 			}
 		}
+	}
 
+	if(pfds != NULL)
+	{
 		free(pfds);
 	}
 
