@@ -289,9 +289,10 @@ SITE (CHMOD, UTIME) STAT STOR STRU SYST TYPE USER XCUP XCWD XMKD XPWD XRMD
 + MLSD/MLST/MFMT/STOU (RFC 3659)
 + CPFR/CPTO (server-side copy, worker job)
 + AUTH/PBSZ/PROT (RFC 4217)
-+ STOP (openps3ftp custom, remote shutdown).
++ SITE STOP (openps3ftp custom, remote shutdown; bare STOP kept as a
+  compat alias with the same gate).
 
-**STOP is opt-in and off by default**: it is registered only when the
+**SITE STOP is opt-in and off by default**: it is registered only when the
 application calls `opftp_server_set_allow_stop(s, true)`. Otherwise any
 logged-in client could shut the service down. (Legacy consumers are
 unaffected — the old `feat/site` registers its own STOP through the shim,

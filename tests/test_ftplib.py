@@ -231,6 +231,26 @@ def scenario_basic(ftp, root, port):
     ftp.voidcmd("TYPE I")
     ftp.voidcmd("MODE S")
     ftp.voidcmd("STRU F")
+    # TYPE strictness: A (and A N) accepted for ftplib retrlines compat;
+    # E/L and garbage rejected with 504
+    ftp.voidcmd("TYPE A")
+    ftp.voidcmd("TYPE A N")
+    try:
+        ftp.sendcmd("TYPE E")
+        check("type-e", False, "expected 504")
+    except ftplib.error_perm as e:
+        check("type-e", str(e).startswith("504"), e)
+    try:
+        ftp.sendcmd("TYPE L 1024")
+        check("type-l", False, "expected 504")
+    except ftplib.error_perm as e:
+        check("type-l", str(e).startswith("504"), e)
+    try:
+        ftp.sendcmd("TYPE BOGUS")
+        check("type-bogus", False, "expected 504")
+    except ftplib.error_perm as e:
+        check("type-bogus", str(e).startswith("504"), e)
+    ftp.voidcmd("TYPE I")
     # SITE CHMOD
     ftp.sendcmd("SITE CHMOD 600 small.txt")
     check("site-chmod", (os.stat(os.path.join(root, "small.txt")).st_mode & 0o777) == 0o600)
@@ -767,6 +787,10 @@ def scenario_stop_optin(binary, root):
         s.sendall(b"STOP\r\n")
         r = read_reply(s)
         check("stop-default-off", r.startswith(b"50"), r)
+        # SITE STOP is the canonical form (custom command under SITE)
+        s.sendall(b"SITE STOP\r\n")
+        r = read_reply(s)
+        check("site-stop-default-off", r.startswith(b"50"), r)
         s.close()
         check("stop-default-off-alive", proc.poll() is None)
     finally:
@@ -777,9 +801,9 @@ def scenario_stop_optin(binary, root):
     try:
         s = raw_connect(port)
         raw_login(s)
-        s.sendall(b"STOP\r\n")
+        s.sendall(b"SITE STOP\r\n")
         r = read_reply(s)
-        check("stop-optin-accepted", r.startswith(b"200"), r)
+        check("site-stop-optin-accepted", r.startswith(b"200"), r)
         s.close()
         try:
             proc.wait(timeout=10)

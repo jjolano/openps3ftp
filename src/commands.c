@@ -255,10 +255,35 @@ static void cmd_allo(struct opftp_client* c, const char* param, void* ctx)
 static void cmd_type(struct opftp_client* c, const char* param, void* ctx)
 {
     (void) ctx;
-    if (param && (param[0] == 'A' || param[0] == 'I'))
+    /* RFC 959: TYPE = "A" [SP N|T|C] | "I" | "E" [SP N|T|C] | "L" [SP size].
+     * Command verb is case-insensitive; the format arg is not.
+     * We transfer 8-bit data only: "A" is accepted (clients like
+     * ftplib's retrlines send it for text listings) but no CRLF
+     * conversion is performed — that is a documented deviation.
+     * E (EBCDIC) and L (local byte size) are not supported. */
+    if (!param || !param[0]) {
+        reply(c, 501, R501);
+        return;
+    }
+    char t = (char) toupper((unsigned char) param[0]);
+    const char* rest = param + 1;
+    while (*rest == ' ') rest++;
+    if (t == 'I') {
+        if (*rest != '\0') { reply(c, 504, R504); return; }
         reply(c, 200, R200);
-    else
+        return;
+    }
+    if (t == 'A') {
+        /* optional format control: N (non-print), T (telnet), C (carriage) */
+        if (*rest == '\0' ||
+            ((*rest == 'N' || *rest == 'T' || *rest == 'C') && rest[1] == '\0')) {
+            reply(c, 200, R200);
+            return;
+        }
         reply(c, 504, R504);
+        return;
+    }
+    reply(c, 504, R504);   /* E, L unsupported */
 }
 
 static void cmd_mode(struct opftp_client* c, const char* param, void* ctx)
@@ -577,6 +602,22 @@ static void cmd_site(struct opftp_client* c, const char* param, void* ctx)
             return;
         }
         reply(c, 200, R200);
+        return;
+    }
+    /* SITE STOP: server shutdown — opt-in only (same gate as the bare
+     * STOP alias), never a default. */
+    if (strncasecmp(param, "STOP", 4) == 0) {
+        const char* rest = param + 4;
+        while (*rest == ' ') rest++;
+        if (*rest != '\0') {
+            reply(c, 501, R501);
+            return;
+        }
+        if (!s->allow_stop) {
+            reply(c, 502, R502);
+            return;
+        }
+        cmd_stop(c, param, ctx);
         return;
     }
     reply(c, 502, R502);
