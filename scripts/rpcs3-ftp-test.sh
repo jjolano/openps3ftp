@@ -10,15 +10,22 @@
 #                                    sign with make_self_npdrm)
 #   RPCS3_BIN: rpcs3 (override with env)
 #
+# User-local deps (no root): the AppImage needs libOpenGL.so.0 +
+# libxcb-cursor0 that minimal hosts lack. Extract the Ubuntu debs into
+# scripts/rpcs3-libs/ and this script adds them to LD_LIBRARY_PATH:
+#   mkdir -p scripts/rpcs3-libs && cd scripts/rpcs3-libs
+#   apt-get download libglvnd0 libopengl0 libxcb-cursor0
+#   for d in *.deb; do dpkg-deb -x "$d" .; done
+#
 # Behaviour:
-#   - Raises the memlock limit (RPCS3 must lock 64MB of VM; the default
+#   - Raises the memlock limit (RPCS3 must lock 64MB+ of VM; the default
 #     ulimit -l of 8MB caused the boot crash in reference/rpcs3-log.txt)
 #   - Launches `rpcs3 --no-gui <self>` in the background
 #   - Waits for the FTP port (127.0.0.1:2121) to accept connections
 #   - Runs tests/rpcs3_ftp_probe.py against it
 #   - Kills RPCS3, reports PASS/FAIL, exit 0/1
 #
-# Exit: 0 = probe passed; 1 = boot failed or probe failed.
+# Exit: 0 = probe passed; 1 = boot failed or probe failed; 2 = env blocked.
 
 set -u
 
@@ -34,9 +41,22 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 [[ -f "$SELF_PATH" ]] || { echo "rpcs3-ftp-test: file not found: $SELF_PATH" >&2; exit 2; }
 command -v "$RPCS3_BIN" >/dev/null || { echo "rpcs3-ftp-test: rpcs3 not found (set RPCS3_BIN)" >&2; exit 2; }
 
-# memlock: RPCS3 locks 64MB of VM; default ulimit -l (8MB) crashes at boot
+# memlock: RPCS3 locks 64MB+ of VM; default ulimit -l (8MB) crashes at boot.
+# If we cannot raise it, warn loudly — boot will fail at "Failed to lock
+# sudo memory" (see reference/rpcs3-log.txt).
 if ! ulimit -l unlimited 2>/dev/null; then
-    echo "rpcs3-ftp-test: WARNING: could not raise memlock limit; boot may crash" >&2
+    if [ "$(ulimit -l)" -lt 65536 ] 2>/dev/null; then
+        echo "rpcs3-ftp-test: FATAL: memlock limit is $(ulimit -l) KB; RPCS3 needs 2 GiB." >&2
+        echo "rpcs3-ftp-test: raise it on the host: 'ulimit -l unlimited' or docker --ulimit memlock=-1" >&2
+        exit 2
+    fi
+fi
+
+# User-local GLVND/Qt libs: the RPCS3 AppImage needs libOpenGL.so.0 etc.
+# that may be missing on minimal hosts. If scripts/rpcs3-libs exists
+# (extracted .debs), put it on LD_LIBRARY_PATH.
+if [ -d "$ROOT/scripts/rpcs3-libs/usr/lib/x86_64-linux-gnu" ]; then
+    export LD_LIBRARY_PATH="$ROOT/scripts/rpcs3-libs/usr/lib/x86_64-linux-gnu${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 fi
 
 # kill stale instances
