@@ -23,6 +23,14 @@
 
 #define TRANSFER_BUF (64 * 1024)
 
+/* ps3dk's net layer lacks MSG_WAITALL (PSL1GHT defines it 0x0040).
+ * webMAN ships it on STOR in production: recv blocks until a full
+ * chunk arrives, so every disk write is a full chunk. No-op-ish on
+ * non-blocking sockets (our poll loop handles partials anyway). */
+#ifndef MSG_WAITALL
+#define MSG_WAITALL 0x0040
+#endif
+
 static bool job_cancelled(struct opftp_transfer_job* j)
 {
     return atomic_load_explicit(&j->cancelled, memory_order_relaxed);
@@ -145,7 +153,7 @@ static ssize_t recv_some(struct opftp_transfer_job* j, void* buf, size_t len)
     if (w == -ECANCELED) return -ECANCELED;
     if (w == -EAGAIN) return -EAGAIN;
     if (w < 0) return w;
-    ssize_t n = recv(j->data_fd, buf, len, 0);
+    ssize_t n = recv(j->data_fd, buf, len, MSG_WAITALL);
     if (n >= 0) return n;
     if (errno == EAGAIN || errno == EWOULDBLOCK) return -EAGAIN;
     return -errno;
