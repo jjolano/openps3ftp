@@ -387,12 +387,15 @@ void opftp_datachan_complete(struct opftp_server* s, struct opftp_transfer_job* 
         /* the worker never established the data connection (e.g. PASV
          * accept timeout, bounce reject, PORT connect failure).
          * COPY jobs have no data connection: conn_ok stays false but
-         * the op result decides the reply. */
-        if (j->result == -ECANCELED || j->result == -ETIMEDOUT ||
-            j->result == -EACCES)
-            opftp_client_send_reply(c, 425, R425);
+         * the op result decides the reply. ABOR during connect is an
+         * abort, not a connect failure: reply 426 so the client sees
+         * the abort sequence (426 + 226). */
+        if (j->result == -ECANCELED)
+            opftp_client_send_reply(c, 426, "Connection closed; transfer aborted.");
+        else if (j->result == -ETIMEDOUT || j->result == -EACCES)
+            opftp_client_send_reply(c, 425, "Cannot open data connection.");
         else
-            opftp_client_send_reply(c, 451, R451);
+            opftp_client_send_reply(c, 451, "Data transfer error (network).");
     } else if (j->result == 0) {
         if (j->op == OPFTP_JOB_COPY)
             opftp_client_send_reply(c, 250, "Copy successful.");

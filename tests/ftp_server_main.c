@@ -78,6 +78,12 @@ int main(int argc, char** argv)
     opftp_server_set_require_tls(s, require_tls);
     opftp_server_set_allow_stop(s, allow_stop);
 
+    /* Install handlers before announcing the port: the test driver
+     * sends SIGTERM as soon as it reads "PORT n", and a default-action
+     * kill would surface as returncode -15. */
+    signal(SIGTERM, on_signal);
+    signal(SIGINT, on_signal);
+
     if (opftp_server_start(s) != 0) {
         fprintf(stderr, "start failed\n");
         return 1;
@@ -85,8 +91,6 @@ int main(int argc, char** argv)
     printf("PORT %u\n", opftp_server_bound_port(s));
     fflush(stdout);
 
-    signal(SIGTERM, on_signal);
-    signal(SIGINT, on_signal);
     /* Exit on a signal, or when the server stopped itself (STOP). */
     for (;;) {
         opftp_snapshot_t snap;
