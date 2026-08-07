@@ -155,3 +155,8 @@ target_compile_definitions(legacy_smoke PRIVATE LINUX=1)
 target_include_directories(legacy_smoke PRIVATE include feat)
 target_link_libraries(legacy_smoke openps3ftp)
 add_test(NAME legacy_ftplib COMMAND python3 ${CMAKE_SOURCE_DIR}/tests/test_legacy_ftplib.py $<TARGET_FILE:legacy_smoke>)
+
+# P5 gate: the shim must define every function the old headers declare,
+# or legacy consumers fail at link time (DESIGN.md, "Symbol surface").
+add_test(NAME symbols COMMAND python3 ${CMAKE_SOURCE_DIR}/tests/check_symbols.py
+  $<TARGET_FILE:openps3ftp> ${CMAKE_SOURCE_DIR}/include)

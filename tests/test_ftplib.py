@@ -13,6 +13,7 @@ Exit code 0 = all scenarios passed.
 """
 import os
 import re
+import shutil
 import signal
 import socket
 import subprocess
@@ -55,9 +56,9 @@ def read_multiline_reply(sock, timeout=10):
     return b"".join(lines)
 
 
-def start_server(binary, root, workers=2):
+def start_server(binary, root, workers=2, allow_stop=False):
     proc = subprocess.Popen(
-        [binary, root, "0", str(workers)],
+        [binary, root, "0", str(workers), "", "", "0", "1" if allow_stop else "0"],
         stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
     line = proc.stdout.readline().decode().strip()
     m = re.match(r"PORT (\d+)", line)
@@ -166,12 +167,57 @@ def scenario_basic(ftp, root, port):
         check("cpfr-missing", False, "expected 550")
     except ftplib.error_perm as e:
         check("cpfr-missing", str(e).startswith("550"), e)
-    # CPFR of a directory -> 550 (files only)
+    # CPFR + CPTO on the same path must NOT truncate the source (#9 regression:
+    # the destination is opened O_TRUNC, so this used to zero the file and
+    # still reply 250 Copy successful).
     try:
-        ftp.sendcmd("CPFR sub")
-        check("cpfr-dir", False, "expected 550")
+        ftp.sendcmd("CPFR small.txt")
+        ftp.sendcmd("CPTO small.txt")
+        check("cpto-same-path", False, "expected 550")
     except ftplib.error_perm as e:
-        check("cpfr-dir", str(e).startswith("550"), e)
+        check("cpto-same-path", str(e).startswith("550"), e)
+    with open(os.path.join(root, "small.txt"), "rb") as f:
+        check("cpto-same-path-intact", f.read() == orig)
+    # a failed CPTO leaves no partial destination behind
+    try:
+        ftp.sendcmd("CPFR small.txt")
+        ftp.sendcmd("CPTO no_such_dir/x.txt")
+        check("cpto-bad-dst", False, "expected 550")
+    except ftplib.error_perm as e:
+        check("cpto-bad-dst", str(e).startswith("550"), e)
+    check("cpto-bad-dst-clean", not os.path.exists(os.path.join(root, "no_such_dir")))
+    # ---- CPFR/CPTO on a directory tree (#9: "copy a game from a usb key") ----
+    os.makedirs(os.path.join(root, "tree", "a", "b"))
+    with open(os.path.join(root, "tree", "top.bin"), "wb") as f:
+        f.write(b"\x01" * 4096)
+    with open(os.path.join(root, "tree", "a", "mid.txt"), "wb") as f:
+        f.write(b"middle")
+    with open(os.path.join(root, "tree", "a", "b", "deep.txt"), "wb") as f:
+        f.write(b"deep")
+    resp = ftp.sendcmd("CPFR tree")
+    check("cpfr-dir", resp.startswith("350"), resp)
+    resp = ftp.sendcmd("CPTO tree_copy")
+    check("cpto-dir", resp.startswith("250"), resp)
+    for rel, want in (
+        ("top.bin", b"\x01" * 4096),
+        (os.path.join("a", "mid.txt"), b"middle"),
+        (os.path.join("a", "b", "deep.txt"), b"deep"),
+    ):
+        p = os.path.join(root, "tree_copy", rel)
+        check("cpto-dir-" + rel, os.path.isfile(p), p)
+        with open(p, "rb") as f:
+            check("cpto-dir-content-" + rel, f.read() == want)
+    # destination inside the source tree would recurse forever -> 550
+    try:
+        ftp.sendcmd("CPFR tree")
+        ftp.sendcmd("CPTO tree/nested")
+        check("cpto-dst-inside-src", False, "expected 550")
+    except ftplib.error_perm as e:
+        check("cpto-dst-inside-src", str(e).startswith("550"), e)
+    check("cpto-dst-inside-src-clean",
+          not os.path.exists(os.path.join(root, "tree", "nested")))
+    shutil.rmtree(os.path.join(root, "tree"))
+    shutil.rmtree(os.path.join(root, "tree_copy"))
     # MKD / RMD / DELE
     ftp.mkd("newdir")
     check("mkd", os.path.isdir(os.path.join(root, "newdir")))
@@ -711,6 +757,39 @@ def scenario_lifecycle(binary):
     check("graceful-stop", proc.returncode == 0, proc.returncode)
 
 
+def scenario_stop_optin(binary, root):
+    # STOP shuts the whole server down, so it must not be a default:
+    # without the knob any logged-in client could kill the service.
+    proc, port = start_server(binary, root, workers=1)
+    try:
+        s = raw_connect(port)
+        raw_login(s)
+        s.sendall(b"STOP\r\n")
+        r = read_reply(s)
+        check("stop-default-off", r.startswith(b"50"), r)
+        s.close()
+        check("stop-default-off-alive", proc.poll() is None)
+    finally:
+        stop_server(proc)
+
+    # ...and it must actually work once opted in.
+    proc, port = start_server(binary, root, workers=1, allow_stop=True)
+    try:
+        s = raw_connect(port)
+        raw_login(s)
+        s.sendall(b"STOP\r\n")
+        r = read_reply(s)
+        check("stop-optin-accepted", r.startswith(b"200"), r)
+        s.close()
+        try:
+            proc.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            pass
+        check("stop-optin-exits", proc.poll() is not None, "server still running")
+    finally:
+        stop_server(proc)
+
+
 def main():
     if len(sys.argv) < 2:
         print("usage: test_ftplib.py <ftp_server_main>")
@@ -750,6 +829,7 @@ def main():
     scenario_fragmented_and_disconnect(binary, ftp_root)
     scenario_concurrent_and_multi(binary, ftp_root)
     scenario_lifecycle(binary)
+    scenario_stop_optin(binary, ftp_root)
 
     if FAILURES:
         print(f"{len(FAILURES)} FAILURES: {FAILURES}")

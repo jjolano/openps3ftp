@@ -43,18 +43,28 @@ int opftp_tls_session_create(struct opftp_tls_ctx* ctx, int fd,
                              struct opftp_tls_session** out);
 void opftp_tls_session_free(struct opftp_tls_session* t);
 
-/* Advance the handshake. 0 = done, 1 = wait for readable, 2 = wait for
- * writable, <0 = error. The caller polls the fd accordingly. */
+/* Two "which way do I have to wait?" encodings, because the handshake
+ * functions return a small positive step code while read/write return
+ * a byte count. Same meaning, different sign space — name both rather
+ * than sprinkling -2/-3/1/2 across the callers. */
+#define OPFTP_TLS_WANT_READ     (-2)   /* opftp_tls_read/write */
+#define OPFTP_TLS_WANT_WRITE    (-3)
+#define OPFTP_TLS_HS_DONE         0    /* handshake / close_notify */
+#define OPFTP_TLS_HS_WANT_READ    1
+#define OPFTP_TLS_HS_WANT_WRITE   2
+
+/* Advance the handshake. OPFTP_TLS_HS_DONE, OPFTP_TLS_HS_WANT_READ,
+ * OPFTP_TLS_HS_WANT_WRITE, or <0 on error. Caller polls accordingly. */
 int opftp_tls_handshake(struct opftp_tls_session* t);
 
-/* Read/write application data.
- * >0 bytes, 0 = clean EOF (read), -2 = WANT_READ, -3 = WANT_WRITE,
- * -1 = error. The caller retries on poll readiness. */
+/* Read/write application data. >0 bytes, 0 = clean EOF (read),
+ * OPFTP_TLS_WANT_READ / OPFTP_TLS_WANT_WRITE, -1 = error.
+ * The caller retries on poll readiness. */
 ssize_t opftp_tls_read(struct opftp_tls_session* t, void* buf, size_t len);
 ssize_t opftp_tls_write(struct opftp_tls_session* t, const void* buf, size_t len);
 
 /* Send the TLS close_notify (polite shutdown before closing the fd).
- * 0 = sent, 1 = want-read, 2 = want-write, -1 = error. */
+ * OPFTP_TLS_HS_* as above, -1 = error. */
 int opftp_tls_close_notify(struct opftp_tls_session* t);
 
 #endif /* OPFTP_TLS_H */

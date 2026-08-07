@@ -108,6 +108,18 @@ void opftp_thread_destroy(void* t)
     free(t);
 }
 
+void opftp_thread_self(opftp_tid_t* out)
+{
+    sys_ppu_thread_t id = 0;
+    sys_ppu_thread_get_id(&id);
+    out->id = (uint64_t) id;
+}
+
+bool opftp_tid_eq(const opftp_tid_t* a, const opftp_tid_t* b)
+{
+    return a->id == b->id;
+}
+
 #else /* host: pthread */
 
 #include <pthread.h>
@@ -203,6 +215,16 @@ void* opftp_thread_join(void* t)
 void opftp_thread_destroy(void* t)
 {
     free(t);
+}
+
+void opftp_thread_self(opftp_tid_t* out)
+{
+    out->id = pthread_self();
+}
+
+bool opftp_tid_eq(const opftp_tid_t* a, const opftp_tid_t* b)
+{
+    return pthread_equal(a->id, b->id) != 0;
 }
 
 #endif /* OPFTP_PS3 */

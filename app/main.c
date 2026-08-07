@@ -22,6 +22,10 @@ int main(void)
     opftp_server_set_port(s, 2121);
     opftp_server_set_root(s, "/");
     opftp_server_set_workers(s, 2);
+#ifndef OPFTP_PS3
+    /* Host build has no OSD to quit from; allow remote shutdown. */
+    opftp_server_set_allow_stop(s, true);
+#endif
 
     int rc = opftp_server_start(s);
     if (rc != 0) {

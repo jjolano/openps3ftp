@@ -16,7 +16,11 @@ struct shim_client {
     struct opftp_client* core;
     bool used;
     /* data executor state (reactor/worker, guarded by legacy mutex) */
-    bool job_active;         /* executor running */
+    /* job_active is NOT mutex-guarded: it is the handshake that tells a
+     * disconnecting reactor the executor has stopped touching `client`
+     * (and client->mutex, which the disconnect destroys). The executor
+     * publishes false as its very last action. */
+    atomic_bool job_active;  /* executor running */
     bool cancel;             /* ABOR/disconnect requested */
     bool data_go;            /* 150 sent: executor may start the callback */
     short events;

@@ -47,8 +47,14 @@ static void progress_store(struct opftp_transfer_job* j, uint64_t bytes)
 static int wait_fd(struct opftp_transfer_job* j, int fd, short events, int timeout_ms)
 {
 #ifdef OPFTP_PS3
-    /* ps3 poll() only watches sockets — the cancel pipe cannot be
-     * polled; rely on the poll timeout + atomic flag (<=1s latency) */
+    /* ps3 has neither pipe() nor socketpair(), and its poll() only
+     * watches sockets — so there is no cancel fd to wait on and
+     * cancellation is the atomic flag plus a bounded poll timeout.
+     * Cap the wait so ABOR is honoured within OPFTP_PS3_CANCEL_MS
+     * rather than the caller's full timeout; every caller already
+     * treats -EAGAIN as "loop again". */
+    if (timeout_ms < 0 || timeout_ms > OPFTP_PS3_CANCEL_MS)
+        timeout_ms = OPFTP_PS3_CANCEL_MS;
     struct pollfd pfd;
     pfd.fd = fd;
     pfd.events = events;
@@ -98,13 +104,13 @@ static int send_all(struct opftp_transfer_job* j, const void* buf, size_t len)
         if (j->tls) {
             ssize_t n = opftp_tls_write(j->tls, p + off, len - off);
             if (n > 0) { off += (size_t) n; continue; }
-            if (n == -3) {          /* WANT_WRITE */
+            if (n == OPFTP_TLS_WANT_WRITE) {
                 int w = wait_fd(j, j->data_fd, POLLOUT, 1000);
                 if (w == -ECANCELED) return -ECANCELED;
                 if (w < 0 && w != -EAGAIN) return w;
                 continue;
             }
-            if (n == -2) {          /* WANT_READ */
+            if (n == OPFTP_TLS_WANT_READ) {
                 int w = wait_fd(j, j->data_fd, POLLIN, 1000);
                 if (w == -ECANCELED) return -ECANCELED;
                 if (w < 0 && w != -EAGAIN) return w;
@@ -135,13 +141,13 @@ static ssize_t recv_some(struct opftp_transfer_job* j, void* buf, size_t len)
         ssize_t n = opftp_tls_read(j->tls, buf, len);
         if (n >= 0)
             return n;               /* n bytes or clean EOF (0) */
-        if (n == -2) {              /* WANT_READ */
+        if (n == OPFTP_TLS_WANT_READ) {
             int w = wait_fd(j, j->data_fd, POLLIN, 1000);
             if (w == -ECANCELED) return -ECANCELED;
             if (w < 0 && w != -EAGAIN) return w;
             return -EAGAIN;
         }
-        if (n == -3) {              /* WANT_WRITE */
+        if (n == OPFTP_TLS_WANT_WRITE) {
             int w = wait_fd(j, j->data_fd, POLLOUT, 1000);
             if (w == -ECANCELED) return -ECANCELED;
             if (w < 0 && w != -EAGAIN) return w;
@@ -177,11 +183,11 @@ static int data_tls_setup(struct opftp_server* s, struct opftp_transfer_job* j)
         if (job_cancelled(j))
             return -ECANCELED;
         int r = opftp_tls_handshake(j->tls);
-        if (r == 0)
+        if (r == OPFTP_TLS_HS_DONE)
             return 0;
-        if (r != 1 && r != 2)
+        if (r != OPFTP_TLS_HS_WANT_READ && r != OPFTP_TLS_HS_WANT_WRITE)
             return -EPIPE;          /* error or deadline */
-        int w = wait_fd(j, j->data_fd, (r == 2) ? POLLOUT : POLLIN, 1000);
+        int w = wait_fd(j, j->data_fd, (r == OPFTP_TLS_HS_WANT_WRITE) ? POLLOUT : POLLIN, 1000);
         if (w == -ECANCELED)
             return -ECANCELED;
         if (w < 0 && w != -EAGAIN)
@@ -364,21 +370,26 @@ static int transfer_stor(struct opftp_server* s, struct opftp_transfer_job* j,
     return rc;
 }
 
-/* ---- CPFR/CPTO: server-side file copy ---- */
+/* ---- CPFR/CPTO: server-side copy (file or directory tree) ---- */
 
-static int transfer_copy(struct opftp_server* s, struct opftp_transfer_job* j,
-                         uint64_t* bytes)
+#define COPY_MAX_DEPTH 32
+
+/* Copy one regular file. Returns 0 or -errno. A destination we created
+ * is removed on failure; one that already existed is left untouched. */
+static int copy_file(struct opftp_server* s, struct opftp_transfer_job* j,
+                     const char* src, const char* dst, uint64_t* bytes)
 {
     const opftp_fs_t* fs = s->fs;
     int in = -1, out = -1;
 
-    if (fs->open(fs->ctx, j->path, OPFTP_O_RDONLY, 0, &in) != 0)
+    if (fs->open(fs->ctx, src, OPFTP_O_RDONLY, 0, &in) != 0)
         return -errno;
+
     opftp_stat_t st;
-    if (fs->fstat(fs->ctx, in, &st) == 0 && (st.mode & S_IFMT) == S_IFREG)
-        j->total = st.size;   /* progress denominator for the OSD */
-    if (fs->open(fs->ctx, j->dst, OPFTP_O_WRONLY | OPFTP_O_CREAT |
-                                  OPFTP_O_TRUNC, 0644, &out) != 0) {
+    bool dst_existed = (fs->stat(fs->ctx, dst, &st) == 0);
+
+    if (fs->open(fs->ctx, dst, OPFTP_O_WRONLY | OPFTP_O_CREAT |
+                               OPFTP_O_TRUNC, 0644, &out) != 0) {
         int e = errno;
         fs->close(fs->ctx, in);
         return -e;
@@ -388,6 +399,8 @@ static int transfer_copy(struct opftp_server* s, struct opftp_transfer_job* j,
     if (!buf) {
         fs->close(fs->ctx, in);
         fs->close(fs->ctx, out);
+        if (!dst_existed)
+            fs->unlink(fs->ctx, dst);
         return -ENOMEM;
     }
 
@@ -411,7 +424,172 @@ static int transfer_copy(struct opftp_server* s, struct opftp_transfer_job* j,
     free(buf);
     fs->close(fs->ctx, in);
     fs->close(fs->ctx, out);
+    /* Never leave a half-written file the client didn't have before. */
+    if (rc != 0 && !dst_existed)
+        fs->unlink(fs->ctx, dst);
     return rc;
+}
+
+/* Pending directory in the tree walk, held as a path relative to the
+ * two copy roots so a node costs a few bytes instead of two 1KB paths. */
+struct copy_dir {
+    struct copy_dir* next;
+    int depth;
+    char rel[];              /* "" for the root itself */
+};
+
+static struct copy_dir* copy_push(struct copy_dir* head, const char* rel, int depth)
+{
+    size_t n = strlen(rel);
+    struct copy_dir* d = malloc(sizeof(*d) + n + 1);
+    if (!d)
+        return NULL;
+    d->next = head;
+    d->depth = depth;
+    memcpy(d->rel, rel, n + 1);
+    return d;
+}
+
+static void copy_free_stack(struct copy_dir* head)
+{
+    while (head) {
+        struct copy_dir* d = head;
+        head = d->next;
+        free(d);
+    }
+}
+
+/* root + "/" + rel, keeping paths canonical (no "//" for root). */
+static int copy_join(char* out, size_t outsz, const char* root, const char* rel)
+{
+    int n;
+    if (!rel[0])
+        n = snprintf(out, outsz, "%s", root);
+    else if (root[0] == '/' && root[1] == '\0')
+        n = snprintf(out, outsz, "/%s", rel);
+    else
+        n = snprintf(out, outsz, "%s/%s", root, rel);
+    return (n < 0 || (size_t) n >= outsz) ? -ENAMETOOLONG : 0;
+}
+
+/* Copy the directory tree at j->path to j->dst. Iterative (a PS3 worker
+ * stack is 128KB, so no recursion) and depth-limited.
+ *
+ * ponytail: a partial tree is left in place on failure. Recursively
+ * deleting a client-named destination to "clean up" is a far worse
+ * failure mode than leaving the partial copy for the client to remove.
+ */
+static int copy_tree(struct opftp_server* s, struct opftp_transfer_job* j,
+                     uint64_t* bytes)
+{
+    const opftp_fs_t* fs = s->fs;
+    struct copy_dir* stack = copy_push(NULL, "", 0);
+    if (!stack)
+        return -ENOMEM;
+
+    char srcp[OPFTP_MAX_PATH], dstp[OPFTP_MAX_PATH], childrel[OPFTP_MAX_PATH];
+    int rc = 0;
+
+    while (stack) {
+        struct copy_dir* d = stack;
+        stack = d->next;
+
+        if (job_cancelled(j)) { rc = -ECANCELED; free(d); break; }
+
+        rc = copy_join(srcp, sizeof(srcp), j->path, d->rel);
+        if (rc == 0)
+            rc = copy_join(dstp, sizeof(dstp), j->dst, d->rel);
+        if (rc != 0) { free(d); break; }
+
+        /* mkdir is fine to lose: an existing destination directory is a
+         * merge, which is what clients expect from a tree copy. */
+        opftp_stat_t dst_st;
+        if (fs->stat(fs->ctx, dstp, &dst_st) != 0 &&
+            fs->mkdir(fs->ctx, dstp, 0755) != 0) {
+            rc = -errno;
+            free(d);
+            break;
+        }
+
+        void* dir = NULL;
+        if (fs->opendir(fs->ctx, srcp, &dir) != 0) {
+            rc = -errno;
+            free(d);
+            break;
+        }
+
+        opftp_dirent_t de;
+        for (;;) {
+            if (job_cancelled(j)) { rc = -ECANCELED; break; }
+            int r = fs->readdir(fs->ctx, dir, &de);
+            if (r < 0) { rc = -errno; break; }
+            if (r == 0) break;
+            /* backends don't emit these, but a walk that trusted a
+             * backend that did would never terminate */
+            if (de.name[0] == '.' &&
+                (de.name[1] == '\0' ||
+                 (de.name[1] == '.' && de.name[2] == '\0')))
+                continue;
+
+            if (d->rel[0])
+                rc = (snprintf(childrel, sizeof(childrel), "%s/%s",
+                               d->rel, de.name) >= (int) sizeof(childrel))
+                     ? -ENAMETOOLONG : 0;
+            else
+                rc = (snprintf(childrel, sizeof(childrel), "%s", de.name)
+                      >= (int) sizeof(childrel)) ? -ENAMETOOLONG : 0;
+            if (rc != 0) break;
+
+            uint16_t type = de.mode & S_IFMT;
+            if (type == S_IFDIR) {
+                if (d->depth + 1 >= COPY_MAX_DEPTH) { rc = -ELOOP; break; }
+                struct copy_dir* nd = copy_push(stack, childrel, d->depth + 1);
+                if (!nd) { rc = -ENOMEM; break; }
+                stack = nd;
+            } else if (type == S_IFREG) {
+                char cs[OPFTP_MAX_PATH], cd[OPFTP_MAX_PATH];
+                rc = copy_join(cs, sizeof(cs), j->path, childrel);
+                if (rc == 0)
+                    rc = copy_join(cd, sizeof(cd), j->dst, childrel);
+                if (rc == 0)
+                    rc = copy_file(s, j, cs, cd, bytes);
+                if (rc != 0) break;
+            }
+            /* anything else (device, fifo, symlink) is skipped */
+        }
+        fs->closedir(fs->ctx, dir);
+        free(d);
+        if (rc != 0)
+            break;
+    }
+
+    copy_free_stack(stack);
+    return rc;
+}
+
+static int transfer_copy(struct opftp_server* s, struct opftp_transfer_job* j,
+                         uint64_t* bytes)
+{
+    const opftp_fs_t* fs = s->fs;
+
+    /* Defense in depth: cmd_cpto rejects this, but the worker runs
+     * later and opening the destination O_TRUNC would destroy the
+     * source before a byte is read. */
+    if (strcmp(j->path, j->dst) == 0)
+        return -EINVAL;
+
+    opftp_stat_t st;
+    if (fs->stat(fs->ctx, j->path, &st) != 0)
+        return -errno;
+
+    if ((st.mode & S_IFMT) == S_IFDIR) {
+        /* ponytail: total stays 0 (unknown) for a tree — sizing it up
+         * front means walking the whole thing twice. */
+        return copy_tree(s, j, bytes);
+    }
+
+    j->total = st.size;      /* progress denominator for the OSD */
+    return copy_file(s, j, j->path, j->dst, bytes);
 }
 
 /* ---- worker entry ---- */
@@ -466,12 +644,12 @@ out:
             int deadline = 0;
             for (int i = 0; i < 50; i++) {   /* ~5s max */
                 int cr = opftp_tls_close_notify(j->tls);
-                if (cr == 0)
+                if (cr == OPFTP_TLS_HS_DONE)
                     break;
-                if (cr != 1 && cr != 2)
+                if (cr != OPFTP_TLS_HS_WANT_READ && cr != OPFTP_TLS_HS_WANT_WRITE)
                     break;
                 struct pollfd p = { .fd = j->data_fd,
-                                    .events = (cr == 2) ? POLLOUT : POLLIN };
+                                    .events = (cr == OPFTP_TLS_HS_WANT_WRITE) ? POLLOUT : POLLIN };
                 if (poll(&p, 1, 100) <= 0)
                     break;
             }

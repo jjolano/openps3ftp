@@ -58,7 +58,15 @@ the transfer.
 Rules:
 - Only the reactor writes to control sockets. Workers never send replies; they
   post completion (outcome + optional error) to the reactor, which sends the
-  final reply. This makes stale-226 suppression unambiguous: when ABOR cancels a
+  final reply. **Enforced, not merely intended:** `opftp_client_send_raw`
+  compares the calling thread against the reactor's identity
+  (`opftp_thread_self`) and, off the reactor, queues the line on the server's
+  pending-reply FIFO (guarded by the completion mutex) and wakes the pollset;
+  the reactor drains it each iteration. Queued lines carry a client ref and the
+  client generation, so a client that disconnected first gets no reply. This is
+  what keeps the legacy data-callback executor — which runs old handlers that
+  call `client_send_code` from a pool worker — from racing the reactor on one
+  fd and one mbedtls session. This makes stale-226 suppression unambiguous: when ABOR cancels a
   transfer, the reactor sends `426 Connection closed; transfer aborted` for the
   transfer and `226` for the ABOR command itself, in order.
 - **Completion ownership:** a job completion carries (client ref, generation).
@@ -79,6 +87,19 @@ Rules:
   polls {data fd, cancel pipe}; when the cancel pipe fires it aborts. The
   reactor NEVER calls shutdown/close on a data fd. Worker aborts only after
   observing cancellation or an I/O error.
+  **PS3 has no cancel fd.** ps3dk's net layer provides neither `pipe()` nor
+  `socketpair()`, and its `poll()` only accepts sockets — so there is nothing
+  to wake the worker with. There, cancellation is the atomic flag alone,
+  re-checked whenever the worker's poll times out; that timeout is capped at
+  `OPFTP_PS3_CANCEL_MS` (200ms), which is the PS3 abort-latency ceiling. Host
+  builds are immediate.
+- **Data-channel connect runs on the worker,** not the reactor
+  (`opftp_datachan_connect_job`): the PASV accept and the PORT connect both
+  wait on a remote peer, so doing them on the reactor let one slow or absent
+  client stall every other connection. The reactor does only the non-blocking
+  part — the PORT/EPRT bounce check, a pure address compare — so a rejected
+  target still replies 425 before any 150. PASV listener ownership moves from
+  the client to the job at dispatch.
 - One active transfer per client. A second data-channel request while one is
   in flight → `450 Another data transfer in progress`.
 - Bounded job queue (default 2×workers). Saturation → `425 Cannot open data
@@ -154,17 +175,18 @@ typedef struct opftp_fs {
     int   (*close)(void* ctx, int fd);
     ssize_t (*read)(void* ctx, int fd, void* buf, size_t n);             /* partial ok; 0=eof */
     ssize_t (*write)(void* ctx, int fd, const void* buf, size_t n);      /* partial ok */
-    off_t (*seek)(void* ctx, int fd, off_t off, int whence);             /* SEEK_SET/CUR/END */
+    int64_t (*seek)(void* ctx, int fd, int64_t off, int whence);         /* SEEK_SET/CUR/END; 64-bit (ps3 off_t is 32-bit) */
     int   (*fstat)(void* ctx, int fd, opftp_stat_t* st);
     int   (*stat)(void* ctx, const char* path, opftp_stat_t* st);        /* follows symlinks */
     int   (*opendir)(void* ctx, const char* path, void** dir);
-    int   (*readdir)(void* ctx, void* dir, opftp_dirent_t* de);          /* 1=entry 0=eof <0=err; metadata REQUIRED */
+    int   (*readdir)(void* ctx, void* dir, opftp_dirent_t* de);          /* 1=entry 0=eof <0=err; metadata REQUIRED; never yields "." or ".." */
     int   (*closedir)(void* ctx, void* dir);
     int   (*mkdir)(void* ctx, const char* path, uint16_t mode);
     int   (*rmdir)(void* ctx, const char* path);
     int   (*unlink)(void* ctx, const char* path);
     int   (*rename)(void* ctx, const char* oldp, const char* newp);
     int   (*chmod)(void* ctx, const char* path, uint16_t mode);
+    int   (*utimes)(void* ctx, const char* path, int64_t mtime);         /* set mtime (unix seconds) */
 } opftp_fs_t;
 
 /* built-in backends (const singletons, no root state) */
@@ -185,8 +207,14 @@ typedef struct opftp_callbacks {
     opftp_auth_fn auth;       void* auth_ctx;
     opftp_hook_fn connect;    void* connect_ctx;
     opftp_hook_fn disconnect; void* disconnect_ctx;
-    opftp_log_fn  log;        /* NULL = no logging */
-    int log_level;            /* 0..3 */
+    opftp_log_fn  log;        /* NULL = no logging, and no stderr fallback */
+    int log_level;            /* 0..3; gates the callback */
+    /* Called on the reactor thread after the default command table is built,
+     * before accepting clients: lets an application (the legacy shim) install
+     * or override handlers. NULL = unused. */
+    void (*after_commands)(opftp_server_t* s, void* ctx);
+    void* after_commands_ctx;
+    bool skip_banner;         /* connect hook sends its own welcome */
 } opftp_callbacks_t;
 
 /* server lifecycle */
@@ -199,10 +227,18 @@ void opftp_server_set_stop_timeout(opftp_server_t*, int seconds);      /* defaul
 int  opftp_server_set_tls(opftp_server_t*, const char* cert_pem, const char* key_pem);
 void opftp_server_set_require_tls(opftp_server_t*, bool);              /* default false */
 void opftp_server_set_allow_foreign_port(opftp_server_t*, bool);       /* default false */
+void opftp_server_set_allow_stop(opftp_server_t*, bool);               /* register STOP; default false */
 int  opftp_server_start(opftp_server_t*);    /* 0 ok; errno-style code; exclusive with run_loop */
 int  opftp_server_stop(opftp_server_t*);     /* stop accepting, cancel jobs, drain; 0 when drained, -ETIMEDOUT if timeout */
 void opftp_server_destroy(opftp_server_t*);  /* waits for workers; no-op if stop timed out (object stays alive; call stop again) */
 int  opftp_server_run_loop(opftp_server_t*); /* reactor on calling thread until stop; exclusive with start */
+uint16_t opftp_server_bound_port(opftp_server_t*);  /* actual port (ephemeral: set_port(0)) */
+
+/* Thread-safe status snapshot for a UI (the PS3 OSD polls this): connected
+ * clients, their cwd/user, and live per-transfer byte progress. Callable from
+ * any thread; the reactor refreshes the cache while running, and clears
+ * `started` when the loop exits (so a self-shutdown via STOP is observable). */
+int opftp_server_snapshot(opftp_server_t*, opftp_snapshot_t* out);
 
 /* A STOP request issued from within the reactor thread (e.g. the STOP command
  * hook) only SCHEDULES shutdown — the reactor applies it on the next loop
@@ -224,8 +260,8 @@ Design rules:
   macros are gone — the core defines its own structs).
 - Backend vtable takes `ctx` — no global singletons.
 - Errors: `-1` + `errno` (POSIX values; the ps3 backend maps cell errors → errno).
-- `off_t`/`ssize_t`/`bool` from `<sys/types.h>`/`<stdbool.h>` — fine on both
-  host and ps3dk.
+- `ssize_t`/`bool` from `<sys/types.h>`/`<stdbool.h>`; file offsets are
+  explicit `int64_t` in the vtable, because ps3dk's `off_t` is 32-bit.
 - All strings in/out of the core are UTF-8 (RFC 2640), byte-preserving.
 
 ## Path resolution (core, not fs)
@@ -247,19 +283,42 @@ Design rules:
 
 ## Protocol support
 
-Commands: ABOR APPE CDUP CWD DELE EPSV EPRT FEAT HELP LIST MDTM MKD MODE
-NLST NOOP OPTS PASS PASV PORT PWD REST RETR RMD RNFR RNTO SIZE SITE STAT
-STOR STRU SYST TYPE USER XCUP XCWD XMKD XPWD XRMD + CPFR/CPTO (server-side
-copy, worker job) + AUTH/PBSZ/PROT (RFC 4217)
-+ STOP (openps3ftp custom, server shutdown, opt-in hook).
+Commands: ABOR ACCT ALLO APPE CDUP CWD DELE EPSV EPRT FEAT HELP LIST MDTM
+MKD MODE NLST NOOP OPTS PASS PASV PORT PWD REST RETR RMD RNFR RNTO SIZE
+SITE (CHMOD, UTIME) STAT STOR STRU SYST TYPE USER XCUP XCWD XMKD XPWD XRMD
++ MLSD/MLST/MFMT/STOU (RFC 3659)
++ CPFR/CPTO (server-side copy, worker job)
++ AUTH/PBSZ/PROT (RFC 4217)
++ STOP (openps3ftp custom, remote shutdown).
+
+**STOP is opt-in and off by default**: it is registered only when the
+application calls `opftp_server_set_allow_stop(s, true)`. Otherwise any
+logged-in client could shut the service down. (Legacy consumers are
+unaffected — the old `feat/site` registers its own STOP through the shim,
+and legacy registrations shadow core defaults.)
 
 - Data channel: PASV/PORT (IPv4), EPSV/EPRT (IPv6, RFC 2428), dual-stack
   listener (AF_INET6 with V4MAPPED, or dual sockets on ps3 if V4MAPPED is
   unavailable — probed at build time).
 - TYPE I / A; STRU F; MODE S; REST + APPE/RETR; SIZE/MDTM on files.
 - CPFR/CPTO: server-side copy (e.g. USB -> HDD on PS3). CPFR validates the
-  source (350/550); CPTO dispatches an OPFTP_JOB_COPY worker job so large
-  copies don't block the reactor; 250/550/451 arrive with the completion.
+  source (350/550) and accepts a **file or a directory tree** — a PS3 game is
+  a directory, which is what issue #9 asked for. CPTO dispatches an
+  OPFTP_JOB_COPY worker job so large copies don't block the reactor;
+  250/550/451 arrive with the completion. Rules:
+  - **Source and destination must differ** (`550`). The destination is opened
+    `O_TRUNC`, so copying a file onto itself would erase it before reading a
+    byte. Checked on the reactor before any fd opens, and again in the worker.
+  - **Destination must not be inside the source tree** (`550`) — a recursive
+    copy would descend into what it is writing.
+  - Tree walk is iterative (a ps3 worker stack is 128KB) and depth-limited to
+    32. Existing destination directories are merged into, not an error.
+  - A failed single-file copy unlinks a destination it created; a destination
+    that already existed is left alone. A **partial tree is not rolled back** —
+    recursively deleting a client-named path on error is the worse failure
+    mode. The client removes it.
+  - Progress: `total` is the file size for a single file, and 0 (unknown) for a
+    tree — sizing a tree up front means walking it twice.
 - UTF-8: control channel 8-bit clean; FEAT advertises UTF8; OPTS UTF8 ON.
 - LIST/NLST: `-rwxr-xr-x 1 uid gid size Mon DD HH:MM name` — mirrors the old
   format (uid/gid from stat, "1 1" when backend reports 0).
@@ -295,29 +354,35 @@ copy, worker job) + AUTH/PBSZ/PROT (RFC 4217)
   `AUTH TLS` only; no TLS-PSK, no anonymous.
 - **Build:** `OPFTP_TLS` off → AUTH/PBSZ/PROT return 502; library still builds.
 - Legacy shim: control-channel TLS is transparent (shim replies flow through
-  the core). Legacy `data_callback` transfers are **plaintext-only** — when
-  `PROT P` is active a legacy transfer is refused with 425 (legacy consumers
-  don't use FTPS; documented limitation).
+  the core). Legacy `data_callback` transfers are **plaintext-only** — the old
+  callback drives the raw socket itself and knows nothing about TLS. When
+  `PROT P` is active `client_data_start` refuses (the legacy callers then send
+  their own 425), rather than sending the transfer in the clear to a client
+  expecting encryption.
 
 ## Internal module layout (src/)
 
 ```
-src/opftp.h             internal shared declarations
-src/server.c            lifecycle, reactor loop, accept, stop/drain
-src/pollset.c           poll wrapper: fds + timers + wake pipe
-src/client.c            per-connection state, control I/O, refcount
-src/transport.c         socket transport (plain) + TLS variant (transport_tls.c)
-src/dispatch.c          command registry: hash map name → handler
-src/commands.c          built-in handlers (USER..XRMD, AUTH/PBSZ/PROT, STOP hook)
-src/datachan.c          PASV/PORT/EPSV/EPRT + job queue + transfer workers
-src/transfer.c          worker-side transfer loop (plain + TLS)
+src/opftp.h             internal shared declarations + shared reply texts
+src/server.c            lifecycle, reactor loop, accept, stop/drain, snapshot
+src/pollset.c           poll wrapper: fds + wake pipe (stable slots)
+src/client.c            per-connection state, control I/O, refcount,
+                        worker→reactor reply queue
+src/tls.h tls.c         TLS sessions over our own BIO (never mbedtls_net_*)
+src/dispatch.c          command registry: open-addressed map name → handler
+src/commands.c          built-in handlers (see "Protocol support")
+src/datachan.c          PASV/PORT/EPSV/EPRT setup, job queue, worker pool,
+                        worker-side connect, completion replies
+src/transfer.c          worker-side transfer loops (plain + TLS) + server copy
 src/resolve.c           canonical path resolution + root policy
-src/listing.c           LIST/NLST formatting
+src/listing.c           LIST/NLST/MLSD formatting
 src/utf8.c              UTF-8 validation (byte-preserving)
 src/fs_posix.c          host backend (realpath containment)
 src/fs_ps3.c            ps3 sysfs backend (only built for ps3dk)
+src/fs_rooted.c         per-server root wrapper around any backend
 src/fs_mem.c            in-memory backend for unit tests
-src/thread.h thread.c   mutex/cond/thread portability layer
+src/thread.c            mutex/cond/thread/thread-identity portability layer
+app/                    PS3 app: headless server + NoRSX on-screen display
 third_party/mbedtls/    vendored mbedtls 2.28.10 + patch (OPFTP_TLS)
 ```
 
@@ -338,8 +403,11 @@ third_party/mbedtls/    vendored mbedtls 2.28.10 + patch (OPFTP_TLS)
 Purpose: old consumers (multiMAN/webMAN/IRISMAN + old feat/base code + old
 main.cpp) link against the new library unchanged.
 
-Layout: `legacy/include/` holds the OLD headers verbatim (adapted only for the
-ps3dk header-collision fixes). `legacy/src/` implements them on the new core:
+Layout: the OLD headers stayed in `include/` (adapted only for the ps3dk
+header-collision fixes) — legacy consumers already compile with `-Iinclude`,
+so moving them would have broken the very builds the shim exists to preserve.
+The new public API sits beside them under `include/openps3ftp/`.
+`legacy/src/` implements the old headers on the new core:
 
 | Old API | New core |
 |---|---|
@@ -357,14 +425,34 @@ ps3dk header-collision fixes). `legacy/src/` implements them on the new core:
 
 - **Facades:** legacy `struct Server/Client/Command` are side tables mirroring
   the real objects (fields like `port`, `socket`, `running` populated on demand).
-- **data_callback executor:** a worker job that populates the legacy `Client`
-  fields (`socket_data`, `cb_data`, `socket_pasv`) and runs the legacy callback,
-  which drives its own poll/read/write on the raw data socket (plaintext only).
-  Cancellation: ABOR shuts down the data socket, the callback's poll wakes with
-  POLLERR/HUP/NVAL, the callback exits, the executor posts completion. Executor
-  owns close/free of the data socket and job.
-- **Symbol surface:** the shim exports exactly the union of declarations in the
-  old include/*.h — verified by a consumer-stub test app + `nm` comparison.
+- **data_callback executor:** a ThreadPool job that populates the legacy
+  `Client` fields (`socket_data`, `cb_data`, `socket_pasv`) and runs the legacy
+  callback, which drives its own poll/read/write on the raw data socket
+  (plaintext only). Cancellation: ABOR shuts down the data socket, the
+  callback's poll wakes with POLLERR/HUP/NVAL, the callback exits, the executor
+  posts completion. Executor owns close/free of the data socket and job.
+  - Replies the legacy callback emits go through `client_send_code`, which
+    lands on the core's off-reactor reply queue (see concurrency rules) — the
+    executor never touches the control socket itself.
+  - **Disconnect ordering matters.** `shim_on_disconnect` runs on the reactor
+    and ends up freeing the legacy `Client`, its mutex, and (via the legacy
+    disconnect callbacks) the client's cvars — all of which the executor may
+    still be using. So it cancels the executor and waits for it *before*
+    calling `command_call_disconnect`. The handshake is `shim_client->
+    job_active`, an atomic the executor clears as its very last action, after
+    its final use of `client`; it is deliberately not read under
+    `client->mutex`, since that mutex is about to be destroyed.
+  - The shim's client table reuses freed slots. A high-water mark would have
+    capped the server at `SHIM_MAX_CLIENTS` connections for the lifetime of the
+    process rather than that many concurrent ones.
+- **Symbol surface:** the shim defines every function the old `include/*.h`
+  declare — enforced by the `symbols` ctest (`tests/check_symbols.py`), which
+  parses the legacy headers and diffs them against `nm -g --defined-only` on
+  the archive. A compile-only smoke test cannot catch a dropped symbol, since
+  it only references the few it happens to call. `usleep`/`closesocket` are
+  exempt: `common.h` forward-declares them, but the platform supplies them.
+  One addition was needed: `sys_thread_cond_timedwait` in
+  `include/sys.thread.h`, which the legacy ThreadPool calls.
   Archive names preserved: `libopenps3ftp_psl1ght.a` (legacy consumers link
   `-lopenps3ftp_psl1ght`); new API additionally ships as `libopenps3ftp.a`
   (same objects, both archives emitted by the build).
@@ -399,10 +487,17 @@ output.
   tool that catches the ownership races the design guards against).
 - **ps3dk (P4):** clean cross-build of lib + app ELF; ftp.elf/EBOOT.BIN;
   runtime not verifiable (no console) — flagged to user.
-- **Shim (P5):** old feat/base.c (and the legacy psl1ght main, since removed
-  in P6) compile unchanged against shim headers; legacy smoke test app
-  (old API) runs on host; `nm` symbol-surface check; full ps3dk build still
-  clean.
+- **Shim (P5):** the old `feat/` sources (and the legacy psl1ght main, since
+  removed in P6) compile against the shim headers; legacy smoke test app
+  (old API) runs on host; `symbols` ctest for the symbol surface; full ps3dk
+  build still clean. Caveat on "unchanged": `feat/base/base.c` carries one
+  edit, `sizeof(struct sockaddr_in*)` → `sizeof(struct sockaddr_in)` — a real
+  under-allocation bug in the old code, not a shim accommodation.
+- **Legacy concurrency (P5):** the legacy suite drives cases ftplib alone
+  never produces — control-channel commands *during* a data transfer (two
+  threads, one control socket), disconnect mid-transfer (executor still live
+  while the reactor tears the client down; ASan is the gate), and more
+  sequential connections than the shim's client table has slots.
 
 ## Phases and gates
 
@@ -422,3 +517,19 @@ output.
 - P6 cleanup: old lib/, bin/, external/ deleted (code absorbed by shim or new
   app); docs updated (README.md, this file). Gate: fresh host + ps3 builds and
   full ctest still green after the removal.
+
+## Post-P6 changes
+
+Kept here so this file stays the contract rather than a snapshot of P0:
+
+- **Status snapshot + PS3 OSD.** `opftp_server_snapshot` publishes connected
+  clients and live transfer progress; `app/` renders it over NoRSX. The
+  reactor refreshes the cache at ~10Hz while a transfer is active and 1Hz
+  idle, and clears `started` on loop exit.
+- **RFC 3659 commands** MLSD/MLST/MFMT plus STOU and SITE UTIME.
+- **Throughput work:** LIST batches lines into one send instead of one send
+  per entry; STOR receives with `MSG_WAITALL` so each disk write is a full
+  chunk; Nagle is off on data sockets; TLS session tickets are enabled.
+- **Worker-side data connect** (see concurrency rules).
+- `ACCT`/`ALLO` answer `202` rather than `502`: some clients send them
+  unprompted, and a hard error reads as a failure.

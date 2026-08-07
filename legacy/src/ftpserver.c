@@ -11,6 +11,7 @@
  * facade (stored in the core client's userdata) and fan out to the
  * legacy connect/disconnect callback arrays.
  */
+#include <signal.h>
 #include "shim.h"
 
 #include <stdlib.h>
@@ -239,9 +240,10 @@ static void shim_on_disconnect(struct opftp_client* core, void* ctx)
     if (!client)
         return;
 
-    if (server->command_ptr)
-        command_call_disconnect(server->command_ptr, client);
-
+    /* Stop the data executor FIRST. It is still running the legacy
+     * data_callback, which reads the client's cvars — and the legacy
+     * disconnect callbacks below free exactly those. Cancelling and
+     * waiting here is what keeps that from being a use-after-free. */
     struct shim_client* sc = shim_client_find(client);
     if (sc) {
         sys_thread_mutex_lock(client->mutex);
@@ -249,7 +251,22 @@ static void shim_on_disconnect(struct opftp_client* core, void* ctx)
         if (client->socket_data != -1)
             shutdown(client->socket_data, SHUT_RDWR);
         sys_thread_mutex_unlock(client->mutex);
+
+        /* The shutdown above wakes the executor's poll immediately, so
+         * this normally returns on the first check. job_active is read
+         * without client->mutex on purpose: it is the executor's final
+         * release store, published after its last use of `client`.
+         * ponytail: bounded spin rather than refcounting the legacy
+         * Client — add a condvar if disconnect latency ever matters. */
+        for (int i = 0; i < 1000; i++) {
+            if (!atomic_load_explicit(&sc->job_active, memory_order_acquire))
+                break;
+            usleep(2000);            /* ~2s ceiling */
+        }
     }
+
+    if (server->command_ptr)
+        command_call_disconnect(server->command_ptr, client);
 
     server_pollfds_remove(server, client->socket_control);
     server_client_remove(server, client->socket_control);
@@ -325,6 +342,17 @@ uint32_t server_run(struct Server* server)
     ((struct opftp_server*) core)->cb.disconnect_ctx = ss;
     ((struct opftp_server*) core)->cb.after_commands = shim_after_commands;
     ((struct opftp_server*) core)->cb.after_commands_ctx = server;
+
+#ifndef OPFTP_PS3
+    /* The new core sends with MSG_NOSIGNAL everywhere, but the legacy
+     * data_callbacks we are about to run are old consumer code that
+     * calls plain send(). Writing to a socket the peer just closed —
+     * or that a disconnect shut down mid-transfer — then kills the
+     * whole process with SIGPIPE. Ignoring it makes those writes fail
+     * with EPIPE instead, which the callbacks already handle.
+     * (No SIGPIPE on ps3.) */
+    signal(SIGPIPE, SIG_IGN);
+#endif
 
     server->running = true;
     server->should_stop = false;

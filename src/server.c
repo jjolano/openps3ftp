@@ -32,10 +32,10 @@ void opftp_log(struct opftp_server* s, int level, const char* fmt, ...)
     va_start(ap, fmt);
     vsnprintf(buf, sizeof(buf), fmt, ap);
     va_end(ap);
-    if (s && s->cb.log)
+    /* The public contract is `log == NULL` -> no logging (openps3ftp.h);
+     * there is no stderr fallback, and log_level gates the callback. */
+    if (s && s->cb.log && level <= s->cb.log_level)
         s->cb.log(level, buf);
-    else if (!s || level <= s->cb.log_level)
-        fprintf(stderr, "[opftp] %s\n", buf);
 }
 
 /* ---- lifecycle ---- */
@@ -76,7 +76,6 @@ opftp_server_t* opftp_server_create(const opftp_callbacks_t* cb)
 void opftp_server_set_port(opftp_server_t* s, uint16_t port)
 {
     s->port = port;
-    s->port_ephemeral = (port == 0);
 }
 
 void opftp_server_set_fs(opftp_server_t* s, const opftp_fs_t* fs)
@@ -113,7 +112,6 @@ int opftp_server_set_tls(opftp_server_t* s, const char* cert_pem, const char* ke
     if (s->tls)
         opftp_tls_ctx_free(s->tls);
     s->tls = ctx;
-    s->tls_enabled = true;
     return 0;
 }
 
@@ -125,6 +123,11 @@ void opftp_server_set_require_tls(opftp_server_t* s, bool on)
 void opftp_server_set_allow_foreign_port(opftp_server_t* s, bool on)
 {
     s->allow_foreign_port = on;
+}
+
+void opftp_server_set_allow_stop(opftp_server_t* s, bool on)
+{
+    s->allow_stop = on;
 }
 
 uint16_t opftp_server_bound_port(opftp_server_t* s)
@@ -328,16 +331,16 @@ static void handle_client_events(struct opftp_server* s, struct opftp_client* c,
      * parsing until it completes (RFC 4217). */
     if (c->tls_handshaking) {
         int r = opftp_tls_handshake(c->tls);
-        if (r == 0) {
+        if (r == OPFTP_TLS_HS_DONE) {
             c->tls_handshaking = false;
             /* the 234 was already sent by cmd_auth (pre-handshake) */
             if (s->pollset && c->poll_handle >= 0)
                 opftp_pollset_mod(s->pollset, c->poll_handle,
                                   POLLIN | POLLPRI);
-        } else if (r == 1 || r == 2) {
+        } else if (r == OPFTP_TLS_HS_WANT_READ || r == OPFTP_TLS_HS_WANT_WRITE) {
             /* poll only for what the handshake wants — POLLOUT is
              * always ready on an idle socket and would busy-loop */
-            short want = (r == 2) ? POLLOUT : POLLIN;
+            short want = (r == OPFTP_TLS_HS_WANT_WRITE) ? POLLOUT : POLLIN;
             if (s->pollset && c->poll_handle >= 0)
                 opftp_pollset_mod(s->pollset, c->poll_handle,
                                   want | POLLPRI);
@@ -495,6 +498,12 @@ void opftp_reactor_loop(struct opftp_server* s)
     if (!ps)
         return;
 
+    /* Publish this thread's identity before anything can send: it is
+     * how opftp_client_send_raw tells a reactor write from a worker
+     * write that has to be queued instead. */
+    opftp_thread_self(&s->reactor_tid);
+    atomic_store_explicit(&s->reactor_tid_set, true, memory_order_release);
+
     /* publish the pollset under the completion lock so worker wakes
      * (which read s->pollset under the same lock) see it or skip it */
     opftp_mutex_lock(s->compl_mutex);
@@ -512,6 +521,7 @@ void opftp_reactor_loop(struct opftp_server* s)
             if (cl->job) { timeout = 100; break; }
         }
         int n = opftp_pollset_wait(ps, timeout);
+        opftp_client_drain_replies(s);
         drain_completions(s);
         snapshot_refresh(s);
         if (n < 0)
@@ -541,11 +551,24 @@ void opftp_reactor_loop(struct opftp_server* s)
      * are joined) — workers may still call opftp_pollset_wake while
      * posting late completions, and waking a destroyed pollset would
      * race on the pipe fds. */
+    opftp_client_drain_replies(s);
     drain_completions(s);
     while (s->clients)
         client_disconnect(s, s->clients);
+    /* Late arrivals from a worker that posted during teardown: releasing
+     * the refs here is what actually frees those clients. */
+    opftp_client_drain_replies(s);
+    atomic_store_explicit(&s->reactor_tid_set, false, memory_order_release);
     opftp_close_fd(s->listen_fd);
     s->listen_fd = -1;
+
+    /* Publish "reactor no longer running" so an app can see a shutdown
+     * it did not request (the STOP command). s->started is lifecycle
+     * state owned by stop(); only the snapshot's view changes here. */
+    opftp_mutex_lock(s->snap_mutex);
+    s->snap_cache.started = false;
+    s->snap_cache.num_clients = 0;
+    opftp_mutex_unlock(s->snap_mutex);
 }
 
 int opftp_reactor_init(struct opftp_server* s){
@@ -599,6 +622,17 @@ static void reactor_thread_entry(void* arg)
 
 static void publish_ready(struct opftp_server* s)
 {
+    /* Seed the snapshot before any caller can read it: the reactor may
+     * not have run its first refresh yet, and a zeroed cache would read
+     * as "not started" (the reactor clears it again on exit). */
+    opftp_mutex_lock(s->snap_mutex);
+    s->snap_cache.started = true;
+    s->snap_cache.port = s->port;
+    s->snap_cache.workers = s->workers_req;
+    snprintf(s->snap_cache.root, sizeof(s->snap_cache.root), "%s", s->root);
+    s->snap_cache.num_clients = 0;
+    opftp_mutex_unlock(s->snap_mutex);
+
     opftp_mutex_lock(s->life_mutex);
     s->ready = true;
     s->starting = false;

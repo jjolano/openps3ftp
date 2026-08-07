@@ -173,11 +173,6 @@ int opftp_job_dispatch(struct opftp_server* s, struct opftp_transfer_job* j)
 
 /* ---- address helpers ---- */
 
-static bool is_v4_mapped(const struct sockaddr_in6* a6)
-{
-    return opftp_is_v4mapped(&a6->sin6_addr);
-}
-
 /* Compare two addresses; a v4-mapped IPv6 address equals its plain
  * IPv4 form (dual-stack listeners accept v4 clients as v4-mapped). */
 static bool addr_eq(const struct sockaddr* a, const struct sockaddr* b)
@@ -198,11 +193,11 @@ static bool addr_eq(const struct sockaddr* a, const struct sockaddr* b)
     /* mixed family: allow v4-mapped IPv6 == plain IPv4 */
     const struct sockaddr_in6* a6 = NULL;
     const struct sockaddr_in* a4 = NULL;
-    if (a->sa_family == AF_INET6 && is_v4_mapped((const struct sockaddr_in6*) a)) {
+    if (a->sa_family == AF_INET6 && opftp_is_v4mapped(&((const struct sockaddr_in6*) a)->sin6_addr)) {
         a6 = (const struct sockaddr_in6*) a;
         if (b->sa_family == AF_INET)
             a4 = (const struct sockaddr_in*) b;
-    } else if (b->sa_family == AF_INET6 && is_v4_mapped((const struct sockaddr_in6*) b)) {
+    } else if (b->sa_family == AF_INET6 && opftp_is_v4mapped(&((const struct sockaddr_in6*) b)->sin6_addr)) {
         a6 = (const struct sockaddr_in6*) b;
         if (a->sa_family == AF_INET)
             a4 = (const struct sockaddr_in*) a;
@@ -250,11 +245,6 @@ static void tune_data_fd(int fd)
 
 /* ---- connection establishment ---- */
 
-static int set_nonblock(int fd)
-{
-    return opftp_set_nonblock(fd);
-}
-
 /* Worker-side data-connection establishment, called from the worker
  * before the transfer loop. Uses the setup copied into the job at
  * dispatch, so a slow/broken client can never stall the reactor.
@@ -297,7 +287,7 @@ int opftp_datachan_connect_job(struct opftp_server* s,
         if (fd < 0)
             return -errno;
         j->data_fd = fd;          /* reactor closes at completion */
-        set_nonblock(fd);
+        opftp_set_nonblock(fd);
         if (!s->allow_foreign_port &&
             !addr_eq((const struct sockaddr*) &ss,
                      (const struct sockaddr*) &j->ctl_peer)) {
@@ -318,7 +308,7 @@ int opftp_datachan_connect_job(struct opftp_server* s,
         if (fd < 0)
             return -errno;
         j->data_fd = fd;          /* reactor closes at completion */
-        set_nonblock(fd);
+        opftp_set_nonblock(fd);
         int r = connect(fd, dst, j->data_peerlen);
         if (r != 0 && errno != EINPROGRESS)
             return -errno;
@@ -400,23 +390,27 @@ void opftp_datachan_complete(struct opftp_server* s, struct opftp_transfer_job* 
          * the op result decides the reply. */
         if (j->result == -ECANCELED || j->result == -ETIMEDOUT ||
             j->result == -EACCES)
-            opftp_client_send_reply(c, 425, "Cannot open data connection.");
+            opftp_client_send_reply(c, 425, R425);
         else
-            opftp_client_send_reply(c, 451, "Data transfer error (network).");
+            opftp_client_send_reply(c, 451, R451);
     } else if (j->result == 0) {
         if (j->op == OPFTP_JOB_COPY)
             opftp_client_send_reply(c, 250, "Copy successful.");
         else
-            opftp_client_send_reply(c, 226, "Transfer complete.");
+            opftp_client_send_reply(c, 226, R226);
     } else if (j->result == -ECANCELED ||
                j->result == -EPIPE || j->result == -ECONNRESET ||
                j->result == -ETIMEDOUT) {
-        opftp_client_send_reply(c, 426, "Connection closed; transfer aborted.");
+        opftp_client_send_reply(c, 426, R426);
     } else if (j->result == -ENOENT || j->result == -EACCES ||
-               j->result == -ENOTDIR || j->result == -EISDIR) {
-        opftp_client_send_reply(c, 550, "Cannot access specified file or directory.");
+               j->result == -ENOTDIR || j->result == -EISDIR ||
+               /* copy rejected the paths themselves (same file, name too
+                * long, tree too deep) — a 550 class, not a 451 */
+               j->result == -EINVAL || j->result == -ENAMETOOLONG ||
+               j->result == -ELOOP) {
+        opftp_client_send_reply(c, 550, R550);
     } else {
-        opftp_client_send_reply(c, 451, "Data transfer error (network).");
+        opftp_client_send_reply(c, 451, R451);
     }
 
     if (c->abor_pending) {

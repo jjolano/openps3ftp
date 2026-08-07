@@ -158,17 +158,27 @@ static int ps3_readdir(void* ctx, void* dir, opftp_dirent_t* de)
 {
     (void) ctx;
     struct ps3_dir* d = dir;
-    if (d->idx >= d->count) {
-        u32 got = 0;
-        s32 rc = sysFsGetDirectoryEntries(d->fd, d->batch,
-                                          sizeof(sysFSDirectoryEntry), &got);
-        if (rc != 0) { errno = cell_to_errno(rc); return -1; }
-        if (got == 0)
-            return 0;                     /* EOF */
-        d->count = got;
-        d->idx = 0;
+    const sysFSDirectoryEntry* e;
+    /* sysFsGetDirectoryEntries yields "." and ".."; the vtable contract
+     * says backends don't (the host backend filters them too, and a
+     * recursive walk would otherwise descend into "." forever). */
+    for (;;) {
+        if (d->idx >= d->count) {
+            u32 got = 0;
+            s32 rc = sysFsGetDirectoryEntries(d->fd, d->batch,
+                                              sizeof(sysFSDirectoryEntry), &got);
+            if (rc != 0) { errno = cell_to_errno(rc); return -1; }
+            if (got == 0)
+                return 0;                 /* EOF */
+            d->count = got;
+            d->idx = 0;
+        }
+        e = &d->batch[d->idx++];
+        const char* n = e->entry_name.d_name;
+        if (n[0] == '.' && (n[1] == '\0' || (n[1] == '.' && n[2] == '\0')))
+            continue;
+        break;
     }
-    const sysFSDirectoryEntry* e = &d->batch[d->idx++];
     snprintf(de->name, sizeof(de->name), "%s", e->entry_name.d_name);
     de->mode = (uint16_t) e->attribute.st_mode;   /* full S_IFMT|perm bits */
     de->size = e->attribute.st_size;

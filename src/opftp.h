@@ -34,6 +34,37 @@ int closesocket(int s);
 #define OPFTP_MAX_CMD  32          /* command name length incl. NUL */
 #define OPFTP_RBUF     4096        /* control read buffer */
 
+/* PS3 abort latency ceiling. The host polls {data fd, cancel pipe} and
+ * aborts the instant the reactor writes the pipe; the ps3dk net layer
+ * has no pipe()/socketpair() and its poll() only takes sockets, so the
+ * worker there re-checks the atomic cancel flag on this cadence. */
+#define OPFTP_PS3_CANCEL_MS 200
+
+/* Reply texts, kept verbatim from the original const.h — clients and
+ * tests depend on the exact wording (DESIGN.md, "Protocol support").
+ * Shared so commands.c and datachan.c cannot drift apart. */
+#define R150  "Accepted data connection."
+#define R200  "OK."
+#define R202  "Already logged in."
+#define R215  "UNIX Type: L8"
+#define R221  "Bye."
+#define R226  "Transfer complete."
+#define R250  "File operation successful."
+#define R331  "Username %s OK. Password required."
+#define R350A "Ready for next command."
+#define R421  "Closing control connection."
+#define R425  "Cannot open data connection."
+#define R426  "Connection closed; transfer aborted."
+#define R450  "Another data transfer is already in progress."
+#define R451  "Data transfer error (network)."
+#define R501  "Bad command syntax."
+#define R502  "Command not implemented."
+#define R503  "Bad command usage."
+#define R504  "Parameter not accepted."
+#define R530  "Not logged in."
+#define R550  "Cannot access specified file or directory."
+#define R554  "Invalid REST restart point."
+
 /* ---- ps3 socket portability ---- */
 
 #ifdef OPFTP_PS3
@@ -140,6 +171,19 @@ void* opftp_thread_create(void (*fn)(void*), void* arg); /* joinable */
 void* opftp_thread_join(void* t);                        /* returns fn's void* retval */
 void  opftp_thread_destroy(void* t);
 
+/* Calling thread's identity. Used to tell "am I the reactor?" apart
+ * from "am I a worker?" at the control-socket write boundary. */
+typedef struct {
+#ifdef OPFTP_PS3
+    uint64_t id;
+#else
+    pthread_t id;
+#endif
+} opftp_tid_t;
+
+void opftp_thread_self(opftp_tid_t* out);
+bool opftp_tid_eq(const opftp_tid_t* a, const opftp_tid_t* b);
+
 /* ---- pollset (reactor multiplexer) ---- */
 
 typedef struct opftp_pollset opftp_pollset_t;
@@ -220,7 +264,10 @@ void opftp_fs_mem_destroy(const opftp_fs_t* fs);
 #define OPFTP_MAX_NAME 256
 
 struct opftp_client {
-    int refs;
+    /* Atomic: a queued off-reactor reply retains the client from a
+     * worker thread. The client is still only ever *freed* by the
+     * reactor (it drains the queue and drops the last ref there). */
+    atomic_int refs;
     uint64_t generation;
     int fd;                      /* control socket (reactor-owned) */
     struct opftp_server* server;
@@ -310,12 +357,21 @@ struct opftp_transfer_job {
     struct opftp_transfer_job* compl_next;
 };
 
+/* One control-channel line produced off the reactor thread, waiting to
+ * be written by the reactor. Holds a client ref; `generation` drops it
+ * if the client went away in the meantime. */
+struct opftp_pending_reply {
+    struct opftp_client* c;
+    uint64_t generation;
+    struct opftp_pending_reply* next;
+    char text[];
+};
+
 /* ---- server ---- */
 
 struct opftp_server {
     opftp_callbacks_t cb;
     uint16_t port;
-    bool port_ephemeral;
     const opftp_fs_t* fs_base;     /* configured backend */
     const opftp_fs_t* fs;          /* rooted wrapper in use */
     char root[OPFTP_MAX_PATH];
@@ -323,9 +379,10 @@ struct opftp_server {
     int stop_timeout_ms;
 
     /* tls config (P3); cert/key owned when set */
-    bool tls_enabled, require_tls;
+    bool require_tls;
     char* cert_pem; char* key_pem;
     bool allow_foreign_port;
+    bool allow_stop;               /* register the STOP command (opt-in) */
     struct opftp_tls_ctx* tls;     /* parsed server TLS context, or NULL */
 
     /* reactor state */
@@ -338,9 +395,14 @@ struct opftp_server {
     void* reactor;                   /* opftp thread handle (start mode) */
     struct opftp_pollset* pollset;   /* reactor-local; NULL when idle */
     struct opftp_client* clients;    /* reactor-owned list */
-    void* compl_mutex;               /* completion queue lock */
+    void* compl_mutex;               /* completion + reply queue lock */
     struct opftp_transfer_job* completions;  /* worker->reactor stack */
-    bool abor_broadcast;             /* reserved */
+    /* worker->reactor control replies, FIFO (reply order is protocol) */
+    struct opftp_pending_reply* replies_head;
+    struct opftp_pending_reply* replies_tail;
+    /* reactor thread identity, published once the loop is running */
+    opftp_tid_t reactor_tid;
+    atomic_bool reactor_tid_set;
 
     /* lifecycle sync: stop() from another thread waits for readiness
      * before touching mutexes/pollset (publication barrier) */
@@ -397,7 +459,12 @@ ssize_t opftp_client_read(struct opftp_client* c);
 /* Try to extract one CRLF/LF-terminated line from the buffer.
  * Returns 0 if no complete line, 1 on line (into out, NUL-terminated). */
 bool opftp_client_getline(struct opftp_client* c, char* out, size_t outsz);
-int opftp_client_send_raw(struct opftp_client* c, const char* s);   /* blocks-safe send, reactor only */
+/* Write a control line. On the reactor thread this sends directly; from
+ * any other thread it queues the line for the reactor (DESIGN.md: only
+ * the reactor writes to control sockets). */
+int opftp_client_send_raw(struct opftp_client* c, const char* s);
+/* Drain queued off-reactor replies (reactor thread). */
+void opftp_client_drain_replies(struct opftp_server* s);
 int opftp_client_start_tls(struct opftp_client* c);   /* AUTH TLS: create session, begin handshake */
 
 /* ---- dispatch (dispatch.c) ---- */
@@ -412,7 +479,6 @@ struct opftp_cmd_entry {
 void opftp_dispatch_init(struct opftp_server* s);
 void opftp_dispatch_free(struct opftp_server* s);
 int opftp_dispatch_register(struct opftp_server* s, const char* name, opftp_cmd_fn fn, void* ctx);
-int opftp_dispatch_unregister(struct opftp_server* s, const char* name);
 int opftp_dispatch_call(struct opftp_server* s, struct opftp_client* c,
                         const char* name, const char* param);  /* 0 = handled, 1 = unknown */
 void opftp_commands_init(struct opftp_server* s);
@@ -431,8 +497,5 @@ void opftp_datachan_complete(struct opftp_server* s, struct opftp_transfer_job* 
 /* transfer.c: run one job on the worker thread; never returns until
  * the job is finished. Posts completion to the reactor queue. */
 void opftp_transfer_run(struct opftp_server* s, struct opftp_transfer_job* j);
-
-/* commands.c helpers */
-int opftp_reply(struct opftp_client* c, int code, const char* msg);
 
 #endif /* OPFTP_INTERNAL_H */

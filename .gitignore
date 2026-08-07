@@ -18,3 +18,5 @@ pkg/*/
 a.out
 build*/
 Testing/
+
+__pycache__/

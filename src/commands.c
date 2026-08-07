@@ -15,28 +15,8 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-/* Reply texts (kept verbatim from the original const.h). */
-#define R150  "Accepted data connection."
-#define R200  "OK."
-#define R202  "Already logged in."
-#define R215  "UNIX Type: L8"
-#define R221  "Bye."
-#define R226  "Transfer complete."
-#define R250  "File operation successful."
-#define R331  "Username %s OK. Password required."
-#define R350A "Ready for next command."
-#define R421  "Closing control connection."
-#define R425  "Cannot open data connection."
-#define R426  "Connection closed; transfer aborted."
-#define R450  "Another data transfer is already in progress."
-#define R451  "Data transfer error (network)."
-#define R501  "Bad command syntax."
-#define R502  "Command not implemented."
-#define R503  "Bad command usage."
-#define R504  "Parameter not accepted."
-#define R530  "Not logged in."
-#define R550  "Cannot access specified file or directory."
-#define R554  "Invalid REST restart point."
+/* Reply texts live in opftp.h: datachan.c sends 226/426/451/550 too,
+ * and DESIGN.md requires the wording be identical everywhere. */
 
 /* ---- helpers ---- */
 
@@ -45,10 +25,9 @@ static struct opftp_server* server_of(struct opftp_client* c)
     return c->server;
 }
 
-static int reply(struct opftp_client* c, int code, const char* msg)
+static void reply(struct opftp_client* c, int code, const char* msg)
 {
     opftp_client_send_reply(c, code, msg);
-    return 0;
 }
 
 /* Parse a UTC timestamp "YYYYMMDDHHMMSS" (first 14 chars; anything
@@ -98,18 +77,71 @@ static int resolve_arg(struct opftp_client* c, const char* param, char* out,
     return opftp_path_resolve(s->root, c->cwd, arg, out, outsz, trailing);
 }
 
-static int parent_exists(struct opftp_client* c, const char* path)
+static bool parent_is_dir(struct opftp_client* c, const char* path)
 {
     struct opftp_server* s = server_of(c);
     char parent[OPFTP_MAX_PATH];
     if (opftp_path_parent(path, parent, sizeof(parent)) != 0)
-        return -1;
+        return false;
     if (parent[0] == '\0')
-        return 0;                       /* root: exists */
+        return true;                    /* root: exists */
     opftp_stat_t st;
     if (s->fs->stat(s->fs->ctx, parent, &st) != 0)
-        return -1;
-    return ((st.mode & S_IFMT) == S_IFDIR) ? 0 : -1;
+        return false;
+    return (st.mode & S_IFMT) == S_IFDIR;
+}
+
+/* True when `path` lies strictly inside directory `dir`. Both must be
+ * canonical (absolute, no trailing slash except root). */
+static bool path_is_under(const char* path, const char* dir)
+{
+    size_t n = strlen(dir);
+    if (n == 1 && dir[0] == '/')        /* root contains everything else */
+        return path[0] == '/' && path[1] != '\0';
+    return strncmp(path, dir, n) == 0 && path[n] == '/';
+}
+
+/* Allocate a transfer job with its cancel pipe and client ref, or NULL.
+ * Undo with job_free() while the job is still ours; after a successful
+ * opftp_job_dispatch it belongs to the worker. */
+static struct opftp_transfer_job* job_new(struct opftp_client* c,
+                                          enum opftp_job_op op)
+{
+    struct opftp_transfer_job* j = calloc(1, sizeof(*j));
+    if (!j)
+        return NULL;
+#ifdef OPFTP_PS3
+    /* ps3 has no pipe(): cancellation relies on the atomic flag and
+     * the worker's poll timeout */
+    j->cancel_pipe[0] = j->cancel_pipe[1] = -1;
+#else
+    if (pipe(j->cancel_pipe) != 0) {
+        free(j);
+        return NULL;
+    }
+#endif
+    j->client = c;
+    opftp_client_retain(c);
+    j->generation = c->generation;
+    j->op = op;
+    j->data_fd = -1;
+    j->pasv_fd = -1;
+    atomic_init(&j->cancelled, false);
+    return j;
+}
+
+static void job_free(struct opftp_transfer_job* j)
+{
+#ifndef OPFTP_PS3
+    if (j->cancel_pipe[0] >= 0) {
+        close(j->cancel_pipe[0]);
+        close(j->cancel_pipe[1]);
+    }
+#endif
+    if (j->pasv_fd >= 0)
+        opftp_close_fd(j->pasv_fd);
+    opftp_client_release(j->client);
+    free(j);
 }
 
 /* ---- login ---- */
@@ -302,7 +334,7 @@ static void cmd_mkd(struct opftp_client* c, const char* param, void* ctx)
     if (!param || !param[0]) { reply(c, 501, R501); return; }
     char path[OPFTP_MAX_PATH];
     if (resolve_arg(c, param, path, sizeof(path), NULL) != 0 ||
-        parent_exists(c, path) != 0) {
+        !parent_is_dir(c, path)) {
         reply(c, 550, R550);
         return;
     }
@@ -373,7 +405,7 @@ static void cmd_rnto(struct opftp_client* c, const char* param, void* ctx)
     if (!c->have_rnfr) { reply(c, 503, R503); return; }
     char path[OPFTP_MAX_PATH];
     if (resolve_arg(c, param, path, sizeof(path), NULL) != 0 ||
-        parent_exists(c, path) != 0) {
+        !parent_is_dir(c, path)) {
         c->have_rnfr = false;
         reply(c, 550, R550);
         return;
@@ -389,8 +421,9 @@ static void cmd_rnto(struct opftp_client* c, const char* param, void* ctx)
 /* ---- CPFR / CPTO: server-side copy (draft-bharat-ftp-copy-command) ---- */
 
 /* CPFR <path>: remember the source; reply 350 (or 550 if missing).
- * The actual copy runs on a worker via OPFTP_JOB_COPY when CPTO
- * arrives, so multi-GB game copies don't block the reactor. */
+ * A file or a whole directory tree may be named. The actual copy runs
+ * on a worker via OPFTP_JOB_COPY when CPTO arrives, so multi-GB game
+ * copies don't block the reactor. */
 static void cmd_cpfr(struct opftp_client* c, const char* param, void* ctx)
 {
     (void) ctx;
@@ -401,14 +434,18 @@ static void cmd_cpfr(struct opftp_client* c, const char* param, void* ctx)
         return;
     }
     opftp_stat_t st;
-    if (s->fs->stat(s->fs->ctx, path, &st) != 0 ||
-        (st.mode & S_IFMT) != S_IFREG) {
+    uint16_t type = 0;
+    if (s->fs->stat(s->fs->ctx, path, &st) == 0)
+        type = st.mode & S_IFMT;
+    if (type != S_IFREG && type != S_IFDIR) {
         reply(c, 550, R550);
         return;
     }
     snprintf(c->cpfr, sizeof(c->cpfr), "%s", path);
     c->have_cpfr = true;
-    reply(c, 350, "File exists, ready for destination name.");
+    reply(c, 350, type == S_IFDIR
+                  ? "Directory exists, ready for destination name."
+                  : "File exists, ready for destination name.");
 }
 
 static void cmd_cpto(struct opftp_client* c, const char* param, void* ctx)
@@ -419,41 +456,35 @@ static void cmd_cpto(struct opftp_client* c, const char* param, void* ctx)
     if (c->job) { reply(c, 450, R450); return; }
     char path[OPFTP_MAX_PATH];
     if (resolve_arg(c, param, path, sizeof(path), NULL) != 0 ||
-        parent_exists(c, path) != 0) {
+        !parent_is_dir(c, path)) {
         c->have_cpfr = false;
         reply(c, 550, R550);
         return;
     }
     c->have_cpfr = false;
 
-    struct opftp_transfer_job* j = calloc(1, sizeof(*j));
-    if (!j) { reply(c, 451, R451); return; }
-#ifdef OPFTP_PS3
-    j->cancel_pipe[0] = j->cancel_pipe[1] = -1;
-#else
-    if (pipe(j->cancel_pipe) != 0) {
-        free(j);
-        reply(c, 451, R451);
+    /* Same path: the copy opens the destination O_TRUNC, which would
+     * destroy the source before a single byte is read. Reject before
+     * any fd is opened. */
+    if (strcmp(c->cpfr, path) == 0) {
+        reply(c, 550, "Source and destination are the same file.");
         return;
     }
-#endif
-    j->client = c;
-    opftp_client_retain(c);
-    j->generation = c->generation;
-    j->op = OPFTP_JOB_COPY;
-    j->data_fd = -1;
-    j->pasv_fd = -1;      /* COPY has no data connection */
+    /* Destination inside the source tree: a recursive copy would walk
+     * into what it is writing, forever. */
+    if (path_is_under(path, c->cpfr)) {
+        reply(c, 550, "Destination is inside the source directory.");
+        return;
+    }
+
+    /* COPY has no data connection: job_new leaves pasv_fd/data_fd at -1 */
+    struct opftp_transfer_job* j = job_new(c, OPFTP_JOB_COPY);
+    if (!j) { reply(c, 451, R451); return; }
     snprintf(j->path, sizeof(j->path), "%s", c->cpfr);
     snprintf(j->dst, sizeof(j->dst), "%s", path);
-    atomic_init(&j->cancelled, false);
 
     if (opftp_job_dispatch(s, j) != 0) {
-#ifndef OPFTP_PS3
-        close(j->cancel_pipe[0]);
-        close(j->cancel_pipe[1]);
-#endif
-        opftp_client_release(c);
-        free(j);
+        job_free(j);
         reply(c, 451, R451);
         return;
     }
@@ -791,7 +822,7 @@ static void cmd_epsv(struct opftp_client* c, const char* param, void* ctx)
     uint16_t port;
     if (v6) {
 #ifdef IPV6_V6ONLY
-        int zero = 0;
+        int zero = 0;                    /* dual-stack: serve v4 too */
         setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &zero, sizeof(zero));
 #endif
         struct sockaddr_in6* a6 = (struct sockaddr_in6*) &addr;
@@ -799,35 +830,24 @@ static void cmd_epsv(struct opftp_client* c, const char* param, void* ctx)
         a6->sin6_addr = in6addr_any;
         a6->sin6_port = 0;
         alen = sizeof(*a6);
-        if (bind(fd, (struct sockaddr*) &addr, alen) != 0 ||
-            listen(fd, 1) != 0) {
-            int e = errno;
-            opftp_close_fd(fd);
-            errno = e;
-            reply(c, 425, R425);
-            return;
-        }
-        socklen_t sl = alen;
-        getsockname(fd, (struct sockaddr*) &addr, &sl);
-        port = ntohs(((struct sockaddr_in6*) &addr)->sin6_port);
     } else {
         struct sockaddr_in* a4 = (struct sockaddr_in*) &addr;
         a4->sin_family = AF_INET;
         a4->sin_addr.s_addr = htonl(INADDR_ANY);
         a4->sin_port = 0;
         alen = sizeof(*a4);
-        if (bind(fd, (struct sockaddr*) &addr, alen) != 0 ||
-            listen(fd, 1) != 0) {
-            int e = errno;
-            opftp_close_fd(fd);
-            errno = e;
-            reply(c, 425, R425);
-            return;
-        }
-        socklen_t sl = alen;
-        getsockname(fd, (struct sockaddr*) &addr, &sl);
-        port = ntohs(((struct sockaddr_in*) &addr)->sin_port);
     }
+
+    if (bind(fd, (struct sockaddr*) &addr, alen) != 0 ||
+        listen(fd, 1) != 0) {
+        opftp_close_fd(fd);
+        reply(c, 425, R425);
+        return;
+    }
+    socklen_t sl = alen;
+    getsockname(fd, (struct sockaddr*) &addr, &sl);
+    port = ntohs(v6 ? ((struct sockaddr_in6*) &addr)->sin6_port
+                    : ((struct sockaddr_in*) &addr)->sin_port);
 
     c->pasv_fd = fd;
     c->have_data_peer = false;
@@ -982,32 +1002,16 @@ static void start_transfer(struct opftp_client* c, enum opftp_job_op op,
         return;
     }
 
-    struct opftp_transfer_job* j = calloc(1, sizeof(*j));
+    struct opftp_transfer_job* j = job_new(c, op);
     if (!j) {
         reply(c, 425, R425);
         return;
     }
-#ifdef OPFTP_PS3
-    /* ps3 has no pipe(): cancellation relies on the atomic flag and
-     * the worker's poll timeout */
-    j->cancel_pipe[0] = j->cancel_pipe[1] = -1;
-#else
-    if (pipe(j->cancel_pipe) != 0) {
-        free(j);
-        reply(c, 425, R425);
-        return;
-    }
-#endif
-    j->client = c;
-    opftp_client_retain(c);
-    j->generation = c->generation;
-    j->op = op;
     j->nlst = nlst;
     j->mlsd = mlsd;
     j->rest = c->rest;
     j->need_tls = (c->tls_prot != 0);   /* PROT P: TLS data channel */
     snprintf(j->path, sizeof(j->path), "%s", path);
-    j->data_fd = -1;                     /* worker establishes the connection */
     j->pasv_fd = c->pasv_fd;             /* ownership moves to the job */
     c->pasv_fd = -1;
     j->data_peer = c->data_peer;
@@ -1016,17 +1020,9 @@ static void start_transfer(struct opftp_client* c, enum opftp_job_op op,
     c->have_data_peer = false;
     j->ctl_peer = c->peer;               /* control peer for bounce check */
     j->ctl_peerlen = c->peerlen;
-    atomic_init(&j->cancelled, false);
 
     if (opftp_job_dispatch(s, j) != 0) {
-#ifndef OPFTP_PS3
-        close(j->cancel_pipe[0]);
-        close(j->cancel_pipe[1]);
-#endif
-        if (j->pasv_fd >= 0)
-            opftp_close_fd(j->pasv_fd);
-        opftp_client_release(c);
-        free(j);
+        job_free(j);
         reply(c, 425, R425);
         return;
     }
@@ -1036,12 +1032,14 @@ static void start_transfer(struct opftp_client* c, enum opftp_job_op op,
 }
 
 /* LIST / NLST: param may be a path or "-<flags>" style; empty -> cwd. */
-static void cmd_list(struct opftp_client* c, const char* param, void* ctx)
+/* LIST / NLST / MLSD differ only in the listing format the worker
+ * emits: same argument parsing, same "-flags" tolerance, same checks. */
+static void start_listing(struct opftp_client* c, const char* param,
+                          bool nlst, bool mlsd)
 {
-    (void) ctx;
     struct opftp_server* s = server_of(c);
     const char* arg = param;
-    if (arg && arg[0] == '-') {
+    if (arg && arg[0] == '-') {          /* "LIST -la /path" */
         arg = strchr(arg, ' ');
         if (arg) while (*arg == ' ') arg++;
     }
@@ -1055,29 +1053,19 @@ static void cmd_list(struct opftp_client* c, const char* param, void* ctx)
         reply(c, 550, R550);
         return;
     }
-    start_transfer(c, OPFTP_JOB_LIST, path, false, false, NULL);
+    start_transfer(c, OPFTP_JOB_LIST, path, nlst, mlsd, NULL);
+}
+
+static void cmd_list(struct opftp_client* c, const char* param, void* ctx)
+{
+    (void) ctx;
+    start_listing(c, param, false, false);
 }
 
 static void cmd_nlst(struct opftp_client* c, const char* param, void* ctx)
 {
     (void) ctx;
-    struct opftp_server* s = server_of(c);
-    const char* arg = param;
-    if (arg && arg[0] == '-') {
-        arg = strchr(arg, ' ');
-        if (arg) while (*arg == ' ') arg++;
-    }
-    char path[OPFTP_MAX_PATH];
-    if (resolve_arg(c, arg, path, sizeof(path), NULL) != 0) {
-        reply(c, 501, R501);
-        return;
-    }
-    opftp_stat_t st;
-    if (s->fs->stat(s->fs->ctx, path, &st) != 0) {
-        reply(c, 550, R550);
-        return;
-    }
-    start_transfer(c, OPFTP_JOB_LIST, path, true, false, NULL);
+    start_listing(c, param, true, false);
 }
 
 static void cmd_retr(struct opftp_client* c, const char* param, void* ctx)
@@ -1106,7 +1094,7 @@ static void cmd_stor(struct opftp_client* c, const char* param, void* ctx)
         reply(c, 501, R501);
         return;
     }
-    if (parent_exists(c, path) != 0) {
+    if (!parent_is_dir(c, path)) {
         reply(c, 550, R550);
         return;
     }
@@ -1121,7 +1109,7 @@ static void cmd_appe(struct opftp_client* c, const char* param, void* ctx)
         reply(c, 501, R501);
         return;
     }
-    if (parent_exists(c, path) != 0) {
+    if (!parent_is_dir(c, path)) {
         reply(c, 550, R550);
         return;
     }
@@ -1133,23 +1121,7 @@ static void cmd_appe(struct opftp_client* c, const char* param, void* ctx)
 static void cmd_mlsd(struct opftp_client* c, const char* param, void* ctx)
 {
     (void) ctx;
-    struct opftp_server* s = server_of(c);
-    const char* arg = param;
-    if (arg && arg[0] == '-') {
-        arg = strchr(arg, ' ');
-        if (arg) while (*arg == ' ') arg++;
-    }
-    char path[OPFTP_MAX_PATH];
-    if (resolve_arg(c, arg, path, sizeof(path), NULL) != 0) {
-        reply(c, 501, R501);
-        return;
-    }
-    opftp_stat_t st;
-    if (s->fs->stat(s->fs->ctx, path, &st) != 0) {
-        reply(c, 550, R550);
-        return;
-    }
-    start_transfer(c, OPFTP_JOB_LIST, path, false, true, NULL);
+    start_listing(c, param, false, true);
 }
 
 static void cmd_mlst(struct opftp_client* c, const char* param, void* ctx)
@@ -1276,7 +1248,10 @@ void opftp_commands_init(struct opftp_server* s)
     opftp_dispatch_register(s, "TYPE", cmd_type, NULL);
     opftp_dispatch_register(s, "MODE", cmd_mode, NULL);
     opftp_dispatch_register(s, "STRU", cmd_stru, NULL);
-    opftp_dispatch_register(s, "STOP", cmd_stop, NULL);
+    /* STOP shuts the server down from an FTP client — opt-in only
+     * (DESIGN.md "Protocol support"), never a default. */
+    if (s->allow_stop)
+        opftp_dispatch_register(s, "STOP", cmd_stop, NULL);
     opftp_dispatch_register(s, "PWD", cmd_pwd, NULL);
     opftp_dispatch_register(s, "XPWD", cmd_pwd, NULL);
     opftp_dispatch_register(s, "CWD", cmd_cwd, NULL);

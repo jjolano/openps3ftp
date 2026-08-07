@@ -18,25 +18,32 @@
 #include <stdio.h>
 
 static struct shim_client shim_clients[SHIM_MAX_CLIENTS];
-static int shim_client_count;
 
+/* Slots are reused: unregister marks a slot free and register takes the
+ * first free one. Bumping a high-water mark instead would cap the
+ * server at SHIM_MAX_CLIENTS connections for the life of the process,
+ * not SHIM_MAX_CLIENTS concurrent ones. */
 struct shim_client* shim_client_register(struct Client* legacy,
                                          struct opftp_client* core)
 {
-    if (shim_client_count >= SHIM_MAX_CLIENTS)
+    struct shim_client* sc = NULL;
+    for (int i = 0; i < SHIM_MAX_CLIENTS; i++) {
+        if (!shim_clients[i].used) { sc = &shim_clients[i]; break; }
+    }
+    if (!sc)
         return NULL;
-    struct shim_client* sc = &shim_clients[shim_client_count++];
     sc->legacy = legacy;
     sc->core = core;
     sc->used = true;
-    sc->job_active = false;
+    atomic_init(&sc->job_active, false);
     sc->cancel = false;
+    sc->data_go = false;
     return sc;
 }
 
 struct shim_client* shim_client_find(struct Client* legacy)
 {
-    for (int i = 0; i < shim_client_count; i++)
+    for (int i = 0; i < SHIM_MAX_CLIENTS; i++)
         if (shim_clients[i].used && shim_clients[i].legacy == legacy)
             return &shim_clients[i];
     return NULL;
@@ -44,7 +51,7 @@ struct shim_client* shim_client_find(struct Client* legacy)
 
 struct shim_client* shim_client_find_core(struct opftp_client* core)
 {
-    for (int i = 0; i < shim_client_count; i++)
+    for (int i = 0; i < SHIM_MAX_CLIENTS; i++)
         if (shim_clients[i].used && shim_clients[i].core == core)
             return &shim_clients[i];
     return NULL;
@@ -204,7 +211,6 @@ static void data_executor(void* arg)
         client->socket_data = -1;
     }
     client->cb_data = NULL;
-    sc->job_active = false;
     sys_thread_mutex_unlock(client->mutex);
 
     /* legacy bookkeeping: drop the data fd from the facade */
@@ -212,6 +218,11 @@ static void data_executor(void* arg)
     server_client_remove(client->server_ptr, fd);
 
     free(job);
+
+    /* Must be the last touch of anything the reactor may free: a
+     * disconnecting reactor waits on this flag before destroying
+     * client->mutex and freeing `client`. */
+    atomic_store_explicit(&sc->job_active, false, memory_order_release);
 }
 
 /* Establish the data connection (PASV accept or PORT connect), then
@@ -220,6 +231,16 @@ bool client_data_start(struct Client* client, data_callback callback, short peve
 {
     struct shim_client* sc = shim_client_find(client);
     if (!sc || !client->server_ptr || !client->server_ptr->pool)
+        return false;
+
+    /* Legacy data_callback transfers are plaintext-only: the callback
+     * drives the raw socket itself and knows nothing about TLS. Under
+     * PROT P the client expects an encrypted data channel, so refuse
+     * rather than leak the transfer in the clear (DESIGN.md, TLS).
+     * Returning false is enough — every legacy caller replies 425 on
+     * a false return (see feat/base/base.c), so replying here too
+     * would send it twice. */
+    if (sc->core && sc->core->tls_prot != 0)
         return false;
 
     sys_thread_mutex_lock(client->mutex);
@@ -310,7 +331,7 @@ bool client_data_start(struct Client* client, data_callback callback, short peve
     job->client = client;
     job->sc = sc;
     job->events = pevents;
-    sc->job_active = true;
+    atomic_store_explicit(&sc->job_active, true, memory_order_relaxed);
 
     sys_thread_mutex_unlock(client->mutex);
 
@@ -325,7 +346,7 @@ void client_data_end(struct Client* client)
         return;
 
     sys_thread_mutex_lock(client->mutex);
-    if (sc->job_active) {
+    if (atomic_load_explicit(&sc->job_active, memory_order_acquire)) {
         /* cancel: shutdown the data socket; the executor wakes with
          * POLLERR/HUP, the callback exits, the executor cleans up */
         sc->cancel = true;

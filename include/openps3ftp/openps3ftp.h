@@ -62,7 +62,7 @@ typedef struct opftp_fs {
     int   (*fstat)(void* ctx, int fd, opftp_stat_t* st);
     int   (*stat)(void* ctx, const char* path, opftp_stat_t* st);  /* follows symlinks */
     int   (*opendir)(void* ctx, const char* path, void** dir);
-    int   (*readdir)(void* ctx, void* dir, opftp_dirent_t* de);    /* 1=entry 0=eof <0=err; metadata REQUIRED */
+    int   (*readdir)(void* ctx, void* dir, opftp_dirent_t* de);    /* 1=entry 0=eof <0=err; metadata REQUIRED; never yields "." or ".." */
     int   (*closedir)(void* ctx, void* dir);
     int   (*mkdir)(void* ctx, const char* path, uint16_t mode);
     int   (*rmdir)(void* ctx, const char* path);
@@ -110,6 +110,7 @@ void opftp_server_set_stop_timeout(opftp_server_t*, int seconds);     /* default
 int  opftp_server_set_tls(opftp_server_t*, const char* cert_pem, const char* key_pem);
 void opftp_server_set_require_tls(opftp_server_t*, bool);
 void opftp_server_set_allow_foreign_port(opftp_server_t*, bool);      /* default false */
+void opftp_server_set_allow_stop(opftp_server_t*, bool);              /* register STOP (remote shutdown); default false */
 int  opftp_server_start(opftp_server_t*);    /* 0 ok; errno-style code */
 int  opftp_server_stop(opftp_server_t*);     /* 0 when drained; -ETIMEDOUT if timeout */
 void opftp_server_destroy(opftp_server_t*);  /* no-op if stop timed out; call stop again */

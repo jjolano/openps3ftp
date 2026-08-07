@@ -64,22 +64,6 @@ int opftp_dispatch_register(struct opftp_server* s, const char* name, opftp_cmd_
     return -ENOSPC;
 }
 
-int opftp_dispatch_unregister(struct opftp_server* s, const char* name)
-{
-    if (!s->dispatch_entries || !name)
-        return -EINVAL;
-    unsigned slot = hash_name(name) % s->dispatch_cap;
-    for (unsigned probe = 0; probe < s->dispatch_cap; probe++) {
-        unsigned i = (slot + probe) % s->dispatch_cap;
-        if (!s->dispatch_entries[i].used)
-            return -ENOENT;
-        if (strcmp(s->dispatch_entries[i].name, name) == 0) {
-            s->dispatch_entries[i].used = false;
-            return 0;
-        }
-    }
-    return -ENOENT;
-}
 
 int opftp_dispatch_call(struct opftp_server* s, struct opftp_client* c,
                         const char* name, const char* param)

@@ -1,7 +1,7 @@
 /*
  * Test driver: runs an opftp server on an ephemeral port, prints
  * "PORT <n>" on stdout, and shuts down gracefully on SIGTERM/SIGINT.
- * Usage: ftp_server_main <root> [port] [workers] [cert.pem] [key.pem] [require_tls]
+ * Usage: ftp_server_main <root> [port] [workers] [cert.pem] [key.pem] [require_tls] [allow_stop]
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -43,9 +43,11 @@ int main(int argc, char** argv)
     const char* root = argc > 1 ? argv[1] : "/tmp";
     unsigned port = argc > 2 ? (unsigned) atoi(argv[2]) : 0;
     int workers = argc > 3 ? atoi(argv[3]) : 2;
-    const char* cert_path = argc > 4 ? argv[4] : NULL;
-    const char* key_path = argc > 5 ? argv[5] : NULL;
+    /* empty strings are placeholders so later args stay positional */
+    const char* cert_path = (argc > 4 && argv[4][0]) ? argv[4] : NULL;
+    const char* key_path = (argc > 5 && argv[5][0]) ? argv[5] : NULL;
     bool require_tls = argc > 6 && atoi(argv[6]) != 0;
+    bool allow_stop = argc > 7 && atoi(argv[7]) != 0;
 
     opftp_server_t* s = opftp_server_create(NULL);
     if (!s) { fprintf(stderr, "create failed\n"); return 1; }
@@ -69,6 +71,7 @@ int main(int argc, char** argv)
         }
     }
     opftp_server_set_require_tls(s, require_tls);
+    opftp_server_set_allow_stop(s, allow_stop);
 
     if (opftp_server_start(s) != 0) {
         fprintf(stderr, "start failed\n");
@@ -79,8 +82,15 @@ int main(int argc, char** argv)
 
     signal(SIGTERM, on_signal);
     signal(SIGINT, on_signal);
-    while (!g_stop)
+    /* Exit on a signal, or when the server stopped itself (STOP). */
+    for (;;) {
+        opftp_snapshot_t snap;
+        if (g_stop)
+            break;
+        if (opftp_server_snapshot(s, &snap) == 0 && !snap.started)
+            break;
         usleep(100000);
+    }
 
     opftp_server_stop(s);
     opftp_server_destroy(s);

@@ -22,7 +22,7 @@ struct opftp_client* opftp_client_new(struct opftp_server* s, int fd,
 {
     struct opftp_client* c = calloc(1, sizeof(*c));
     if (!c) return NULL;
-    c->refs = 1;
+    atomic_init(&c->refs, 1);
     c->generation = 1;
     c->fd = fd;
     c->pasv_fd = -1;   /* 0 is a valid fd; "no PASV listener" must be -1 */
@@ -36,13 +36,14 @@ struct opftp_client* opftp_client_new(struct opftp_server* s, int fd,
 
 void opftp_client_retain(struct opftp_client* c)
 {
-    if (c) c->refs++;
+    if (c)
+        atomic_fetch_add_explicit(&c->refs, 1, memory_order_relaxed);
 }
 
 void opftp_client_release(struct opftp_client* c)
 {
     if (!c) return;
-    if (--c->refs == 0) {
+    if (atomic_fetch_sub_explicit(&c->refs, 1, memory_order_acq_rel) == 1) {
         opftp_close_fd(c->fd);
         free(c);
     }
@@ -70,7 +71,7 @@ ssize_t opftp_client_read(struct opftp_client* c)
         }
         if (n == 0)
             return 0;              /* TLS close_notify / EOF */
-        if (n == -2 || n == -3)    /* WANT_READ / WANT_WRITE: like EAGAIN */
+        if (n == OPFTP_TLS_WANT_READ || n == OPFTP_TLS_WANT_WRITE)
             return -2;
         return -1;
     }
@@ -108,18 +109,82 @@ bool opftp_client_getline(struct opftp_client* c, char* out, size_t outsz)
     return false;
 }
 
+static bool on_reactor_thread(struct opftp_server* s)
+{
+    if (!atomic_load_explicit(&s->reactor_tid_set, memory_order_acquire))
+        return true;   /* reactor not running yet: nothing to race with */
+    opftp_tid_t self;
+    opftp_thread_self(&self);
+    return opftp_tid_eq(&self, &s->reactor_tid);
+}
+
+/* Queue a line for the reactor to write. Takes a client ref so the
+ * client cannot be freed before the line is sent (or dropped). */
+static int queue_reply(struct opftp_client* c, const char* s)
+{
+    struct opftp_server* srv = c->server;
+    size_t n = strlen(s);
+    struct opftp_pending_reply* p = malloc(sizeof(*p) + n + 1);
+    if (!p)
+        return -1;
+    p->c = c;
+    p->generation = c->generation;
+    p->next = NULL;
+    memcpy(p->text, s, n + 1);
+
+    opftp_client_retain(c);
+    opftp_mutex_lock(srv->compl_mutex);
+    if (srv->replies_tail)
+        srv->replies_tail->next = p;
+    else
+        srv->replies_head = p;
+    srv->replies_tail = p;
+    if (srv->pollset)
+        opftp_pollset_wake(srv->pollset);
+    opftp_mutex_unlock(srv->compl_mutex);
+    return 0;
+}
+
+/* Reactor thread: write everything workers queued, in order. */
+void opftp_client_drain_replies(struct opftp_server* s)
+{
+    struct opftp_pending_reply* head;
+    opftp_mutex_lock(s->compl_mutex);
+    head = s->replies_head;
+    s->replies_head = s->replies_tail = NULL;
+    opftp_mutex_unlock(s->compl_mutex);
+
+    while (head) {
+        struct opftp_pending_reply* p = head;
+        head = p->next;
+        /* Same stale-generation rule as job completions: a client that
+         * disconnected in the meantime gets no reply. */
+        if (p->c->generation == p->generation)
+            opftp_client_send_raw(p->c, p->text);
+        opftp_client_release(p->c);
+        free(p);
+    }
+}
+
 int opftp_client_send_raw(struct opftp_client* c, const char* s)
 {
+    /* DESIGN.md: only the reactor writes to control sockets. A send
+     * from a worker (the legacy data-callback executor) is handed to
+     * the reactor instead — writing here would race the reactor on the
+     * same fd and, under FTPS, corrupt the TLS record stream. */
+    if (c->server && !on_reactor_thread(c->server))
+        return queue_reply(c, s);
+
     size_t len = strlen(s);
     size_t off = 0;
     while (off < len) {
         if (c->tls && !c->tls_handshaking) {
             ssize_t n = opftp_tls_write(c->tls, s + off, len - off);
             if (n > 0) { off += (size_t) n; continue; }
-            if (n == -2 || n == -3) {
+            if (n == OPFTP_TLS_WANT_READ || n == OPFTP_TLS_WANT_WRITE) {
                 /* WANT_READ/WANT_WRITE: poll and retry, bounded */
                 struct pollfd p = { .fd = c->fd,
-                                    .events = (n == -3) ? POLLOUT : POLLIN };
+                                    .events = (n == OPFTP_TLS_WANT_WRITE) ? POLLOUT : POLLIN };
                 if (poll(&p, 1, 1000) <= 0)
                     return -1;
                 continue;
@@ -220,10 +285,4 @@ void opftp_client_disconnect(opftp_client_t* c)
     /* Reactor thread: flag for teardown; the loop removes the client
      * after the current command/hook returns. */
     c->disconnect_requested = true;
-}
-
-int opftp_reply(struct opftp_client* c, int code, const char* msg)
-{
-    opftp_client_send_reply(c, code, msg);
-    return 0;
 }
