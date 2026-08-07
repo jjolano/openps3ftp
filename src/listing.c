@@ -46,3 +46,24 @@ int opftp_listing_format(char* out, size_t n, const opftp_dirent_t* de,
                     tm.tm_mday, tm.tm_hour, tm.tm_min,
                     display_name ? display_name : de->name);
 }
+
+/* RFC 3659 machine listing: "type=file;size=123;modify=...;perm=...; name".
+ * mtime as UTC YYYYMMDDHHMMSS; 19700101000000 when the conversion fails. */
+int opftp_listing_format_mlsd(char* out, size_t n, const opftp_dirent_t* de)
+{
+    bool dir = (de->mode & S_IFMT) == S_IFDIR;
+    char modify[16] = "19700101000000";
+    struct tm tm;
+    time_t t = (time_t) de->mtime;
+    if (gmtime_r(&t, &tm) != NULL) {
+        snprintf(modify, sizeof(modify), "%04d%02d%02d%02d%02d%02d",
+                 tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
+                 tm.tm_hour, tm.tm_min, tm.tm_sec);
+    }
+    return snprintf(out, n, "type=%s;size=%llu;modify=%s;perm=%s; %s\r\n",
+                    dir ? "dir" : "file",
+                    (unsigned long long) (dir ? 0 : de->size),
+                    modify,
+                    dir ? "eladfmp" : "adfrw",
+                    de->name);
+}

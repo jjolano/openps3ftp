@@ -69,6 +69,7 @@ typedef struct opftp_fs {
     int   (*unlink)(void* ctx, const char* path);
     int   (*rename)(void* ctx, const char* oldp, const char* newp);
     int   (*chmod)(void* ctx, const char* path, uint16_t mode);
+    int   (*utimes)(void* ctx, const char* path, int64_t mtime); /* set mtime (unix seconds); atime unchanged/now */
 } opftp_fs_t;
 
 /* Built-in backends (const singletons, no root state). */

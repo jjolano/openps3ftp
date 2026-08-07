@@ -92,24 +92,22 @@ static int posix_readdir(void* ctx, void* dir, opftp_dirent_t* de)
     de->mtime = 0;
     de->uid = de->gid = 0;
 
-    /* d_type may be DT_UNKNOWN on some filesystems; stat for metadata */
-    unsigned char dt = e->d_type;
-    if (dt != DT_DIR && dt != DT_REG) {
-        int dfd = dirfd(d);
-        if (dfd >= 0) {
-            struct stat s;
-            if (fstatat(dfd, e->d_name, &s, 0) == 0) {
-                de->mode = (uint16_t) (s.st_mode & (S_IFMT | 07777));
-                de->size = (uint64_t) s.st_size;
-                de->mtime = (int64_t) s.st_mtime;
-                de->uid = s.st_uid;
-                de->gid = s.st_gid;
-                return 1;
-            }
+    /* Always stat for metadata (LIST sizes, MLSD facts); the d_type
+     * fast path would leave size/mtime at 0 for DT_REG/DIR. */
+    int dfd = dirfd(d);
+    if (dfd >= 0) {
+        struct stat s;
+        if (fstatat(dfd, e->d_name, &s, 0) == 0) {
+            de->mode = (uint16_t) (s.st_mode & (S_IFMT | 07777));
+            de->size = (uint64_t) s.st_size;
+            de->mtime = (int64_t) s.st_mtime;
+            de->uid = s.st_uid;
+            de->gid = s.st_gid;
+            return 1;
         }
     }
+    unsigned char dt = e->d_type;
     if (dt == DT_DIR) de->mode = S_IFDIR | 0755;
-    else if (dt == DT_REG) de->mode = S_IFREG | 0644;
     else de->mode = S_IFREG | 0644;
     return 1;
 }
@@ -126,6 +124,17 @@ static int posix_rename(void* ctx, const char* a, const char* b)
 
 static int posix_chmod(void* ctx, const char* path, uint16_t mode)
 { (void) ctx; return chmod(path, mode); }
+
+static int posix_utimes(void* ctx, const char* path, int64_t mtime)
+{
+    (void) ctx;
+    struct timespec times[2];
+    times[0].tv_sec = 0; times[0].tv_nsec = UTIME_NOW;
+    times[1].tv_sec = (time_t) mtime; times[1].tv_nsec = 0;
+    if (utimensat(AT_FDCWD, path, times, 0) != 0)
+        return -1;
+    return 0;
+}
 
 const opftp_fs_t opftp_fs_posix = {
     .ctx = NULL,
@@ -144,4 +153,5 @@ const opftp_fs_t opftp_fs_posix = {
     .unlink = posix_unlink,
     .rename = posix_rename,
     .chmod = posix_chmod,
+    .utimes = posix_utimes,
 };

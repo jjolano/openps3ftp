@@ -1,5 +1,6 @@
 /*
- * Built-in FTP command handlers (RFC 959 + 3659 + 2640 + custom STOP).
+ * Built-in FTP command handlers (RFC 959 + 3659 [MLSD/MLST/MFMT] +
+ * 2640 + custom STOP).
  * All handlers run on the reactor thread and must not block on the fs
  * beyond quick stat/open calls; transfers are dispatched to workers.
  */
@@ -47,6 +48,44 @@ static struct opftp_server* server_of(struct opftp_client* c)
 static int reply(struct opftp_client* c, int code, const char* msg)
 {
     opftp_client_send_reply(c, code, msg);
+    return 0;
+}
+
+/* Parse a UTC timestamp "YYYYMMDDHHMMSS" (first 14 chars; anything
+ * after, e.g. ".12 GMT", is ignored). Returns 0 + *out, or -1. */
+static int parse_ftp_time(const char* s, time_t* out)
+{
+    for (int i = 0; i < 14; i++)
+        if (!isdigit((unsigned char) s[i]))
+            return -1;
+    int yy = (s[0] - '0') * 1000 + (s[1] - '0') * 100 +
+             (s[2] - '0') * 10 + (s[3] - '0');
+    int mm = (s[4] - '0') * 10 + (s[5] - '0');
+    int dd = (s[6] - '0') * 10 + (s[7] - '0');
+    int hh = (s[8] - '0') * 10 + (s[9] - '0');
+    int mi = (s[10] - '0') * 10 + (s[11] - '0');
+    int ss = (s[12] - '0') * 10 + (s[13] - '0');
+    if (mm < 1 || mm > 12 || dd < 1 || dd > 31 ||
+        hh > 23 || mi > 59 || ss > 59)
+        return -1;
+    struct tm tm = {0};
+    tm.tm_year = yy - 1900;
+    tm.tm_mon = mm - 1;
+    tm.tm_mday = dd;
+    tm.tm_hour = hh;
+    tm.tm_min = mi;
+    tm.tm_sec = ss;
+    tm.tm_isdst = 0;
+#ifdef OPFTP_PS3
+    /* newlib has no timegm(); ps3 has no timezone support, so mktime
+     * with the default (UTC) TZ interprets the tm as UTC */
+    time_t t = mktime(&tm);
+#else
+    time_t t = timegm(&tm);
+#endif
+    if (t == (time_t) -1)
+        return -1;
+    *out = t;
     return 0;
 }
 
@@ -132,6 +171,9 @@ static void cmd_feat(struct opftp_client* c, const char* param, void* ctx)
     opftp_client_send(c, " UTF8");
     opftp_client_send(c, " SIZE");
     opftp_client_send(c, " MDTM");
+    opftp_client_send(c, " MLSD");
+    opftp_client_send(c, " MLST type*;size*;modify*;perm*;");
+    opftp_client_send(c, " MFMT");
     opftp_client_send(c, " REST STREAM");
     opftp_client_send(c, " EPSV");
     opftp_client_send(c, " EPRT");
@@ -422,30 +464,90 @@ static void cmd_site(struct opftp_client* c, const char* param, void* ctx)
 {
     (void) ctx;
     struct opftp_server* s = server_of(c);
-    if (!param || strncasecmp(param, "CHMOD", 5) != 0) {
+    if (!param || !param[0]) {
         reply(c, 502, R502);
         return;
     }
-    /* SITE CHMOD <mode> <path> */
-    const char* p = param + 5;
-    while (*p == ' ') p++;
-    char* end = NULL;
-    long mode = strtol(p, &end, 8);
-    if (end == p || !end || *end != ' ') {
-        reply(c, 501, R501);
+    if (strncasecmp(param, "CHMOD", 5) == 0) {
+        /* SITE CHMOD <mode> <path> */
+        const char* p = param + 5;
+        while (*p == ' ') p++;
+        char* end = NULL;
+        long mode = strtol(p, &end, 8);
+        if (end == p || !end || *end != ' ') {
+            reply(c, 501, R501);
+            return;
+        }
+        while (*end == ' ') end++;
+        char path[OPFTP_MAX_PATH];
+        if (resolve_arg(c, end, path, sizeof(path), NULL) != 0) {
+            reply(c, 501, R501);
+            return;
+        }
+        if (s->fs->chmod(s->fs->ctx, path, (uint16_t) mode) != 0) {
+            reply(c, 550, R550);
+            return;
+        }
+        reply(c, 200, R200);
         return;
     }
-    while (*end == ' ') end++;
-    char path[OPFTP_MAX_PATH];
-    if (resolve_arg(c, end, path, sizeof(path), NULL) != 0) {
-        reply(c, 501, R501);
+    if (strncasecmp(param, "UTIME", 5) == 0) {
+        /* SITE UTIME <path> <YYYYMMDDHHMMSS>[.frac][ GMT] — the path may
+         * contain spaces; the time token is the LAST whitespace-separated
+         * token starting with 14 digits. */
+        const char* p = param + 5;
+        while (*p == ' ') p++;
+        const char* tok = NULL;       /* start of the time token */
+        const char* path_end = NULL;  /* space before it */
+        const char* cur = p;
+        while (*cur) {
+            while (*cur == ' ') cur++;
+            if (!*cur) break;
+            const char* start = cur;
+            while (*cur && *cur != ' ') cur++;
+            if ((size_t) (cur - start) >= 14) {
+                int digits = 1;
+                for (int i = 0; i < 14; i++)
+                    if (!isdigit((unsigned char) start[i])) { digits = 0; break; }
+                if (digits) { tok = start; path_end = start - 1; }
+            }
+        }
+        if (!tok || path_end <= p) {
+            reply(c, 501, R501);
+            return;
+        }
+        while (path_end > p && *path_end == ' ') path_end--;
+        char pathbuf[OPFTP_MAX_PATH];
+        size_t plen = (size_t) (path_end - p) + 1;
+        if (plen >= sizeof(pathbuf)) {
+            reply(c, 501, R501);
+            return;
+        }
+        memcpy(pathbuf, p, plen);
+        pathbuf[plen] = '\0';
+        time_t t;
+        if (parse_ftp_time(tok, &t) != 0) {
+            reply(c, 501, R501);
+            return;
+        }
+        char path[OPFTP_MAX_PATH];
+        if (resolve_arg(c, pathbuf, path, sizeof(path), NULL) != 0) {
+            reply(c, 501, R501);
+            return;
+        }
+        opftp_stat_t st;
+        if (s->fs->stat(s->fs->ctx, path, &st) != 0) {
+            reply(c, 550, R550);
+            return;
+        }
+        if (s->fs->utimes(s->fs->ctx, path, (int64_t) t) != 0) {
+            reply(c, 550, R550);
+            return;
+        }
+        reply(c, 200, R200);
         return;
     }
-    if (s->fs->chmod(s->fs->ctx, path, (uint16_t) mode) != 0) {
-        reply(c, 550, R550);
-        return;
-    }
-    reply(c, 200, R200);
+    reply(c, 502, R502);
 }
 
 /* ---- stat-like ---- */
@@ -858,7 +960,8 @@ static void cmd_abor(struct opftp_client* c, const char* param, void* ctx)
 /* Build + dispatch a transfer job. Replies 150 on success; 450/425
  * otherwise. pre-check failures (missing target) reply 550. */
 static void start_transfer(struct opftp_client* c, enum opftp_job_op op,
-                           const char* path, bool nlst)
+                           const char* path, bool nlst, bool mlsd,
+                           const char* reply150)
 {
     struct opftp_server* s = server_of(c);
 
@@ -895,6 +998,7 @@ static void start_transfer(struct opftp_client* c, enum opftp_job_op op,
     j->generation = c->generation;
     j->op = op;
     j->nlst = nlst;
+    j->mlsd = mlsd;
     j->rest = c->rest;
     j->need_tls = (c->tls_prot != 0);   /* PROT P: TLS data channel */
     snprintf(j->path, sizeof(j->path), "%s", path);
@@ -914,7 +1018,7 @@ static void start_transfer(struct opftp_client* c, enum opftp_job_op op,
     }
     c->job = j;
     c->rest = 0;
-    reply(c, 150, R150);
+    reply(c, 150, reply150 ? reply150 : R150);
 }
 
 /* LIST / NLST: param may be a path or "-<flags>" style; empty -> cwd. */
@@ -937,7 +1041,7 @@ static void cmd_list(struct opftp_client* c, const char* param, void* ctx)
         reply(c, 550, R550);
         return;
     }
-    start_transfer(c, OPFTP_JOB_LIST, path, false);
+    start_transfer(c, OPFTP_JOB_LIST, path, false, false, NULL);
 }
 
 static void cmd_nlst(struct opftp_client* c, const char* param, void* ctx)
@@ -959,7 +1063,7 @@ static void cmd_nlst(struct opftp_client* c, const char* param, void* ctx)
         reply(c, 550, R550);
         return;
     }
-    start_transfer(c, OPFTP_JOB_LIST, path, true);
+    start_transfer(c, OPFTP_JOB_LIST, path, true, false, NULL);
 }
 
 static void cmd_retr(struct opftp_client* c, const char* param, void* ctx)
@@ -977,7 +1081,7 @@ static void cmd_retr(struct opftp_client* c, const char* param, void* ctx)
         reply(c, 550, R550);
         return;
     }
-    start_transfer(c, OPFTP_JOB_RETR, path, false);
+    start_transfer(c, OPFTP_JOB_RETR, path, false, false, NULL);
 }
 
 static void cmd_stor(struct opftp_client* c, const char* param, void* ctx)
@@ -992,7 +1096,7 @@ static void cmd_stor(struct opftp_client* c, const char* param, void* ctx)
         reply(c, 550, R550);
         return;
     }
-    start_transfer(c, OPFTP_JOB_STOR, path, false);
+    start_transfer(c, OPFTP_JOB_STOR, path, false, false, NULL);
 }
 
 static void cmd_appe(struct opftp_client* c, const char* param, void* ctx)
@@ -1007,7 +1111,138 @@ static void cmd_appe(struct opftp_client* c, const char* param, void* ctx)
         reply(c, 550, R550);
         return;
     }
-    start_transfer(c, OPFTP_JOB_APPE, path, false);
+    start_transfer(c, OPFTP_JOB_APPE, path, false, false, NULL);
+}
+
+/* ---- RFC 3659: MLSD / MLST / MFMT, RFC 959 STOU ---- */
+
+static void cmd_mlsd(struct opftp_client* c, const char* param, void* ctx)
+{
+    (void) ctx;
+    struct opftp_server* s = server_of(c);
+    const char* arg = param;
+    if (arg && arg[0] == '-') {
+        arg = strchr(arg, ' ');
+        if (arg) while (*arg == ' ') arg++;
+    }
+    char path[OPFTP_MAX_PATH];
+    if (resolve_arg(c, arg, path, sizeof(path), NULL) != 0) {
+        reply(c, 501, R501);
+        return;
+    }
+    opftp_stat_t st;
+    if (s->fs->stat(s->fs->ctx, path, &st) != 0) {
+        reply(c, 550, R550);
+        return;
+    }
+    start_transfer(c, OPFTP_JOB_LIST, path, false, true, NULL);
+}
+
+static void cmd_mlst(struct opftp_client* c, const char* param, void* ctx)
+{
+    (void) ctx;
+    struct opftp_server* s = server_of(c);
+    if (!param || !param[0]) { reply(c, 501, R501); return; }
+    char path[OPFTP_MAX_PATH];
+    if (resolve_arg(c, param, path, sizeof(path), NULL) != 0) {
+        reply(c, 501, R501);
+        return;
+    }
+    opftp_stat_t st;
+    if (s->fs->stat(s->fs->ctx, path, &st) != 0) {
+        reply(c, 550, R550);
+        return;
+    }
+    opftp_dirent_t de;
+    memset(&de, 0, sizeof(de));
+    const char* slash = strrchr(path, '/');
+    snprintf(de.name, sizeof(de.name), "%s", slash ? slash + 1 : path);
+    de.mode = st.mode;
+    de.size = st.size;
+    de.mtime = st.mtime;
+    de.uid = st.uid;
+    de.gid = st.gid;
+    char line[1024];
+    opftp_listing_format_mlsd(line, sizeof(line), &de);
+    opftp_client_send(c, "250-Start of list");
+    char mlstline[1025];
+    snprintf(mlstline, sizeof(mlstline), " %s", line);   /* RFC 3659 7.2 */
+    opftp_client_send_raw(c, mlstline);
+    reply(c, 250, "End");
+}
+
+static void cmd_mfmt(struct opftp_client* c, const char* param, void* ctx)
+{
+    (void) ctx;
+    struct opftp_server* s = server_of(c);
+    /* MFMT YYYYMMDDHHMMSS <path> (path may contain spaces) */
+    if (!param || strlen(param) < 15 || param[14] != ' ') {
+        reply(c, 501, R501);
+        return;
+    }
+    time_t t;
+    if (parse_ftp_time(param, &t) != 0) {
+        reply(c, 501, R501);
+        return;
+    }
+    const char* arg = param + 15;
+    while (*arg == ' ') arg++;
+    char path[OPFTP_MAX_PATH];
+    if (resolve_arg(c, arg, path, sizeof(path), NULL) != 0) {
+        reply(c, 501, R501);
+        return;
+    }
+    opftp_stat_t st;
+    if (s->fs->stat(s->fs->ctx, path, &st) != 0) {
+        reply(c, 550, R550);
+        return;
+    }
+    if (s->fs->utimes(s->fs->ctx, path, (int64_t) t) != 0) {
+        reply(c, 550, R550);
+        return;
+    }
+    struct tm tm;
+    if (gmtime_r(&t, &tm) == NULL) {
+        reply(c, 550, R550);
+        return;
+    }
+    char buf[64];
+    snprintf(buf, sizeof(buf), "Modify=%04d%02d%02d%02d%02d%02d",
+             tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
+             tm.tm_hour, tm.tm_min, tm.tm_sec);
+    reply(c, 213, buf);
+}
+
+static void cmd_stou(struct opftp_client* c, const char* param, void* ctx)
+{
+    (void) ctx;
+    (void) param;   /* RFC 959 allows a name hint; ignored -> cwd */
+    struct opftp_server* s = server_of(c);
+    static unsigned seq = 0;
+    if (seq == 0)
+        seq = (unsigned) time(NULL) % 1000000;   /* reactor thread: single-threaded */
+
+    char name[OPFTP_MAX_PATH];
+    opftp_stat_t st;
+    for (int i = 0; i < 10; i++) {
+        char rel[32];
+        snprintf(rel, sizeof(rel), "ftp%06u", seq++);
+        if (resolve_arg(c, rel, name, sizeof(name), NULL) != 0) {
+            reply(c, 550, R550);
+            return;
+        }
+        if (s->fs->stat(s->fs->ctx, name, &st) != 0 && errno == ENOENT)
+            break;
+        if (i == 9) {
+            reply(c, 450, "No unique file name available.");
+            return;
+        }
+    }
+    const char* base = strrchr(name, '/');
+    base = base ? base + 1 : name;
+    char reply150[64];
+    snprintf(reply150, sizeof(reply150), "FILE: %s", base);
+    start_transfer(c, OPFTP_JOB_STOR, name, false, false, reply150);
 }
 
 /* ---- registration ---- */
@@ -1058,6 +1293,10 @@ void opftp_commands_init(struct opftp_server* s)
     opftp_dispatch_register(s, "ABOR", cmd_abor, NULL);
     opftp_dispatch_register(s, "LIST", cmd_list, NULL);
     opftp_dispatch_register(s, "NLST", cmd_nlst, NULL);
+    opftp_dispatch_register(s, "MLSD", cmd_mlsd, NULL);
+    opftp_dispatch_register(s, "MLST", cmd_mlst, NULL);
+    opftp_dispatch_register(s, "MFMT", cmd_mfmt, NULL);
+    opftp_dispatch_register(s, "STOU", cmd_stou, NULL);
     opftp_dispatch_register(s, "RETR", cmd_retr, NULL);
     opftp_dispatch_register(s, "STOR", cmd_stor, NULL);
     opftp_dispatch_register(s, "APPE", cmd_appe, NULL);

@@ -187,6 +187,9 @@ void opftp_mode_str(uint16_t mode, char out[11]);
  * uid/gid printed as "1 1" when both are 0. Returns chars written. */
 int opftp_listing_format(char* out, size_t n, const opftp_dirent_t* de,
                          const char* display_name);
+/* Format one RFC 3659 MLSD line ("type=file;size=..;modify=..;perm=..; name").
+ * Returns chars written. */
+int opftp_listing_format_mlsd(char* out, size_t n, const opftp_dirent_t* de);
 /* RFC 2640 minimal: valid UTF-8, no embedded NUL. Byte-preserving. */
 bool opftp_utf8_valid(const char* s);
 
@@ -277,6 +280,7 @@ struct opftp_transfer_job {
     char dst[OPFTP_MAX_PATH];        /* OPFTP_JOB_COPY destination */
     uint64_t rest;                 /* REST offset (STREAM mode) */
     bool nlst;                     /* NLST (names only) vs LIST */
+    bool mlsd;                     /* MLSD (RFC 3659 machine listing) */
 
     atomic_bool cancelled;
     int cancel_pipe[2];            /* [0] worker polls; [1] reactor writes */

@@ -96,7 +96,7 @@ def make_big_file(path, size=1 << 20):
         f.write(os.urandom(size))
 
 
-def scenario_basic(ftp, root):
+def scenario_basic(ftp, root, port):
     # PWD/CWD
     check("pwd", ftp.pwd() == "/", ftp.pwd())
     check("cwd", ftp.cwd("/sub") == "250 File operation successful.")
@@ -188,6 +188,51 @@ def scenario_basic(ftp, root):
     # SITE CHMOD
     ftp.sendcmd("SITE CHMOD 600 small.txt")
     check("site-chmod", (os.stat(os.path.join(root, "small.txt")).st_mode & 0o777) == 0o600)
+    # ---- RFC 3659: MLSD / MLST / MFMT; STOU; SITE UTIME ----
+    entries = dict(ftp.mlsd("/"))
+    check("mlsd-dir", entries.get("sub", {}).get("type") == "dir", entries.get("sub"))
+    sf = entries.get("small.txt", {})
+    check("mlsd-file", sf.get("type") == "file", sf)
+    check("mlsd-size", int(sf.get("size", -1)) == 12, sf.get("size"))
+    check("mlsd-modify", re.match(r"^\d{14}$", sf.get("modify", "")), sf.get("modify"))
+    mlst = ftp.sendcmd("MLST small.txt")
+    check("mlst", "type=file" in mlst and "small.txt" in mlst, mlst)
+    ts = "20240101120000"
+    resp = ftp.sendcmd(f"MFMT {ts} small.txt")
+    check("mfmt", resp.startswith("213"), resp)
+    check("mfmt-mdtm", ts in ftp.sendcmd("MDTM small.txt"))
+    # STOU: unique name in the 150 reply, payload must land
+    raw = raw_connect(port)
+    raw_login(raw)
+    raw.sendall(b"TYPE I\r\n")
+    read_reply(raw)
+    raw.sendall(b"PASV\r\n")
+    r = read_reply(raw)
+    m = re.search(rb"\((\d+),(\d+),(\d+),(\d+),(\d+),(\d+)\)", r)
+    assert m, r
+    data = socket.create_connection(
+        ("127.0.0.1", (int(m.group(5)) << 8) | int(m.group(6))), timeout=10)
+    raw.sendall(b"STOU\r\n")
+    r150 = read_reply(raw)
+    m2 = re.match(rb"^150 FILE: (ftp\d{6})\r\n$", r150)
+    check("stou-150", m2 is not None, r150)
+    stou_payload = b"unique store payload \x00\xff" * 64
+    if m2:
+        stou_name = m2.group(1).decode()
+        data.sendall(stou_payload)
+        data.close()
+        check("stou-226", read_reply(raw).startswith(b"226"))
+        got = []
+        ftp.retrbinary(f"RETR {stou_name}", got.append)
+        check("stou-data", b"".join(got) == stou_payload)
+        ftp.delete(stou_name)
+    else:
+        data.close()
+    raw.close()
+    # SITE UTIME
+    resp = ftp.sendcmd("SITE UTIME small.txt 20240202030303")
+    check("site-utime", resp.startswith("200"), resp)
+    check("site-utime-mdtm", "20240202030303" in ftp.sendcmd("MDTM small.txt"))
 
 
 def scenario_port_and_bounce(ftp, port):
@@ -692,7 +737,7 @@ def main():
         ftp.connect("127.0.0.1", port, timeout=10)
         ftp.login("anonymous", "test@test")
         check("login", True)
-        scenario_basic(ftp, ftp_root)
+        scenario_basic(ftp, ftp_root, port)
         scenario_port_and_bounce(ftp, port)
         ftp.quit()
     finally:

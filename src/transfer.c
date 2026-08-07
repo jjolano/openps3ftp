@@ -206,7 +206,11 @@ static int transfer_list(struct opftp_server* s, struct opftp_transfer_job* j,
         de.mtime = st.mtime;
         de.uid = st.uid;
         de.gid = st.gid;
-        int n = opftp_listing_format(line, sizeof(line), &de, NULL);
+        int n;
+        if (j->mlsd)
+            n = opftp_listing_format_mlsd(line, sizeof(line), &de);
+        else
+            n = opftp_listing_format(line, sizeof(line), &de, NULL);
         rc = send_all(j, line, (size_t) n);
         if (rc == 0) *bytes += (uint64_t) n;
         return rc;
@@ -222,10 +226,14 @@ static int transfer_list(struct opftp_server* s, struct opftp_transfer_job* j,
         int r = fs->readdir(fs->ctx, dir, &de);
         if (r < 0) { rc = -errno; break; }
         if (r == 0) break;
-        int n = opftp_listing_format(line, sizeof(line), &de, NULL);
+        int n;
         if (j->nlst) {
             /* NLST: name only */
             n = snprintf(line, sizeof(line), "%s\r\n", de.name);
+        } else if (j->mlsd) {
+            n = opftp_listing_format_mlsd(line, sizeof(line), &de);
+        } else {
+            n = opftp_listing_format(line, sizeof(line), &de, NULL);
         }
         rc = send_all(j, line, (size_t) n);
         if (rc != 0) break;

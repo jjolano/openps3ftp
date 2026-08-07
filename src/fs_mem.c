@@ -443,6 +443,18 @@ static int mem_chmod(void* ctx, const char* path, uint16_t mode)
     return 0;
 }
 
+static int mem_utimes(void* ctx, const char* path, int64_t mtime)
+{
+    struct mctx* c = ctx;
+    opftp_mutex_lock(c->mutex);
+    int err = 0;
+    struct mnode* n = node_lookup(c, path, &err);
+    if (!n) { opftp_mutex_unlock(c->mutex); errno = err; return -1; }
+    n->mtime = mtime;
+    opftp_mutex_unlock(c->mutex);
+    return 0;
+}
+
 static const opftp_fs_t* mem_vtable(void)
 {
     static const opftp_fs_t fs = {
@@ -461,6 +473,7 @@ static const opftp_fs_t* mem_vtable(void)
         .unlink = mem_unlink,
         .rename = mem_rename,
         .chmod = mem_chmod,
+        .utimes = mem_utimes,
     };
     return &fs;
 }

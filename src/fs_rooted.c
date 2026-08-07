@@ -137,6 +137,13 @@ static int r_chmod(void* ctx, const char* path, uint16_t mode)
     return r->base->chmod(r->base->ctx, path, mode);
 }
 
+static int r_utimes(void* ctx, const char* path, int64_t mtime)
+{
+    struct rooted* r = ctx;
+    if (!check(r, path)) return -1;
+    return r->base->utimes(r->base->ctx, path, mtime);
+}
+
 const opftp_fs_t* opftp_fs_rooted(const opftp_fs_t* base, const char* root)
 {
     if (!base || !root || root[0] != '/')
@@ -174,6 +181,7 @@ const opftp_fs_t* opftp_fs_rooted(const opftp_fs_t* base, const char* root)
     fs->unlink = r_unlink;
     fs->rename = r_rename;
     fs->chmod = r_chmod;
+    fs->utimes = r_utimes;
     return fs;
 }
 

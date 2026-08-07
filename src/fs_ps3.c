@@ -125,38 +125,66 @@ static int ps3_stat(void* ctx, const char* path, opftp_stat_t* st)
     return 0;
 }
 
+/* Directory handle: fd + a batch of entries. sysFsGetDirectoryEntries
+ * returns N entries (with full stat metadata) per syscall, so listing a
+ * large dir costs ~1/32 the syscalls of sysFsReaddir AND avoids a
+ * per-entry stat — the dominant "small IO" cost for LIST/NLST. */
+#define PS3_DIR_BATCH 32
+
+struct ps3_dir {
+    s32 fd;
+    sysFSDirectoryEntry batch[PS3_DIR_BATCH];
+    u32 idx, count;
+};
+
 static int ps3_opendir(void* ctx, const char* path, void** dir)
 {
     (void) ctx;
     s32 fd = -1;
     s32 rc = sysFsOpendir(path, &fd);
     if (rc != 0) { errno = cell_to_errno(rc); return -1; }
-    *dir = (void*) (intptr_t) fd;
+    struct ps3_dir* d = calloc(1, sizeof(*d));
+    if (!d) {
+        sysFsClosedir(fd);
+        errno = ENOMEM;
+        return -1;
+    }
+    d->fd = fd;
+    *dir = d;
     return 0;
 }
 
 static int ps3_readdir(void* ctx, void* dir, opftp_dirent_t* de)
 {
     (void) ctx;
-    s32 fd = (s32) (intptr_t) dir;
-    sysFSDirent e;
-    u64 nread = 0;
-    s32 rc = sysFsReaddir(fd, &e, &nread);
-    if (rc != 0) { errno = cell_to_errno(rc); return -1; }
-    if (nread == 0)
-        return 0;
-    snprintf(de->name, sizeof(de->name), "%s", e.d_name);
-    de->mode = (uint16_t) e.d_type;      /* SYS_FS_S_IF* bits */
-    de->size = 0;
-    de->mtime = 0;
-    de->uid = de->gid = 0;
+    struct ps3_dir* d = dir;
+    if (d->idx >= d->count) {
+        u32 got = 0;
+        s32 rc = sysFsGetDirectoryEntries(d->fd, d->batch,
+                                          sizeof(sysFSDirectoryEntry), &got);
+        if (rc != 0) { errno = cell_to_errno(rc); return -1; }
+        if (got == 0)
+            return 0;                     /* EOF */
+        d->count = got;
+        d->idx = 0;
+    }
+    const sysFSDirectoryEntry* e = &d->batch[d->idx++];
+    snprintf(de->name, sizeof(de->name), "%s", e->entry_name.d_name);
+    de->mode = (uint16_t) e->attribute.st_mode;   /* full S_IFMT|perm bits */
+    de->size = e->attribute.st_size;
+    de->mtime = (int64_t) e->attribute.st_mtime;
+    de->uid = (uint32_t) e->attribute.st_uid;
+    de->gid = (uint32_t) e->attribute.st_gid;
     return 1;
 }
 
 static int ps3_closedir(void* ctx, void* dir)
 {
     (void) ctx;
-    return sysFsClosedir((s32) (intptr_t) dir);
+    struct ps3_dir* d = dir;
+    s32 rc = sysFsClosedir(d->fd);
+    free(d);
+    return rc;
 }
 
 static int ps3_mkdir(void* ctx, const char* path, uint16_t mode)
@@ -199,6 +227,17 @@ static int ps3_chmod(void* ctx, const char* path, uint16_t mode)
     return 0;
 }
 
+static int ps3_utimes(void* ctx, const char* path, int64_t mtime)
+{
+    (void) ctx;
+    sysFSUtimbuf t;
+    t.actime = time(NULL);
+    t.modtime = (time_t) mtime;
+    s32 rc = sysFsUtime(path, &t);
+    if (rc != 0) { errno = cell_to_errno(rc); return -1; }
+    return 0;
+}
+
 const opftp_fs_t* opftp_fs_ps3(void)
 {
     static const opftp_fs_t fs = {
@@ -218,6 +257,7 @@ const opftp_fs_t* opftp_fs_ps3(void)
         .unlink = ps3_unlink,
         .rename = ps3_rename,
         .chmod = ps3_chmod,
+        .utimes = ps3_utimes,
     };
     return &fs;
 }
