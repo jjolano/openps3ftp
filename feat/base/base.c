@@ -718,7 +718,7 @@ void cmd_port(struct Client* client, const char command_name[32], const char* co
 	}
 	else
 	{
-		port_addr = (struct sockaddr_in*) malloc(sizeof(struct sockaddr_in*));
+		port_addr = (struct sockaddr_in*) malloc(sizeof(struct sockaddr_in));
 		client_set_cvar(client, "port_addr", (void*) port_addr);
 	}
 

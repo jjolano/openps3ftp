@@ -16,6 +16,7 @@ void sys_thread_mutex_free(void* ptr_mutex);
 void* sys_thread_cond_alloc(int num);
 int sys_thread_cond_create(void* ptr_cond, void* ptr_mutex);
 int sys_thread_cond_wait(void* ptr_cond, void* ptr_mutex);
+int sys_thread_cond_timedwait(void* ptr_cond, void* ptr_mutex, int timeout_ms);
 int sys_thread_cond_signal(void* ptr_cond);
 int sys_thread_cond_broadcast(void* ptr_cond);
 int sys_thread_cond_destroy(void* ptr_cond);

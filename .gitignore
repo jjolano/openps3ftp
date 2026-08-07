@@ -16,3 +16,5 @@ objs
 .DS_Store
 pkg/*/
 a.out
+build*/
+Testing/

@@ -11,12 +11,14 @@ extern "C" {
 #include <string.h>
 #include <inttypes.h>
 
+#if !defined(PSL1GHT_SDK) || defined(PS3DK_SDK)
 #include <sys/socket.h>
-#include <sys/stat.h>
-#include <sys/types.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <netdb.h>
+#endif
+#include <sys/stat.h>
+#include <sys/types.h>
 
 #ifdef _NTFS_SUPPORT_
 #include "ntfs.h"
@@ -48,7 +50,11 @@ extern int usleep(int usec);
 #include <ctype.h>
 #include <unistd.h>
 
+#ifndef PS3DK_SDK
 #include <net/net.h>
+#else
+#include <sys/select.h>
+#endif
 #include <net/poll.h>
 #include <sys/file.h>
 
