@@ -30,6 +30,30 @@ static void reply(struct opftp_client* c, int code, const char* msg)
     opftp_client_send_reply(c, code, msg);
 }
 
+/* 550 reply for an fs failure, with a message clients can classify:
+ * ENOENT/ENOTDIR -> "No such file or directory." (FluentFTP etc. map
+ * this to FtpMissingObjectException), EACCES/EPERM -> permission, and
+ * a generic fallback. errno is set by the fs backend on failure. */
+static void reply_fs_error(struct opftp_client* c)
+{
+    switch (errno) {
+    case ENOENT:
+    case ENOTDIR:
+        reply(c, 550, "No such file or directory.");
+        break;
+    case EACCES:
+    case EPERM:
+        reply(c, 550, "Permission denied.");
+        break;
+    case EISDIR:
+        reply(c, 550, "Is a directory.");
+        break;
+    default:
+        reply(c, 550, R550);
+        break;
+    }
+}
+
 /* Parse a UTC timestamp "YYYYMMDDHHMMSS" (first 14 chars; anything
  * after, e.g. ".12 GMT", is ignored). Returns 0 + *out, or -1. */
 static int parse_ftp_time(const char* s, time_t* out)
@@ -333,7 +357,7 @@ static void cmd_cwd(struct opftp_client* c, const char* param, void* ctx)
     opftp_stat_t st;
     if (s->fs->stat(s->fs->ctx, path, &st) != 0 ||
         (st.mode & S_IFMT) != S_IFDIR) {
-        reply(c, 550, R550);
+        reply_fs_error(c);
         return;
     }
     /* store the FTP-visible cwd (root-relative) */
@@ -360,11 +384,11 @@ static void cmd_mkd(struct opftp_client* c, const char* param, void* ctx)
     char path[OPFTP_MAX_PATH];
     if (resolve_arg(c, param, path, sizeof(path), NULL) != 0 ||
         !parent_is_dir(c, path)) {
-        reply(c, 550, R550);
+        reply_fs_error(c);
         return;
     }
     if (s->fs->mkdir(s->fs->ctx, path, 0755) != 0) {
-        reply(c, 550, R550);
+        reply_fs_error(c);
         return;
     }
     char buf[OPFTP_MAX_PATH + 16];
@@ -382,7 +406,7 @@ static void cmd_rmd(struct opftp_client* c, const char* param, void* ctx)
         return;
     }
     if (s->fs->rmdir(s->fs->ctx, path) != 0) {
-        reply(c, 550, R550);
+        reply_fs_error(c);
         return;
     }
     reply(c, 250, R250);
@@ -398,7 +422,7 @@ static void cmd_dele(struct opftp_client* c, const char* param, void* ctx)
         return;
     }
     if (s->fs->unlink(s->fs->ctx, path) != 0) {
-        reply(c, 550, R550);
+        reply_fs_error(c);
         return;
     }
     reply(c, 250, R250);
@@ -415,7 +439,7 @@ static void cmd_rnfr(struct opftp_client* c, const char* param, void* ctx)
     }
     opftp_stat_t st;
     if (s->fs->stat(s->fs->ctx, path, &st) != 0) {
-        reply(c, 550, R550);
+        reply_fs_error(c);
         return;
     }
     snprintf(c->rnfr, sizeof(c->rnfr), "%s", path);
@@ -432,12 +456,12 @@ static void cmd_rnto(struct opftp_client* c, const char* param, void* ctx)
     if (resolve_arg(c, param, path, sizeof(path), NULL) != 0 ||
         !parent_is_dir(c, path)) {
         c->have_rnfr = false;
-        reply(c, 550, R550);
+        reply_fs_error(c);
         return;
     }
     c->have_rnfr = false;
     if (s->fs->rename(s->fs->ctx, c->rnfr, path) != 0) {
-        reply(c, 550, R550);
+        reply_fs_error(c);
         return;
     }
     reply(c, 250, R250);
@@ -463,7 +487,7 @@ static void cmd_cpfr(struct opftp_client* c, const char* param, void* ctx)
     if (s->fs->stat(s->fs->ctx, path, &st) == 0)
         type = st.mode & S_IFMT;
     if (type != S_IFREG && type != S_IFDIR) {
-        reply(c, 550, R550);
+        reply_fs_error(c);
         return;
     }
     snprintf(c->cpfr, sizeof(c->cpfr), "%s", path);
@@ -483,7 +507,7 @@ static void cmd_cpto(struct opftp_client* c, const char* param, void* ctx)
     if (resolve_arg(c, param, path, sizeof(path), NULL) != 0 ||
         !parent_is_dir(c, path)) {
         c->have_cpfr = false;
-        reply(c, 550, R550);
+        reply_fs_error(c);
         return;
     }
     c->have_cpfr = false;
@@ -542,7 +566,7 @@ static void cmd_site(struct opftp_client* c, const char* param, void* ctx)
             return;
         }
         if (s->fs->chmod(s->fs->ctx, path, (uint16_t) mode) != 0) {
-            reply(c, 550, R550);
+            reply_fs_error(c);
             return;
         }
         reply(c, 200, R200);
@@ -594,11 +618,11 @@ static void cmd_site(struct opftp_client* c, const char* param, void* ctx)
         }
         opftp_stat_t st;
         if (s->fs->stat(s->fs->ctx, path, &st) != 0) {
-            reply(c, 550, R550);
+            reply_fs_error(c);
             return;
         }
         if (s->fs->utimes(s->fs->ctx, path, (int64_t) t) != 0) {
-            reply(c, 550, R550);
+            reply_fs_error(c);
             return;
         }
         reply(c, 200, R200);
@@ -637,7 +661,7 @@ static void cmd_size(struct opftp_client* c, const char* param, void* ctx)
     opftp_stat_t st;
     if (s->fs->stat(s->fs->ctx, path, &st) != 0 ||
         (st.mode & S_IFMT) != S_IFREG) {
-        reply(c, 550, R550);
+        reply_fs_error(c);
         return;
     }
     char buf[64];
@@ -656,13 +680,13 @@ static void cmd_mdtm(struct opftp_client* c, const char* param, void* ctx)
     }
     opftp_stat_t st;
     if (s->fs->stat(s->fs->ctx, path, &st) != 0) {
-        reply(c, 550, R550);
+        reply_fs_error(c);
         return;
     }
     time_t t = (time_t) st.mtime;
     struct tm tm;
     if (gmtime_r(&t, &tm) == NULL) {
-        reply(c, 550, R550);
+        reply_fs_error(c);
         return;
     }
     char buf[64];
@@ -707,7 +731,7 @@ static void cmd_stat(struct opftp_client* c, const char* param, void* ctx)
     }
     opftp_stat_t st;
     if (s->fs->stat(s->fs->ctx, path, &st) != 0) {
-        reply(c, 550, R550);
+        reply_fs_error(c);
         return;
     }
     char buf[1024];
@@ -1143,7 +1167,7 @@ static void start_listing(struct opftp_client* c, const char* param,
     }
     opftp_stat_t st;
     if (s->fs->stat(s->fs->ctx, path, &st) != 0) {
-        reply(c, 550, R550);
+        reply_fs_error(c);
         return;
     }
     start_transfer(c, OPFTP_JOB_LIST, path, nlst, mlsd, NULL);
@@ -1173,7 +1197,7 @@ static void cmd_retr(struct opftp_client* c, const char* param, void* ctx)
     opftp_stat_t st;
     if (s->fs->stat(s->fs->ctx, path, &st) != 0 ||
         (st.mode & S_IFMT) != S_IFREG) {
-        reply(c, 550, R550);
+        reply_fs_error(c);
         return;
     }
     start_transfer(c, OPFTP_JOB_RETR, path, false, false, NULL);
@@ -1188,7 +1212,7 @@ static void cmd_stor(struct opftp_client* c, const char* param, void* ctx)
         return;
     }
     if (!parent_is_dir(c, path)) {
-        reply(c, 550, R550);
+        reply_fs_error(c);
         return;
     }
     start_transfer(c, OPFTP_JOB_STOR, path, false, false, NULL);
@@ -1203,7 +1227,7 @@ static void cmd_appe(struct opftp_client* c, const char* param, void* ctx)
         return;
     }
     if (!parent_is_dir(c, path)) {
-        reply(c, 550, R550);
+        reply_fs_error(c);
         return;
     }
     start_transfer(c, OPFTP_JOB_APPE, path, false, false, NULL);
@@ -1229,7 +1253,7 @@ static void cmd_mlst(struct opftp_client* c, const char* param, void* ctx)
     }
     opftp_stat_t st;
     if (s->fs->stat(s->fs->ctx, path, &st) != 0) {
-        reply(c, 550, R550);
+        reply_fs_error(c);
         return;
     }
     opftp_dirent_t de;
@@ -1273,16 +1297,16 @@ static void cmd_mfmt(struct opftp_client* c, const char* param, void* ctx)
     }
     opftp_stat_t st;
     if (s->fs->stat(s->fs->ctx, path, &st) != 0) {
-        reply(c, 550, R550);
+        reply_fs_error(c);
         return;
     }
     if (s->fs->utimes(s->fs->ctx, path, (int64_t) t) != 0) {
-        reply(c, 550, R550);
+        reply_fs_error(c);
         return;
     }
     struct tm tm;
     if (gmtime_r(&t, &tm) == NULL) {
-        reply(c, 550, R550);
+        reply_fs_error(c);
         return;
     }
     char buf[64];

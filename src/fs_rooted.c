@@ -33,8 +33,10 @@ static bool under_root(const struct rooted* r, const char* path)
 }
 
 /* realpath-based containment: true if the resolved path stays under
- * root. Falls back to checking the parent when the target does not
- * exist yet (e.g. STOR/MKD target). */
+ * root. Falls back to checking the nearest existing ancestor when the
+ * target does not exist yet (STOR/MKD target, or a missing path — a
+ * non-existent path cannot be a symlink escape, and preserving ENOENT
+ * lets callers distinguish "not found" from "forbidden"). */
 static bool realpath_contained(const struct rooted* r, const char* path)
 {
     char resolved[OPFTP_MAX_PATH];
@@ -42,13 +44,20 @@ static bool realpath_contained(const struct rooted* r, const char* path)
         return under_root(r, resolved);
 
     if (errno == ENOENT) {
-        char parent[OPFTP_MAX_PATH];
-        if (opftp_path_parent(path, parent, sizeof(parent)) != 0)
-            return false;
-        if (parent[0] == '\0')
-            return under_root(r, path);   /* target is directly under root */
-        if (realpath(parent, resolved) != NULL)
-            return under_root(r, resolved);
+        char probe[OPFTP_MAX_PATH];
+        snprintf(probe, sizeof(probe), "%s", path);
+        for (;;) {
+            char parent[OPFTP_MAX_PATH];
+            if (opftp_path_parent(probe, parent, sizeof(parent)) != 0)
+                return false;
+            if (parent[0] == '\0')
+                return under_root(r, path);   /* nothing exists up to root */
+            if (realpath(parent, resolved) != NULL)
+                return under_root(r, resolved);
+            if (errno != ENOENT)
+                return false;
+            snprintf(probe, sizeof(probe), "%s", parent);
+        }
     }
     return false;
 }
@@ -60,7 +69,10 @@ static bool check(const struct rooted* r, const char* path)
         return false;
     }
     if (r->check_realpath && !realpath_contained(r, path)) {
-        errno = EACCES;
+        /* a real symlink escape is EACCES; a merely missing target
+         * keeps ENOENT so callers can report "No such file..." */
+        if (errno != ENOENT)
+            errno = EACCES;
         return false;
     }
     return true;
