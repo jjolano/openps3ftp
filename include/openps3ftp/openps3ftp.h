@@ -111,6 +111,7 @@ int  opftp_server_set_tls(opftp_server_t*, const char* cert_pem, const char* key
 void opftp_server_set_require_tls(opftp_server_t*, bool);
 void opftp_server_set_allow_foreign_port(opftp_server_t*, bool);      /* default false */
 void opftp_server_set_allow_stop(opftp_server_t*, bool);              /* register STOP (remote shutdown); default false */
+void opftp_server_set_pasv_range(opftp_server_t*, uint16_t min_port, uint16_t max_port); /* PASV/EPSV listener range; 0,0 = ephemeral */
 int  opftp_server_start(opftp_server_t*);    /* 0 ok; errno-style code */
 int  opftp_server_stop(opftp_server_t*);     /* 0 when drained; -ETIMEDOUT if timeout */
 void opftp_server_destroy(opftp_server_t*);  /* no-op if stop timed out; call stop again */

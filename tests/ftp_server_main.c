@@ -48,6 +48,8 @@ int main(int argc, char** argv)
     const char* key_path = (argc > 5 && argv[5][0]) ? argv[5] : NULL;
     bool require_tls = argc > 6 && atoi(argv[6]) != 0;
     bool allow_stop = argc > 7 && atoi(argv[7]) != 0;
+    unsigned pasv_min = argc > 8 ? (unsigned) atoi(argv[8]) : 0;
+    unsigned pasv_max = argc > 9 ? (unsigned) atoi(argv[9]) : 0;
 
     opftp_server_t* s = opftp_server_create(NULL);
     if (!s) { fprintf(stderr, "create failed\n"); return 1; }
@@ -55,6 +57,9 @@ int main(int argc, char** argv)
     opftp_server_set_root(s, root);
     opftp_server_set_workers(s, workers);
     opftp_server_set_stop_timeout(s, 3);
+    if (pasv_min > 0 && pasv_max >= pasv_min)
+        opftp_server_set_pasv_range(s, (uint16_t) pasv_min,
+                                    (uint16_t) pasv_max);
     if (cert_path && key_path) {
         char* cert = read_file(cert_path);
         char* key = read_file(key_path);

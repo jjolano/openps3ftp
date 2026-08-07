@@ -745,6 +745,7 @@ static void cmd_stat(struct opftp_client* c, const char* param, void* ctx)
 static void cmd_pasv(struct opftp_client* c, const char* param, void* ctx)
 {
     (void) param; (void) ctx;
+    struct opftp_server* s = server_of(c);
     /* PASV is IPv4-only: the advertised address must be a plain v4
      * address. On a dual-stack control connection the local address
      * is v4-mapped — extract the v4 part; a pure v6 connection must
@@ -781,8 +782,30 @@ static void cmd_pasv(struct opftp_client* c, const char* param, void* ctx)
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = htonl(INADDR_ANY);
     addr.sin_port = 0;
-    if (bind(fd, (struct sockaddr*) &addr, sizeof(addr)) != 0 ||
-        listen(fd, 1) != 0) {
+    /* configured range: try each port so a firewall/Docker mapping can
+     * predict the listener (0,0 = ephemeral, one bind attempt) */
+    unsigned lo = s->pasv_min, hi = s->pasv_max;
+    if (lo == 0 || hi < lo) { lo = hi = 0; }
+    unsigned cand = lo;
+    bool bound = false;
+    while (cand <= hi || (lo == 0 && cand == 0)) {
+        addr.sin_port = htons((uint16_t) cand);
+        if (bind(fd, (struct sockaddr*) &addr, sizeof(addr)) == 0) {
+            bound = true;
+            break;
+        }
+        if (lo == 0)
+            break;              /* ephemeral: single attempt */
+        cand++;
+        if (cand > hi) {
+            /* out of range: fall back to ephemeral rather than fail */
+            addr.sin_port = 0;
+            if (bind(fd, (struct sockaddr*) &addr, sizeof(addr)) == 0)
+                bound = true;
+            break;
+        }
+    }
+    if (!bound || listen(fd, 1) != 0) {
         int e = errno;
         opftp_close_fd(fd);
         errno = e;
@@ -837,6 +860,7 @@ static void cmd_port(struct opftp_client* c, const char* param, void* ctx)
 static void cmd_epsv(struct opftp_client* c, const char* param, void* ctx)
 {
     (void) ctx;
+    struct opftp_server* s = server_of(c);
     if (param && param[0]) {
         int proto = atoi(param);
         int ctrl = (opftp_sockaddr_family(&c->peer) == AF_INET6 &&
@@ -879,8 +903,36 @@ static void cmd_epsv(struct opftp_client* c, const char* param, void* ctx)
         alen = sizeof(*a4);
     }
 
-    if (bind(fd, (struct sockaddr*) &addr, alen) != 0 ||
-        listen(fd, 1) != 0) {
+    /* configured range: try each port so a firewall/Docker mapping can
+     * predict the listener (0,0 = ephemeral, one bind attempt) */
+    unsigned lo = s->pasv_min, hi = s->pasv_max;
+    if (lo == 0 || hi < lo) { lo = hi = 0; }
+    unsigned p = lo;
+    bool bound = false;
+    while (p <= hi || (lo == 0 && p == 0)) {
+        if (v6)
+            ((struct sockaddr_in6*) &addr)->sin6_port = htons((uint16_t) p);
+        else
+            ((struct sockaddr_in*) &addr)->sin_port = htons((uint16_t) p);
+        if (bind(fd, (struct sockaddr*) &addr, alen) == 0) {
+            bound = true;
+            break;
+        }
+        if (lo == 0)
+            break;              /* ephemeral: single attempt */
+        p++;
+        if (p > hi) {
+            /* out of range: fall back to ephemeral rather than fail */
+            if (v6)
+                ((struct sockaddr_in6*) &addr)->sin6_port = 0;
+            else
+                ((struct sockaddr_in*) &addr)->sin_port = 0;
+            if (bind(fd, (struct sockaddr*) &addr, alen) == 0)
+                bound = true;
+            break;
+        }
+    }
+    if (!bound || listen(fd, 1) != 0) {
         opftp_close_fd(fd);
         reply(c, 425, R425);
         return;

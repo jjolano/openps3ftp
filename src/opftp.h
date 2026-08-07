@@ -385,6 +385,10 @@ struct opftp_server {
     bool allow_stop;               /* register the STOP command (opt-in) */
     struct opftp_tls_ctx* tls;     /* parsed server TLS context, or NULL */
 
+    /* PASV/EPSV listener port range (0,0 = ephemeral). Lets a firewall
+     * or Docker port mapping know which ports the server will use. */
+    uint16_t pasv_min, pasv_max;
+
     /* reactor state */
     int listen_fd;
     int poll_handle_listener;

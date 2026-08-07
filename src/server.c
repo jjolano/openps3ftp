@@ -130,6 +130,13 @@ void opftp_server_set_allow_stop(opftp_server_t* s, bool on)
     s->allow_stop = on;
 }
 
+void opftp_server_set_pasv_range(opftp_server_t* s, uint16_t min_port,
+                                 uint16_t max_port)
+{
+    s->pasv_min = min_port;
+    s->pasv_max = max_port;
+}
+
 uint16_t opftp_server_bound_port(opftp_server_t* s)
 {
     return s->port;
