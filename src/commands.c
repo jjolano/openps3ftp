@@ -135,6 +135,8 @@ static void cmd_feat(struct opftp_client* c, const char* param, void* ctx)
     opftp_client_send(c, " REST STREAM");
     opftp_client_send(c, " EPSV");
     opftp_client_send(c, " EPRT");
+    opftp_client_send(c, " CPFR");
+    opftp_client_send(c, " CPTO");
     if (server_of(c)->tls) {
         opftp_client_send(c, " AUTH TLS");
         opftp_client_send(c, " PBSZ");
@@ -340,6 +342,80 @@ static void cmd_rnto(struct opftp_client* c, const char* param, void* ctx)
         return;
     }
     reply(c, 250, R250);
+}
+
+/* ---- CPFR / CPTO: server-side copy (draft-bharat-ftp-copy-command) ---- */
+
+/* CPFR <path>: remember the source; reply 350 (or 550 if missing).
+ * The actual copy runs on a worker via OPFTP_JOB_COPY when CPTO
+ * arrives, so multi-GB game copies don't block the reactor. */
+static void cmd_cpfr(struct opftp_client* c, const char* param, void* ctx)
+{
+    (void) ctx;
+    struct opftp_server* s = server_of(c);
+    char path[OPFTP_MAX_PATH];
+    if (resolve_arg(c, param, path, sizeof(path), NULL) != 0) {
+        reply(c, 501, R501);
+        return;
+    }
+    opftp_stat_t st;
+    if (s->fs->stat(s->fs->ctx, path, &st) != 0 ||
+        (st.mode & S_IFMT) != S_IFREG) {
+        reply(c, 550, R550);
+        return;
+    }
+    snprintf(c->cpfr, sizeof(c->cpfr), "%s", path);
+    c->have_cpfr = true;
+    reply(c, 350, "File exists, ready for destination name.");
+}
+
+static void cmd_cpto(struct opftp_client* c, const char* param, void* ctx)
+{
+    (void) ctx;
+    struct opftp_server* s = server_of(c);
+    if (!c->have_cpfr) { reply(c, 503, R503); return; }
+    if (c->job) { reply(c, 450, R450); return; }
+    char path[OPFTP_MAX_PATH];
+    if (resolve_arg(c, param, path, sizeof(path), NULL) != 0 ||
+        parent_exists(c, path) != 0) {
+        c->have_cpfr = false;
+        reply(c, 550, R550);
+        return;
+    }
+    c->have_cpfr = false;
+
+    struct opftp_transfer_job* j = calloc(1, sizeof(*j));
+    if (!j) { reply(c, 451, R451); return; }
+#ifdef OPFTP_PS3
+    j->cancel_pipe[0] = j->cancel_pipe[1] = -1;
+#else
+    if (pipe(j->cancel_pipe) != 0) {
+        free(j);
+        reply(c, 451, R451);
+        return;
+    }
+#endif
+    j->client = c;
+    opftp_client_retain(c);
+    j->generation = c->generation;
+    j->op = OPFTP_JOB_COPY;
+    j->data_fd = -1;
+    snprintf(j->path, sizeof(j->path), "%s", c->cpfr);
+    snprintf(j->dst, sizeof(j->dst), "%s", path);
+    atomic_init(&j->cancelled, false);
+
+    if (opftp_job_dispatch(s, j) != 0) {
+#ifndef OPFTP_PS3
+        close(j->cancel_pipe[0]);
+        close(j->cancel_pipe[1]);
+#endif
+        opftp_client_release(c);
+        free(j);
+        reply(c, 451, R451);
+        return;
+    }
+    c->job = j;
+    /* no immediate reply: 250/550 arrives with the job completion */
 }
 
 static void cmd_site(struct opftp_client* c, const char* param, void* ctx)
@@ -965,6 +1041,8 @@ void opftp_commands_init(struct opftp_server* s)
     opftp_dispatch_register(s, "DELE", cmd_dele, NULL);
     opftp_dispatch_register(s, "RNFR", cmd_rnfr, NULL);
     opftp_dispatch_register(s, "RNTO", cmd_rnto, NULL);
+    opftp_dispatch_register(s, "CPFR", cmd_cpfr, NULL);
+    opftp_dispatch_register(s, "CPTO", cmd_cpto, NULL);
     opftp_dispatch_register(s, "SITE", cmd_site, NULL);
     opftp_dispatch_register(s, "SIZE", cmd_size, NULL);
     opftp_dispatch_register(s, "MDTM", cmd_mdtm, NULL);

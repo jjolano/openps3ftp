@@ -313,6 +313,52 @@ static int transfer_stor(struct opftp_server* s, struct opftp_transfer_job* j,
     return rc;
 }
 
+/* ---- CPFR/CPTO: server-side file copy ---- */
+
+static int transfer_copy(struct opftp_server* s, struct opftp_transfer_job* j,
+                         uint64_t* bytes)
+{
+    const opftp_fs_t* fs = s->fs;
+    int in = -1, out = -1;
+
+    if (fs->open(fs->ctx, j->path, OPFTP_O_RDONLY, 0, &in) != 0)
+        return -errno;
+    if (fs->open(fs->ctx, j->dst, OPFTP_O_WRONLY | OPFTP_O_CREAT |
+                                  OPFTP_O_TRUNC, 0644, &out) != 0) {
+        int e = errno;
+        fs->close(fs->ctx, in);
+        return -e;
+    }
+
+    char* buf = malloc(TRANSFER_BUF);
+    if (!buf) {
+        fs->close(fs->ctx, in);
+        fs->close(fs->ctx, out);
+        return -ENOMEM;
+    }
+
+    int rc = 0;
+    for (;;) {
+        if (job_cancelled(j)) { rc = -ECANCELED; break; }
+        ssize_t n = fs->read(fs->ctx, in, buf, TRANSFER_BUF);
+        if (n < 0) { rc = -errno; break; }
+        if (n == 0) break;
+        size_t off = 0;
+        while (off < (size_t) n) {
+            ssize_t w = fs->write(fs->ctx, out, buf + off, (size_t) n - off);
+            if (w < 0) { rc = -errno; break; }
+            if (w == 0) { rc = -EIO; break; }
+            off += (size_t) w;
+        }
+        if (rc != 0) break;
+        *bytes += (uint64_t) n;
+    }
+    free(buf);
+    fs->close(fs->ctx, in);
+    fs->close(fs->ctx, out);
+    return rc;
+}
+
 /* ---- worker entry ---- */
 
 void opftp_transfer_run(struct opftp_server* s, struct opftp_transfer_job* j)
@@ -339,6 +385,9 @@ void opftp_transfer_run(struct opftp_server* s, struct opftp_transfer_job* j)
         break;
     case OPFTP_JOB_APPE:
         rc = transfer_stor(s, j, &bytes);
+        break;
+    case OPFTP_JOB_COPY:
+        rc = transfer_copy(s, j, &bytes);
         break;
     default:
         rc = -EINVAL;

@@ -333,7 +333,10 @@ void opftp_datachan_complete(struct opftp_server* s, struct opftp_transfer_job* 
     c->job = NULL;
 
     if (j->result == 0) {
-        opftp_client_send_reply(c, 226, "Transfer complete.");
+        if (j->op == OPFTP_JOB_COPY)
+            opftp_client_send_reply(c, 250, "Copy successful.");
+        else
+            opftp_client_send_reply(c, 226, "Transfer complete.");
     } else if (j->result == -ECANCELED ||
                j->result == -EPIPE || j->result == -ECONNRESET ||
                j->result == -ETIMEDOUT) {

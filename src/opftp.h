@@ -240,6 +240,8 @@ struct opftp_client {
     uint64_t rest;                    /* REST offset */
     char rnfr[OPFTP_MAX_PATH];        /* RNFR source */
     bool have_rnfr;
+    char cpfr[OPFTP_MAX_PATH];        /* CPFR source (server-side copy) */
+    bool have_cpfr;
 
     /* TLS (FTPS) */
     struct opftp_tls_session* tls;    /* control-channel TLS, or NULL */
@@ -261,6 +263,7 @@ enum opftp_job_op {
     OPFTP_JOB_STOR,   /* read data socket -> fs */
     OPFTP_JOB_APPE,   /* read data socket -> fs (append) */
     OPFTP_JOB_RETR,   /* fs -> data socket */
+    OPFTP_JOB_COPY,   /* CPFR/CPTO: fs -> fs (server-side copy) */
 };
 
 /* One in-flight transfer. Worker-owned after dispatch; the reactor
@@ -271,6 +274,7 @@ struct opftp_transfer_job {
     uint64_t generation;           /* client->generation at dispatch */
     enum opftp_job_op op;
     char path[OPFTP_MAX_PATH];
+    char dst[OPFTP_MAX_PATH];        /* OPFTP_JOB_COPY destination */
     uint64_t rest;                 /* REST offset (STREAM mode) */
     bool nlst;                     /* NLST (names only) vs LIST */
 

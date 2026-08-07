@@ -249,13 +249,17 @@ Design rules:
 
 Commands: ABOR APPE CDUP CWD DELE EPSV EPRT FEAT HELP LIST MDTM MKD MODE
 NLST NOOP OPTS PASS PASV PORT PWD REST RETR RMD RNFR RNTO SIZE SITE STAT
-STOR STRU SYST TYPE USER XCUP XCWD XMKD XPWD XRMD + AUTH/PBSZ/PROT (RFC 4217)
+STOR STRU SYST TYPE USER XCUP XCWD XMKD XPWD XRMD + CPFR/CPTO (server-side
+copy, worker job) + AUTH/PBSZ/PROT (RFC 4217)
 + STOP (openps3ftp custom, server shutdown, opt-in hook).
 
 - Data channel: PASV/PORT (IPv4), EPSV/EPRT (IPv6, RFC 2428), dual-stack
   listener (AF_INET6 with V4MAPPED, or dual sockets on ps3 if V4MAPPED is
   unavailable — probed at build time).
 - TYPE I / A; STRU F; MODE S; REST + APPE/RETR; SIZE/MDTM on files.
+- CPFR/CPTO: server-side copy (e.g. USB -> HDD on PS3). CPFR validates the
+  source (350/550); CPTO dispatches an OPFTP_JOB_COPY worker job so large
+  copies don't block the reactor; 250/550/451 arrive with the completion.
 - UTF-8: control channel 8-bit clean; FEAT advertises UTF8; OPTS UTF8 ON.
 - LIST/NLST: `-rwxr-xr-x 1 uid gid size Mon DD HH:MM name` — mirrors the old
   format (uid/gid from stat, "1 1" when backend reports 0).

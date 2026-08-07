@@ -144,6 +144,34 @@ def scenario_basic(ftp, root):
     ftp.rename("small.txt", "renamed.txt")
     check("rnto", os.path.exists(os.path.join(root, "renamed.txt")))
     ftp.rename("renamed.txt", "small.txt")
+    # CPFR/CPTO (server-side copy, worker job; #9)
+    resp = ftp.sendcmd("CPFR small.txt")
+    check("cpfr", resp.startswith("350"), resp)
+    resp = ftp.sendcmd("CPTO copied.txt")
+    check("cpto", resp.startswith("250"), resp)
+    with open(os.path.join(root, "small.txt"), "rb") as f:
+        orig = f.read()
+    with open(os.path.join(root, "copied.txt"), "rb") as f:
+        check("cpfr-cpto-content", f.read() == orig)
+    ftp.delete("copied.txt")
+    # CPTO without CPFR -> 503
+    try:
+        ftp.sendcmd("CPTO nowhere.txt")
+        check("cpto-no-cpfr", False, "expected 503")
+    except ftplib.error_perm as e:
+        check("cpto-no-cpfr", str(e).startswith("503"), e)
+    # CPFR of a missing file -> 550
+    try:
+        ftp.sendcmd("CPFR no_such_file.txt")
+        check("cpfr-missing", False, "expected 550")
+    except ftplib.error_perm as e:
+        check("cpfr-missing", str(e).startswith("550"), e)
+    # CPFR of a directory -> 550 (files only)
+    try:
+        ftp.sendcmd("CPFR sub")
+        check("cpfr-dir", False, "expected 550")
+    except ftplib.error_perm as e:
+        check("cpfr-dir", str(e).startswith("550"), e)
     # MKD / RMD / DELE
     ftp.mkd("newdir")
     check("mkd", os.path.isdir(os.path.join(root, "newdir")))
