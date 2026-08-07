@@ -375,6 +375,7 @@ struct opftp_server {
     const opftp_fs_t* fs_base;     /* configured backend */
     const opftp_fs_t* fs;          /* rooted wrapper in use */
     char root[OPFTP_MAX_PATH];
+    char fs_root_applied[OPFTP_MAX_PATH]; /* root the fs wrapper serves */
     int workers_req;               /* configured worker count (default 2) */
     int stop_timeout_ms;
 

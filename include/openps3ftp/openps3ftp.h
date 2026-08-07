@@ -105,6 +105,10 @@ opftp_server_t* opftp_server_create(const opftp_callbacks_t* cb);
 void opftp_server_set_port(opftp_server_t*, uint16_t port);           /* default 2121; 0 = ephemeral */
 void opftp_server_set_fs(opftp_server_t*, const opftp_fs_t* fs);      /* default posix/ps3 */
 void opftp_server_set_root(opftp_server_t*, const char* root);        /* default "/" */
+/* Change the served root while the server is running. The reactor
+ * thread applies it within a poll cycle (idle: ~1s, transfer: 100ms).
+ * Returns 0 on success, -EINVAL for a non-absolute path. */
+int  opftp_server_set_root_runtime(opftp_server_t*, const char* root);
 void opftp_server_set_workers(opftp_server_t*, int n);                /* default 2 */
 void opftp_server_set_stop_timeout(opftp_server_t*, int seconds);     /* default 5 */
 int  opftp_server_set_tls(opftp_server_t*, const char* cert_pem, const char* key_pem);

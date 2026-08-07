@@ -19,12 +19,16 @@
 #include <inttypes.h>
 
 #include <cell/pad.h>
+#include <cell/sysutil.h>
+#include <cell/sysutil_oskdialog.h>
+#include <sys/memory.h>
 #include <sys/sys_time.h>
 #include <sys/timer.h>
 
 #include <NoRSX.h>
 
 #include "osd.h"
+#include "ui.h"
 
 /*
  * Local netctl declarations only: <net/netctl.h> pulls <net/net.h> ->
@@ -93,94 +97,126 @@ enum {
 /* ------------------------------------------------------------------ *
  * App state
  * ------------------------------------------------------------------ */
-enum { V_STATUS = 0, V_TRANSFERS, V_CLIENTS, V_SETTINGS, V_COUNT };
-static const char* const VIEW_NAME[V_COUNT] = {
-    "STATUS", "TRANSFERS", "CLIENTS", "SETTINGS"
-};
+static opftp_ui_t g;
+static opftp_server_t* g_srv;       /* server handle for applying edits */
 
-enum { H_OK = 0, H_ABORTED, H_ERROR };
-enum { MAX_HIST = 48, MAX_EVENTS = 4, MAX_TRACK = 24 };
+/* Renderer-only state (graphics handles, pad edge history, hold/quit
+ * timing, frame pacing) — the shared model lives in ui.c / ui.h. */
+static NoRSX* gfx;
+static Font* font;
+static Object* obj;
+static uint16_t prev_d1, prev_d2;
+static uint64_t start_hold_us;      /* 0 = START not held */
+static uint64_t last_frame_us;
+static uint64_t last_render_us;     /* 0 = no frame rendered yet */
 
-struct Hist {
-    char      op[8];
-    char      path[OPFTP_SNAPSHOT_PATH];
-    uint64_t  bytes, total;
-    uint8_t   hh, mm;
-    uint8_t   result;
-};
+/* ------------------------------------------------------------------ *
+ * On-screen keyboard (system OSK via sysutil) for the model's text
+ * fields.  The dialog runs on the TV; its events arrive through the
+ * sysutil callback queue, which the OSD loop polls every frame.
+ * ------------------------------------------------------------------ */
+static sys_memory_container_t osk_container;
+static uint16_t osk_init_text[OPFTP_UI_EDIT_MAX + 1];   /* UTF-16 */
+static uint16_t osk_message[OPFTP_UI_EDIT_MAX + 1];     /* UTF-16 */
+static bool osk_finished;                               /* FINISHED seen */
+static bool osk_canceled;                               /* CANCELED seen */
 
-struct Ev {
-    char      text[72];
-    uint8_t   hh, mm;
-    bool      warn;
-};
+static uint64_t now_us(void);   /* defined below with the model helpers */
 
-struct Trk {                        /* per-client OSD-side state */
-    char      peer[64];
-    bool      present;
-    bool      seen;                 /* client present in this frame's snapshot */
-    bool      logged_in;
-    bool      xfer_active;
-    char      xfer_op[8];
-    char      xfer_path[OPFTP_SNAPSHOT_PATH];
-    uint64_t  xfer_bytes;
-    uint64_t  xfer_total;
-    uint64_t  idle_reset_us;        /* last connect/login/xfer change */
-    uint64_t  xfer_t0_us;
-    uint64_t  last_bytes_us;
-    double    rate;                 /* smoothed bytes/s              */
-};
+static void osk_cb(uint64_t status, uint64_t param, void* userdata)
+{
+    (void) param; (void) userdata;
+    switch (status) {
+    case CELL_SYSUTIL_OSKDIALOG_FINISHED:       osk_finished = true; break;
+    case CELL_SYSUTIL_OSKDIALOG_INPUT_CANCELED: osk_canceled = true; break;
+    default: break;
+    }
+}
 
-struct Detail {
-    int       kind;                 /* -1 none, 0 hist, 1 xfer, 2 client */
-    int       idx;
-};
+static int utf8_to_u16(const char* in, uint16_t* out, int max)
+{
+    int n = 0;
+    const unsigned char* p = (const unsigned char*) in;
+    while (*p && n < max) {
+        uint32_t cp;
+        int l;
+        if (*p < 0x80)             { cp = *p; l = 1; }
+        else if ((*p & 0xE0) == 0xC0) { cp = *p & 0x1F; l = 2; }
+        else if ((*p & 0xF0) == 0xE0) { cp = *p & 0x0F; l = 3; }
+        else                       { cp = *p & 0x07; l = 4; }
+        for (int i = 1; i < l; i++) cp = (cp << 6) | (p[i] & 0x3F);
+        out[n++] = (uint16_t)(cp > 0xFFFF ? 0xFFFD : cp);   /* BMP only */
+        p += l;
+    }
+    out[n] = 0;
+    return n;
+}
 
-static struct {
-    NoRSX*    gfx;
-    Font*     font;
-    Object*   obj;
-    const char* version;
+static int u16_to_utf8(uint16_t c, char* out)
+{
+    if (c < 0x80)          { out[0] = (char) c; return 1; }
+    if (c < 0x800)         { out[0] = 0xC0 | (c >> 6); out[1] = 0x80 | (c & 0x3F); return 2; }
+    out[0] = 0xE0 | (c >> 12); out[1] = 0x80 | ((c >> 6) & 0x3F);
+    out[2] = 0x80 | (c & 0x3F); return 3;
+}
 
-    /* view state */
-    int       view;
-    int       sel_status, sel_hist, sel_cli;   /* -1 = none */
-    int       scroll_hist, scroll_cli;
-    bool      help;
-    Detail    detail;
+static void osk_open(const char* initial)
+{
+    utf8_to_u16(initial, osk_init_text, OPFTP_UI_EDIT_MAX);
+    osk_finished = osk_canceled = false;
 
-    /* pad */
-    uint16_t  prev_d1, prev_d2;
-    uint64_t  start_hold_us;        /* 0 = START not held */
+    CellOskDialogParam param;
+    memset(&param, 0, sizeof(param));
+    param.allowOskPanelFlg = CELL_OSKDIALOG_PANELMODE_DEFAULT
+                           | CELL_OSKDIALOG_PANELMODE_ENGLISH
+                           | CELL_OSKDIALOG_PANELMODE_NUMERAL;
+    param.firstViewPanel = CELL_OSKDIALOG_PANELMODE_DEFAULT;
+    param.controlPoint.x = 0.0f;
+    param.controlPoint.y = 0.0f;
 
-    /* time */
-    uint64_t  t0_us;                /* OSD start (server already up) */
-    uint64_t  last_frame_us;
-    uint64_t  last_render_us;       /* 0 = no frame rendered yet */
+    CellOskDialogInputFieldInfo info;
+    memset(&info, 0, sizeof(info));
+    info.init_text = osk_init_text;
+    info.message = osk_message;
+    info.limit_length = OPFTP_UI_EDIT_MAX - 1;
 
-    /* snapshot-derived data */
-    opftp_snapshot_t snap;
-    opftp_snapshot_t snap_prev;     /* last snapshot; memcmp for dirty */
-    bool      snap_ok;
+    cellOskDialogSetInitialKeyLayout(CELL_OSKDIALOG_INITIAL_PANEL_LAYOUT_FULLKEY);
+    cellOskDialogLoadAsync(osk_container, &param, &info);
+}
 
-    /* local ip (netctl, fetched once) */
-    char      local_ip[16];
+/* Polled every frame while an edit is active: harvest the OSK result
+ * into the model and apply the field change. */
+static void osk_process(void)
+{
+    if (g.edit.field == OPFTP_UI_EDIT_NONE)
+        return;
+    if (!osk_finished && !osk_canceled)
+        return;
 
-    /* event strip (newest first, ring) */
-    Ev        events[MAX_EVENTS];
-    int       ev_head, ev_count;
+    CellOskDialogCallbackReturnParam ret;
+    memset(&ret, 0, sizeof(ret));
+    cellOskDialogUnloadAsync(&ret);
 
-    /* transfer history (newest first, ring) */
-    Hist      hist[MAX_HIST];
-    int       hist_head, hist_count;
-
-    /* per-client tracking for deltas / idle / rate */
-    Trk       trk[MAX_TRACK];
-
-    /* session stats for the uptime strip */
-    uint64_t  session_xfers, session_bytes;
-    bool      quit;
-} g;
+    if (ret.result == CELL_OSKDIALOG_INPUT_FIELD_RESULT_OK &&
+        ret.numCharsResultString > 0) {
+        /* the OSK replaces the field text wholesale */
+        opftp_ui_edit_begin(&g, g.edit.field, NULL);
+        for (int i = 0; i < ret.numCharsResultString; i++) {
+            char utf8[4];
+            int n = u16_to_utf8(ret.pResultString[i], utf8);
+            if (n > 0) { utf8[n] = 0; opftp_ui_edit_type(&g, utf8); }
+        }
+        const char* v = opftp_ui_edit_commit(&g);
+        int rc = opftp_server_set_root_runtime(g_srv, v);
+        if (rc != 0)
+            opftp_ui_event(&g,
+                "ROOT NOT CHANGED \xE2\x80\x94 path must be absolute",
+                true, now_us());
+    } else {
+        opftp_ui_edit_cancel(&g);
+    }
+    osk_finished = osk_canceled = false;
+}
 
 /* ------------------------------------------------------------------ *
  * Small drawing helpers (flat rects/lines only)
@@ -188,7 +224,7 @@ static struct {
 static void fill(int x, int y, int w, int h, u32 c)
 {
     if (w <= 0 || h <= 0) return;
-    g.obj->Rectangle(x, y, w, h, c);
+    obj->Rectangle(x, y, w, h, c);
 }
 
 static void hline(int x, int y, int w, u32 c) { fill(x, y, w, 2, c); }
@@ -254,16 +290,16 @@ static void glyph_x(int x, int y, u32 c)
 static void glyph_circle(int x, int y, u32 c)
 {
     /* ring: outer filled circle + bg-colored inner circle */
-    g.obj->Circle(x + 12, y + 12, 12, c);
-    g.obj->Circle(x + 12, y + 12, 9, C_BG);
+    obj->Circle(x + 12, y + 12, 12, c);
+    obj->Circle(x + 12, y + 12, 9, C_BG);
 }
 
 static void glyph_start(int x, int y, const char* label)
 {
     int w = CHAR_W(16) * (int)strlen(label) + 24;
     box(x, y, w, 26, C_TEXT, C_BG);
-    g.font->Printf(x + (w - CHAR_W(16) * (int)strlen(label)) / 2, y + 3,
-                   C_TEXT, 16, "%s", label);
+    font->Printf(x + (w - CHAR_W(16) * (int)strlen(label)) / 2, y + 3,
+                 C_TEXT, 16, "%s", label);
 }
 
 /* Direction arrow. up: RETR/LIST (blue), down: STOR/APPE/COPY (acc). */
@@ -303,7 +339,7 @@ static void text(int x, int y, u32 c, int size, const char* fmt, ...)
     va_start(va, fmt);
     vsnprintf(buf, sizeof(buf), fmt, va);
     va_end(va);
-    g.font->Printf(x, y, c, size, "%s", buf);
+    font->Printf(x, y, c, size, "%s", buf);
 }
 
 /* Right-aligned text; returns left edge. */
@@ -314,7 +350,7 @@ static void text_r(int xr, int y, u32 c, int size, const char* fmt, ...)
     va_start(va, fmt);
     vsnprintf(buf, sizeof(buf), fmt, va);
     va_end(va);
-    g.font->Printf(xr - tw(size, buf), y, c, size, "%s", buf);
+    font->Printf(xr - tw(size, buf), y, c, size, "%s", buf);
 }
 
 /* Center text on cx (the horizontal center). */
@@ -325,7 +361,7 @@ static void text_c(int cx, int y, u32 c, int size, const char* fmt, ...)
     va_start(va, fmt);
     vsnprintf(buf, sizeof(buf), fmt, va);
     va_end(va);
-    g.font->Printf(cx - tw(size, buf) / 2, y, c, size, "%s", buf);
+    font->Printf(cx - tw(size, buf) / 2, y, c, size, "%s", buf);
 }
 
 /* Truncate with "…" (CSS ellipsis -> manual end-cut) into `out`. */
@@ -345,43 +381,6 @@ static void truncate(char* out, size_t outsz, const char* in, int w, int size)
     out[maxchars + 1] = '\x80';
     out[maxchars + 2] = '\xA6';
     out[maxchars + 3] = 0;
-}
-
-static void fmt_size(char* out, size_t n, uint64_t bytes)
-{
-    if (bytes >= (uint64_t)1 << 30)
-        snprintf(out, n, "%.1f GB", (double)bytes / (1 << 30));
-    else if (bytes >= (uint64_t)1 << 20)
-        snprintf(out, n, "%.1f MB", (double)bytes / (1 << 20));
-    else if (bytes >= (uint64_t)1 << 10)
-        snprintf(out, n, "%.1f KB", (double)bytes / (1 << 10));
-    else
-        snprintf(out, n, "%" PRIu64 " B", bytes);
-}
-
-static void fmt_rate(char* out, size_t n, double bps)
-{
-    if (bps >= (double)(1 << 30))
-        snprintf(out, n, "%.1f GB/s", bps / (1 << 30));
-    else if (bps >= (double)(1 << 20))
-        snprintf(out, n, "%.1f MB/s", bps / (1 << 20));
-    else if (bps >= (double)(1 << 10))
-        snprintf(out, n, "%.1f KB/s", bps / (1 << 10));
-    else
-        snprintf(out, n, "%.0f B/s", bps);
-}
-
-/* hh:mm:ss duration (uptime). */
-static void fmt_dur(char* out, size_t n, uint64_t sec)
-{
-    snprintf(out, n, "%02" PRIu64 ":%02" PRIu64 ":%02" PRIu64,
-             sec / 3600, (sec / 60) % 60, sec % 60);
-}
-
-/* mm:ss idle. */
-static void fmt_idle(char* out, size_t n, uint64_t sec)
-{
-    snprintf(out, n, "%02" PRIu64 ":%02" PRIu64, sec / 60, sec % 60);
 }
 
 static uint64_t now_us(void)
@@ -433,8 +432,8 @@ static void draw_header(const char* version)
 
     /* view tabs, right-aligned before the clock */
     int x = MX + W - tw(34, clock) - 28;
-    for (int i = V_COUNT - 1; i >= 0; i--) {
-        const char* n = VIEW_NAME[i];
+    for (int i = OPFTP_UI_V_COUNT - 1; i >= 0; i--) {
+        const char* n = opftp_ui_view_name(i);
         int w = tw(23, n) + 28;
         x -= w;
         if (g.view == i) {
@@ -465,10 +464,10 @@ static void draw_footer(void)
 
     /* view indicator right-aligned: "STATUS — VIEW 1/4" */
     char right[40];
-    snprintf(right, sizeof(right), " — VIEW %d/%d", g.view + 1, V_COUNT);
-    int rw = tw(22, VIEW_NAME[g.view]) + tw(22, right);
-    text(MX + W - rw, y + 2, C_TEXT, 22, "%s", VIEW_NAME[g.view]);
-    text(MX + W - rw + tw(22, VIEW_NAME[g.view]), y + 2, C_MUTED, 22, "%s", right);
+    snprintf(right, sizeof(right), " — VIEW %d/%d", g.view + 1, OPFTP_UI_V_COUNT);
+    int rw = tw(22, opftp_ui_view_name(g.view)) + tw(22, right);
+    text(MX + W - rw, y + 2, C_TEXT, 22, "%s", opftp_ui_view_name(g.view));
+    text(MX + W - rw + tw(22, opftp_ui_view_name(g.view)), y + 2, C_MUTED, 22, "%s", right);
 }
 
 /* ------------------------------------------------------------------ *
@@ -481,7 +480,7 @@ static int draw_event_strip(int y)
     if (n <= 0) return 0;
     int yy = y;
     for (int i = 0; i < n; i++) {
-        const Ev* e = &g.events[(g.ev_head - i + MAX_EVENTS) % MAX_EVENTS];
+        const opftp_ui_ev_t* e = &g.events[(g.ev_head - i + OPFTP_UI_MAX_EVENTS) % OPFTP_UI_MAX_EVENTS];
         u32 col = e->warn ? C_WARN : C_ERR;
         u32 tint = e->warn ? C_WARNBG : C_ERRBG;
         box(MX, yy, W, ER_ROW_H, col, tint);
@@ -551,8 +550,8 @@ static void draw_status_card(int y)
     hline(MX + 24, y + 90, W - 48, C_LINE);
     uint64_t up = (now_us() - g.t0_us) / 1000000ull;
     char dur[16], gb[16];
-    fmt_dur(dur, sizeof(dur), up);
-    fmt_size(gb, sizeof(gb), g.session_bytes);
+    opftp_ui_fmt_dur(dur, sizeof(dur), up);
+    opftp_ui_fmt_size(gb, sizeof(gb), g.session_bytes);
     text(MX + 24, y + 104, C_MUTED, 22,
          "UPTIME %s \xC2\xB7 %" PRIu64 " TRANSFERS \xC2\xB7 %s THIS SESSION",
          dur, g.session_xfers, gb);
@@ -603,13 +602,13 @@ static void draw_xfer_card(int y, int idx, bool focused)
     text_r(MX + W - 18, y + 17, C_TEXT, 32, "%s", pctb);
 
     /* progress bar + meta */
-    Trk* t = 0;
-    for (int i = 0; i < MAX_TRACK; i++)
+    opftp_ui_trk_t* t = 0;
+    for (int i = 0; i < OPFTP_UI_MAX_TRACK; i++)
         if (g.trk[i].present && !strcmp(g.trk[i].peer, c->peer)) { t = &g.trk[i]; break; }
     char sz[24], tot[24], rate[16], meta[96];
-    fmt_size(sz, sizeof(sz), c->xfer_bytes);
-    fmt_size(tot, sizeof(tot), c->xfer_total);
-    if (t && t->rate > 0) fmt_rate(rate, sizeof(rate), t->rate);
+    opftp_ui_fmt_size(sz, sizeof(sz), c->xfer_bytes);
+    opftp_ui_fmt_size(tot, sizeof(tot), c->xfer_total);
+    if (t && t->rate > 0) opftp_ui_fmt_rate(rate, sizeof(rate), t->rate);
     else snprintf(rate, sizeof(rate), "0 B/s");
     if (c->xfer_total)
         snprintf(meta, sizeof(meta), "%s / %s \xC2\xB7 %s", sz, tot, rate);
@@ -683,11 +682,11 @@ static void draw_status(void)
             snprintf(chipt, sizeof(chipt), "%s \xC2\xB7 %s", user, c->xfer_op);
         } else {
             uint64_t idl = 0;
-            for (int t = 0; t < MAX_TRACK; t++)
+            for (int t = 0; t < OPFTP_UI_MAX_TRACK; t++)
                 if (g.trk[t].present && !strcmp(g.trk[t].peer, c->peer))
                     idl = (now_us() - g.trk[t].idle_reset_us) / 1000000ull;
             char idle[8];
-            fmt_idle(idle, sizeof(idle), idl);
+            opftp_ui_fmt_idle(idle, sizeof(idle), idl);
             snprintf(chipt, sizeof(chipt), "%s \xC2\xB7 idle %s", user, idle);
         }
         char peerb[24];
@@ -744,17 +743,6 @@ static void draw_scrollbar(int y, int h, int scroll, int visible, int total)
     fill(x + 2, ty, 6, th, C_MUTED);
 }
 
-static int clamp_scroll(int sel, int scroll, int visible, int total)
-{
-    if (sel < 0) sel = 0;
-    if (sel >= total) sel = total - 1;
-    if (sel < scroll) scroll = sel;
-    if (sel >= scroll + visible) scroll = sel - visible + 1;
-    if (scroll > total - visible) scroll = total - visible;
-    if (scroll < 0) scroll = 0;
-    return scroll;
-}
-
 /* ------------------------------------------------------------------ *
  * TRANSFERS view — history table (newest first), focus + scrollbar
  * ------------------------------------------------------------------ */
@@ -778,7 +766,7 @@ static void draw_transfers(void)
     int visible = rows_h / HIST_ROW_H;
     if (visible < 1) visible = 1;
     int total = g.hist_count;
-    g.scroll_hist = clamp_scroll(g.sel_hist, g.scroll_hist, visible, total);
+    g.scroll_hist = opftp_ui_clamp_scroll(g.sel_hist, g.scroll_hist, visible, total);
 
     /* row backgrounds + borders (two passes keep the 2px rules clean) */
     for (int r = 0; r < visible; r++) {
@@ -790,9 +778,9 @@ static void draw_transfers(void)
     }
     for (int r = 0; r < visible; r++) {
         int ry = y + r * HIST_ROW_H;
-        int idx = (g.hist_head - (g.scroll_hist + r) + MAX_HIST) % MAX_HIST;
+        int idx = (g.hist_head - (g.scroll_hist + r) + OPFTP_UI_MAX_HIST) % OPFTP_UI_MAX_HIST;
         if (g.scroll_hist + r >= total) break;
-        const Hist* h = &g.hist[idx];
+        const opftp_ui_hist_t* h = &g.hist[idx];
         bool up = !strcmp(h->op, "RETR") || !strcmp(h->op, "LIST");
         u32 ac = up ? C_BLUE : C_ACC;
 
@@ -811,12 +799,12 @@ static void draw_transfers(void)
         text(x, ry + 16, C_TEXT, 24, "%s", f);    x += W - 20 - 88 - 30 - 56 - 140 - 118 - 14 * 5;
 
         char sz[16];
-        fmt_size(sz, sizeof(sz), h->bytes);
+        opftp_ui_fmt_size(sz, sizeof(sz), h->bytes);
         text_r(x + 140, ry + 16, C_TEXT, 24, "%s", sz);
         x += 140 + 14;
 
-        const char* rs = h->result == H_OK ? "OK" : h->result == H_ABORTED ? "ABORTED" : "ERROR";
-        u32 rc = h->result == H_OK ? C_ACC : h->result == H_ABORTED ? C_WARN : C_ERR;
+        const char* rs = h->result == OPFTP_UI_H_OK ? "OK" : h->result == OPFTP_UI_H_ABORTED ? "ABORTED" : "ERROR";
+        u32 rc = h->result == OPFTP_UI_H_OK ? C_ACC : h->result == OPFTP_UI_H_ABORTED ? C_WARN : C_ERR;
         int bw = tw(20, rs) + 24;
         box(x + (118 - bw) / 2, ry + 15, bw, 26, rc, C_BG);
         text_c(x + 59, ry + 18, rc, 20, "%s", rs);
@@ -844,7 +832,7 @@ static void draw_clients(void)
     int visible = rows_h / CLI_ROW_H;
     if (visible < 1) visible = 1;
     int total = g.snap.num_clients;
-    g.scroll_cli = clamp_scroll(g.sel_cli, g.scroll_cli, visible, total);
+    g.scroll_cli = opftp_ui_clamp_scroll(g.sel_cli, g.scroll_cli, visible, total);
 
     for (int r = 0; r < visible; r++) {
         int ry = y + r * CLI_ROW_H;
@@ -879,7 +867,7 @@ static void draw_clients(void)
 
         char idle[8];
         uint64_t idl = 0;
-        for (int i = 0; i < MAX_TRACK; i++) {
+        for (int i = 0; i < OPFTP_UI_MAX_TRACK; i++) {
             if (!g.trk[i].present || strcmp(g.trk[i].peer, c->peer)) continue;
             /* busy: time since the transfer started; idle: since the
              * last command (connect/login/xfer start/end) */
@@ -887,7 +875,7 @@ static void draw_clients(void)
                                                : g.trk[i].idle_reset_us)) / 1000000ull);
             break;
         }
-        fmt_idle(idle, sizeof(idle), idl);
+        opftp_ui_fmt_idle(idle, sizeof(idle), idl);
         text_r(x + 120, ry + 19, C_TEXT, 26, "%s", idle);
     }
 
@@ -904,8 +892,10 @@ static void draw_clients(void)
  * ------------------------------------------------------------------ */
 static void draw_settings(void)
 {
-    slab(HDR_BOTTOM + 12, "SETTINGS", "READ-ONLY", true, 0);
-    int y = HDR_BOTTOM + 12 + SLAB_H + 12;
+    int y0 = HDR_BOTTOM + 12;
+    y0 += draw_event_strip(y0);                 /* apply errors visible here */
+    slab(y0, "SETTINGS", 0, false, 0);
+    int y = y0 + SLAB_H + 12;
 
     const char* keys[5] = { "Port", "Root path", "Worker threads", "TLS", "Require TLS" };
     char vals[5][24];
@@ -919,9 +909,22 @@ static void draw_settings(void)
     box(MX, y, W, SET_ROW_H * 5 + 2, C_LINE, C_PANEL);
     for (int i = 0; i < 5; i++) {
         int ry = y + i * SET_ROW_H;
-        text(MX + 24, ry + 16, C_TEXT, 28, "%s", keys[i]);
+        bool focused = g.sel_settings == i;
+        if (focused) {                          /* focus outline + tint */
+            box(MX, ry, W, SET_ROW_H, C_ACC, C_FOCUS);
+            text(MX + 24, ry + 16, C_ACC, 28, "%s", keys[i]);
+        } else {
+            text(MX + 24, ry + 16, C_TEXT, 28, "%s", keys[i]);
+        }
         if (i < 3) {
             text_r(MX + W - 24, ry + 16, C_TEXT, 28, "%s", vals[i]);
+            if (i == 1) {                       /* Root path: editable */
+                char hint[16];
+                snprintf(hint, sizeof(hint), "X \xC2\xB7 EDIT");
+                u32 hc = focused ? C_ACC : C_MUTED;
+                text_r(MX + W - 24 - tw(28, vals[i]) - 40, ry + 18, hc, 20,
+                       "%s", hint);
+            }
         } else {
             u32 sc = sw[i] ? C_ACC : C_MUTED;
             u32 sb = sw[i] ? C_ACC : C_LINE;
@@ -933,8 +936,8 @@ static void draw_settings(void)
     }
 
     text(MX, y + SET_ROW_H * 5 + 2 + 14, C_MUTED, 22,
-         "Configuration is read-only from this screen. Edit the config "
-         "file on disk and restart the server to change these values.");
+         "Press X on the Root path row to change it (system keyboard). "
+         "Other values are read-only.");
 }
 
 /* ------------------------------------------------------------------ *
@@ -951,7 +954,7 @@ static void overlay_panel(int* x, int* y, int* w, int* h)
 static void draw_detail_hist(void)
 {
     if (g.detail.idx < 0 || g.detail.idx >= g.hist_count) return;
-    const Hist* h = &g.hist[(g.hist_head - g.detail.idx + MAX_HIST) % MAX_HIST];
+    const opftp_ui_hist_t* h = &g.hist[(g.hist_head - g.detail.idx + OPFTP_UI_MAX_HIST) % OPFTP_UI_MAX_HIST];
     bool up = !strcmp(h->op, "RETR") || !strcmp(h->op, "LIST");
     int x, y, w, hh;
     overlay_panel(&x, &y, &w, &hh);
@@ -962,8 +965,8 @@ static void draw_detail_hist(void)
     text(x + 36, y + 60, C_TEXT, 28, "%s", h->op);
 
     char sz[16], tot[16];
-    fmt_size(sz, sizeof(sz), h->bytes);
-    fmt_size(tot, sizeof(tot), h->total);
+    opftp_ui_fmt_size(sz, sizeof(sz), h->bytes);
+    opftp_ui_fmt_size(tot, sizeof(tot), h->total);
     text(x + 36 + tw(28, h->op) + 24, y + 62, C_MUTED, 24,
          "%02d:%02d \xC2\xB7 %s", h->hh, h->mm, sz);
     if (h->total) {
@@ -982,8 +985,8 @@ static void draw_detail_hist(void)
     }
     if (off < len) text(x, y + 110 + (int)li * 32, C_MUTED, 24, "\xE2\x80\xA6");
 
-    const char* rs = h->result == H_OK ? "OK" : h->result == H_ABORTED ? "ABORTED" : "ERROR";
-    u32 rc = h->result == H_OK ? C_ACC : h->result == H_ABORTED ? C_WARN : C_ERR;
+    const char* rs = h->result == OPFTP_UI_H_OK ? "OK" : h->result == OPFTP_UI_H_ABORTED ? "ABORTED" : "ERROR";
+    u32 rc = h->result == OPFTP_UI_H_OK ? C_ACC : h->result == OPFTP_UI_H_ABORTED ? C_WARN : C_ERR;
     text(x, y + hh - 44, rc, 24, "RESULT: %s", rs);
     text_r(x + w - 72, y + hh - 44, C_MUTED, 20, "\xC3\x97 Close");
 }
@@ -1003,12 +1006,12 @@ static void draw_detail_xfer(void)
     text(x + 36, y + 60, C_TEXT, 28, "%s", c->xfer_op);
 
     char sz[24], tot[24], rate[16];
-    fmt_size(sz, sizeof(sz), c->xfer_bytes);
-    fmt_size(tot, sizeof(tot), c->xfer_total);
-    Trk* t = 0;
-    for (int i = 0; i < MAX_TRACK; i++)
+    opftp_ui_fmt_size(sz, sizeof(sz), c->xfer_bytes);
+    opftp_ui_fmt_size(tot, sizeof(tot), c->xfer_total);
+    opftp_ui_trk_t* t = 0;
+    for (int i = 0; i < OPFTP_UI_MAX_TRACK; i++)
         if (g.trk[i].present && !strcmp(g.trk[i].peer, c->peer)) { t = &g.trk[i]; break; }
-    fmt_rate(rate, sizeof(rate), t && t->rate > 0 ? t->rate : 0);
+    opftp_ui_fmt_rate(rate, sizeof(rate), t && t->rate > 0 ? t->rate : 0);
     if (c->xfer_total)
         text_r(x + w - 48, y + 62, C_TEXT, 24, "%s of %s \xC2\xB7 %s", sz, tot, rate);
     else
@@ -1096,132 +1099,6 @@ static void draw_detail_or_help(void)
 }
 
 /* ------------------------------------------------------------------ *
- * Snapshot diffing: events, history, idle/rate tracking
- * ------------------------------------------------------------------ */
-static void ev_push(const char* text, bool warn)
-{
-    uint64_t sec = now_us() / 1000000ull;
-    g.ev_head = (g.ev_head + 1) % MAX_EVENTS;
-    Ev* e = &g.events[g.ev_head];
-    e->hh = (uint8_t)((sec / 3600) % 24);
-    e->mm = (uint8_t)((sec / 60) % 60);
-    e->warn = warn;
-    strncpy(e->text, text, sizeof(e->text) - 1);
-    e->text[sizeof(e->text) - 1] = 0;
-    if (g.ev_count < MAX_EVENTS) g.ev_count++;
-}
-
-static void hist_push(const char* op, const char* path, uint64_t bytes,
-                      uint64_t total, int result)
-{
-    uint64_t sec = now_us() / 1000000ull;
-    g.hist_head = (g.hist_head + 1) % MAX_HIST;
-    Hist* h = &g.hist[g.hist_head];
-    h->hh = (uint8_t)((sec / 3600) % 24);
-    h->mm = (uint8_t)((sec / 60) % 60);
-    h->bytes = bytes; h->total = total; h->result = (uint8_t)result;
-    strncpy(h->op, op, sizeof(h->op) - 1);
-    h->op[sizeof(h->op) - 1] = 0;
-    strncpy(h->path, path, sizeof(h->path) - 1);
-    h->path[sizeof(h->path) - 1] = 0;
-    if (g.hist_count < MAX_HIST) g.hist_count++;
-    g.session_xfers++;
-    g.session_bytes += bytes;
-}
-
-static Trk* trk_find(const char* peer)
-{
-    for (int i = 0; i < MAX_TRACK; i++)
-        if (g.trk[i].present && !strcmp(g.trk[i].peer, peer))
-            return &g.trk[i];
-    for (int i = 0; i < MAX_TRACK; i++)     /* free slot */
-        if (!g.trk[i].present) {
-            memset(&g.trk[i], 0, sizeof(g.trk[i]));
-            strncpy(g.trk[i].peer, peer, sizeof(g.trk[i].peer) - 1);
-            return &g.trk[i];
-        }
-    return 0;
-}
-
-static void update_from_snapshot(void)
-{
-    const opftp_snapshot_t* s = &g.snap;
-    uint64_t now = now_us();
-
-    for (int i = 0; i < MAX_TRACK; i++) g.trk[i].seen = false;
-
-    for (int i = 0; i < s->num_clients; i++) {
-        const opftp_snapshot_client_t* c = &s->clients[i];
-        Trk* t = trk_find(c->peer);
-        if (!t) continue;
-        bool is_new = !t->present;
-
-        if (is_new) {                       /* new client */
-            char ev[72];
-            snprintf(ev, sizeof(ev), "CLIENT CONNECTED \xE2\x80\x94 %s", c->peer);
-            ev_push(ev, false);
-            t->idle_reset_us = now;
-            t->logged_in = c->logged_in;
-        }
-        t->present = true;
-        t->seen = true;
-
-        if (c->logged_in != t->logged_in) {
-            t->logged_in = c->logged_in;
-            t->idle_reset_us = now;
-        }
-
-        if (c->xfer_active) {
-            if (!t->xfer_active) {          /* transfer started */
-                t->xfer_active = true;
-                strncpy(t->xfer_op, c->xfer_op, sizeof(t->xfer_op) - 1);
-                t->xfer_op[sizeof(t->xfer_op) - 1] = 0;
-                strncpy(t->xfer_path, c->xfer_path, sizeof(t->xfer_path) - 1);
-                t->xfer_path[sizeof(t->xfer_path) - 1] = 0;
-                t->xfer_bytes = c->xfer_bytes;
-                t->xfer_total = c->xfer_total;
-                t->xfer_t0_us = now;
-                t->last_bytes_us = now;
-                t->rate = 0;
-                t->idle_reset_us = now;
-            } else {
-                /* rate (smoothed) from byte deltas */
-                uint64_t dt = now - t->last_bytes_us;
-                if (dt > 0 && c->xfer_bytes >= t->xfer_bytes) {
-                    double inst = (double)(c->xfer_bytes - t->xfer_bytes) * 1000000.0 / (double)dt;
-                    t->rate = t->rate > 0 ? t->rate * 0.5 + inst * 0.5 : inst;
-                }
-                t->xfer_bytes = c->xfer_bytes;
-                t->xfer_total = c->xfer_total;
-                t->last_bytes_us = now;
-            }
-        } else if (t->xfer_active) {        /* transfer completed */
-            t->xfer_active = false;
-            /* snapshot no longer carries the transfer, so use tracked
-             * values; incomplete vs. total -> ABORTED (no way to tell
-             * a user cancel from a failed transfer via the snapshot). */
-            int result = (t->xfer_bytes && t->xfer_total &&
-                          t->xfer_bytes < t->xfer_total) ? H_ABORTED : H_OK;
-            hist_push(t->xfer_op, t->xfer_path, t->xfer_bytes, t->xfer_total, result);
-            t->idle_reset_us = now;
-        }
-    }
-
-    /* clients that vanished while tracked: disconnect event; an active
-     * transfer that never completed -> ERROR. */
-    for (int i = 0; i < MAX_TRACK; i++) {
-        Trk* t = &g.trk[i];
-        if (!t->present || t->seen) continue;
-        char ev[72];
-        snprintf(ev, sizeof(ev), "CLIENT DISCONNECTED \xE2\x80\x94 %s", t->peer);
-        ev_push(ev, true);
-        if (t->xfer_active)
-            hist_push(t->xfer_op, t->xfer_path, t->xfer_bytes, t->xfer_total, H_ERROR);
-        memset(t, 0, sizeof(*t));           /* forget the client */
-    }
-}
-
-/* ------------------------------------------------------------------ *
  * Pad input — edge-triggered navigation (act on press, not hold)
  * ------------------------------------------------------------------ */
 static uint16_t pad_d1, pad_d2;
@@ -1238,95 +1115,20 @@ static void poll_pad(void)
     pad_d2 = pd.button[CELL_PAD_BTN_OFFSET_DIGITAL2];
 }
 
-static int sel_count(void)
-{
-    switch (g.view) {
-    case V_STATUS: {
-        int n = 0;
-        for (int i = 0; i < g.snap.num_clients; i++)
-            if (g.snap.clients[i].xfer_active) n++;
-        return n;
-    }
-    case V_TRANSFERS: return g.hist_count;
-    case V_CLIENTS:   return g.snap.num_clients;
-    default:          return 0;
-    }
-}
-
-static int* sel_ptr(void)
-{
-    switch (g.view) {
-    case V_STATUS:    return &g.sel_status;
-    case V_TRANSFERS: return &g.sel_hist;
-    case V_CLIENTS:   return &g.sel_cli;
-    default:          return 0;
-    }
-}
-
-static void sel_move(int dir)
-{
-    int* s = sel_ptr();
-    if (!s) return;
-    int n = sel_count();
-    if (n <= 0) { *s = -1; return; }
-    *s += dir;
-    if (*s < 0) *s = 0;
-    if (*s >= n) *s = n - 1;
-}
-
-/* Map a list index to the snapshot client index it refers to. */
-static int sel_to_client(int idx)
-{
-    if (g.view == V_CLIENTS) return idx;
-    int k = 0;
-    for (int i = 0; i < g.snap.num_clients; i++) {
-        if (g.snap.clients[i].xfer_active) {
-            if (k == idx) return i;
-            k++;
-        }
-    }
-    return -1;
-}
-
-static void open_detail(void)
-{
-    int* s = sel_ptr();
-    if (!s || *s < 0) return;
-    if (g.view == V_TRANSFERS) {
-        g.detail.kind = 0;          /* history entry */
-        g.detail.idx = *s;
-    } else if (g.view == V_STATUS) {
-        int ci = sel_to_client(*s);
-        if (ci >= 0) { g.detail.kind = 1; g.detail.idx = ci; }
-    } else if (g.view == V_CLIENTS) {
-        g.detail.kind = 2;          /* client */
-        g.detail.idx = *s;
-    }
-}
-
-static void switch_view(int dir)
-{
-    g.view = (g.view + dir + V_COUNT) % V_COUNT;
-    g.sel_status = g.sel_hist = g.sel_cli = -1;
-    g.scroll_hist = g.scroll_cli = 0;
-    g.detail.kind = -1;
-    g.help = false;
-}
-
 /* Returns true when any pad edge was seen this frame (a button event
  * was consumed, whether or not it changed state). */
 static bool handle_input(void)
 {
-    uint16_t p1 = pad_d1 & ~g.prev_d1;      /* edge-trigger only */
-    uint16_t p2 = pad_d2 & ~g.prev_d2;
+    uint16_t p1 = pad_d1 & ~prev_d1;        /* edge-trigger only */
+    uint16_t p2 = pad_d2 & ~prev_d2;
     uint64_t now = now_us();
 
     /* START: hold 2s to quit */
     if (pad_d1 & CELL_PAD_CTRL_START) {
-        if (!g.start_hold_us) g.start_hold_us = now;
-        else if (now - g.start_hold_us >= 2000000ull) g.quit = true;
+        if (!start_hold_us) start_hold_us = now;
+        else if (now - start_hold_us >= 2000000ull) g.quit = true;
     } else {
-        g.start_hold_us = 0;
+        start_hold_us = 0;
     }
 
     if (p2 & CELL_PAD_CTRL_TRIANGLE) {      /* help overlay toggle */
@@ -1342,22 +1144,32 @@ static bool handle_input(void)
         if (p2 & (CELL_PAD_CTRL_CIRCLE | CELL_PAD_CTRL_CROSS)) g.detail.kind = -1;
         goto done;
     }
-
-    if (p1 & (CELL_PAD_CTRL_LEFT | CELL_PAD_CTRL_RIGHT))
-        switch_view((p1 & CELL_PAD_CTRL_RIGHT) ? 1 : -1);
-
-    if (p1 & CELL_PAD_CTRL_UP)   sel_move(-1);
-    if (p1 & CELL_PAD_CTRL_DOWN) sel_move(1);
-
-    if (p2 & CELL_PAD_CTRL_CROSS) open_detail();
-    if (p2 & CELL_PAD_CTRL_CIRCLE) {        /* back: clear selection */
-        int* s = sel_ptr();
-        if (s) *s = -1;
+    if (g.edit.field != OPFTP_UI_EDIT_NONE) {
+        /* the OSK owns input while a text field is active */
+        goto done;
     }
 
+    if (p1 & (CELL_PAD_CTRL_LEFT | CELL_PAD_CTRL_RIGHT))
+        opftp_ui_switch_view(&g, (p1 & CELL_PAD_CTRL_RIGHT) ? 1 : -1);
+
+    if (p1 & CELL_PAD_CTRL_UP)   opftp_ui_sel_move(&g, -1);
+    if (p1 & CELL_PAD_CTRL_DOWN) opftp_ui_sel_move(&g, 1);
+
+    if (p2 & CELL_PAD_CTRL_CROSS) {
+        if (g.view == OPFTP_UI_V_SETTINGS && g.sel_settings == 1) {
+            /* Root path row: open the system OSK for the field */
+            opftp_ui_edit_begin(&g, OPFTP_UI_EDIT_ROOT, g.snap.root);
+            osk_open(g.edit.buf);
+            goto done;
+        }
+        opftp_ui_open_detail(&g);
+    }
+    if (p2 & CELL_PAD_CTRL_CIRCLE)          /* back: clear selection */
+        opftp_ui_clear_sel(&g);
+
 done:
-    g.prev_d1 = pad_d1;
-    g.prev_d2 = pad_d2;
+    prev_d1 = pad_d1;
+    prev_d2 = pad_d2;
     return (p1 | p2) != 0;
 }
 
@@ -1366,15 +1178,15 @@ done:
  * ------------------------------------------------------------------ */
 static void render(void)
 {
-    Background bg(g.gfx);
+    Background bg(gfx);
     bg.Mono(C_BG);
 
     draw_header(g.version);
     switch (g.view) {
-    case V_STATUS:    draw_status();    break;
-    case V_TRANSFERS: draw_transfers(); break;
-    case V_CLIENTS:   draw_clients();   break;
-    case V_SETTINGS:  draw_settings();  break;
+    case OPFTP_UI_V_STATUS:    draw_status();    break;
+    case OPFTP_UI_V_TRANSFERS: draw_transfers(); break;
+    case OPFTP_UI_V_CLIENTS:   draw_clients();   break;
+    case OPFTP_UI_V_SETTINGS:  draw_settings();  break;
     }
     draw_footer();
     draw_detail_or_help();
@@ -1385,12 +1197,8 @@ static void render(void)
  * ------------------------------------------------------------------ */
 extern "C" int opftp_osd_run(opftp_server_t* s, const char* version)
 {
-    memset(&g, 0, sizeof(g));
+    opftp_ui_init(&g, now_us());
     g.version = version;
-    g.t0_us = now_us();
-    g.last_frame_us = g.t0_us;
-    g.sel_status = g.sel_hist = g.sel_cli = -1;
-    g.detail.kind = -1;
 
     /* local IP for the ADDRESS stat (one shot; "—" if unavailable) */
     {
@@ -1402,33 +1210,46 @@ extern "C" int opftp_osd_run(opftp_server_t* s, const char* version)
             strncpy(g.local_ip, "\xE2\x80\x94", sizeof(g.local_ip) - 1);
     }
 
+    start_hold_us = 0;
+    last_frame_us = g.t0_us;
+    last_render_us = 0;
+    g_srv = s;
+
     if (cellPadInit(1) != CELL_PAD_OK)
         printf("OpenPS3FTP: OSD pad init failed\n");
 
-    NoRSX gfx(RESOLUTION_1280x720);
-    Font font(LATIN2, &gfx);        /* PS3 system font (VR LATIN2) */
-    Object obj(&gfx);
+    /* sysutil: the OSK needs a memory container + the callback queue
+     * (polled every frame below) */
+    if (sys_memory_container_create(&osk_container, 4 * 1024 * 1024) != 0)
+        printf("OpenPS3FTP: OSK container create failed\n");
+    cellSysutilRegisterCallback(0, osk_cb, NULL);
 
-    g.gfx = &gfx;
-    g.font = &font;
-    g.obj = &obj;
+    NoRSX gfx_dev(RESOLUTION_1280x720);
+    Font font_dev(LATIN2, &gfx_dev); /* PS3 system font (VR LATIN2) */
+    Object obj_dev(&gfx_dev);
 
-    gfx.AppStart();
-    while (gfx.GetAppStatus() && !g.quit) {
+    gfx = &gfx_dev;
+    font = &font_dev;
+    obj = &obj_dev;
+
+    gfx_dev.AppStart();
+    while (gfx_dev.GetAppStatus() && !g.quit) {
         uint64_t f0 = now_us();
 
         /* poll + diff run every iteration, regardless of rendering:
          * START-hold quit and transfer detection stay responsive */
         poll_pad();
         bool any_edge = handle_input();
+        cellSysutilCheckCallback();     /* delivers OSK events */
+        osk_process();
         opftp_server_snapshot(s, &g.snap);
         g.snap_ok = true;
         bool snap_changed = memcmp(&g.snap, &g.snap_prev, sizeof(g.snap)) != 0;
         if (snap_changed)
             g.snap_prev = g.snap;
-        update_from_snapshot();
+        opftp_ui_poll(&g, now_us());
 
-        if (gfx.ExitSignalStatus()) g.quit = true;
+        if (gfx_dev.ExitSignalStatus()) g.quit = true;
 
         /* Idle-skip: the framebuffer persists between flips, so when
          * nothing changed we skip render()+Flip() entirely and the last
@@ -1436,13 +1257,13 @@ extern "C" int opftp_osd_run(opftp_server_t* s, const char* version)
          * the snapshot differs from the last one (memcmp; the server
          * memsets its cache, so identical state == identical bytes), or
          * >=1s since the last rendered frame so the clock/uptime tick. */
-        uint64_t since_render = now_us() - g.last_render_us;
+        uint64_t since_render = now_us() - last_render_us;
         bool dirty = any_edge || snap_changed || since_render >= 1000000ull;
 
         if (dirty) {
             render();
-            gfx.Flip();
-            g.last_render_us = now_us();
+            gfx_dev.Flip();
+            last_render_us = now_us();
 
             /* ~30fps pacing when rendering */
             uint64_t elapsed = now_us() - f0;
@@ -1453,10 +1274,11 @@ extern "C" int opftp_osd_run(opftp_server_t* s, const char* version)
              * iteration above) */
             sys_timer_usleep(100000ull);
         }
-        g.last_frame_us = now_us();
+        last_frame_us = now_us();
     }
 
     cellPadEnd();
+    cellSysutilUnregisterCallback(0);
 
     printf("OpenPS3FTP: OSD closed (quit=%d)\n", g.quit ? 1 : 0);
     return 0;

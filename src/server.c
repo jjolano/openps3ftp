@@ -90,6 +90,19 @@ void opftp_server_set_root(opftp_server_t* s, const char* root)
     snprintf(s->root, sizeof(s->root), "%s", root);
 }
 
+int opftp_server_set_root_runtime(opftp_server_t* s, const char* root)
+{
+    /* Runtime root change: the reactor thread rebuilds the rooted fs
+     * wrapper when it notices the new value (next poll cycle), so the
+     * wrapper swap never races with command dispatch. */
+    if (!s || !root || root[0] != '/')
+        return -EINVAL;
+    opftp_mutex_lock(s->snap_mutex);
+    snprintf(s->root, sizeof(s->root), "%s", root);
+    opftp_mutex_unlock(s->snap_mutex);
+    return 0;
+}
+
 void opftp_server_set_workers(opftp_server_t* s, int n)
 {
     if (n > 0 && n <= 64)
@@ -438,6 +451,26 @@ static void format_peer(const struct opftp_client* c, char* out, size_t n)
 /* Reactor thread: republish the snapshot cache. Cheap (client count is
  * small); called once per reactor loop iteration. Builds into a local
  * and publishes under the mutex so readers never see partial writes. */
+/* Called on the reactor thread between command batches: swap the
+ * rooted fs wrapper when the configured root changed at runtime.
+ * Commands only touch s->fs on this thread, so the swap cannot race;
+ * open fds forward through the same base backend. */
+static void apply_root_change(struct opftp_server* s)
+{
+    char want[OPFTP_MAX_PATH];
+    opftp_mutex_lock(s->snap_mutex);
+    snprintf(want, sizeof(want), "%s", s->root);
+    opftp_mutex_unlock(s->snap_mutex);
+    if (!strcmp(want, s->fs_root_applied))
+        return;
+    const opftp_fs_t* nf = opftp_fs_rooted(s->fs_base, want);
+    if (!nf)
+        return;                     /* keep the old root; retry next cycle */
+    opftp_fs_rooted_free(s->fs);
+    s->fs = nf;
+    snprintf(s->fs_root_applied, sizeof(s->fs_root_applied), "%s", want);
+}
+
 static void snapshot_refresh(struct opftp_server* s)
 {
     struct opftp_snapshot tmp;
@@ -462,10 +495,10 @@ static void snapshot_refresh(struct opftp_server* s)
     }
     tmp.started = atomic_load_explicit(&s->started, memory_order_acquire);
     tmp.port = s->port;
-    snprintf(tmp.root, sizeof(tmp.root), "%s", s->root);
     tmp.workers = s->workers_req;
     tmp.num_clients = n;
     opftp_mutex_lock(s->snap_mutex);
+    snprintf(tmp.root, sizeof(tmp.root), "%s", s->root); /* runtime-mutable */
     s->snap_cache = tmp;
     opftp_mutex_unlock(s->snap_mutex);
 }
@@ -530,6 +563,7 @@ void opftp_reactor_loop(struct opftp_server* s)
         int n = opftp_pollset_wait(ps, timeout);
         opftp_client_drain_replies(s);
         drain_completions(s);
+        apply_root_change(s);
         snapshot_refresh(s);
         if (n < 0)
             break;
@@ -592,6 +626,7 @@ int opftp_reactor_init(struct opftp_server* s){
     s->fs = opftp_fs_rooted(s->fs_base, s->root);
     if (!s->fs)
         return -ENOMEM;
+    snprintf(s->fs_root_applied, sizeof(s->fs_root_applied), "%s", s->root);
     return 0;
 }
 

@@ -156,7 +156,36 @@ target_include_directories(legacy_smoke PRIVATE include feat)
 target_link_libraries(legacy_smoke openps3ftp)
 add_test(NAME legacy_ftplib COMMAND python3 ${CMAKE_SOURCE_DIR}/tests/test_legacy_ftplib.py $<TARGET_FILE:legacy_smoke>)
 
+# ---- Host TUI app: terminal port of the PS3 OSD (shared UI model) ----
+add_executable(openps3ftp-tui app/ui.c app/tui.c app/tui_main.c)
+target_include_directories(openps3ftp-tui PRIVATE app)
+target_link_libraries(openps3ftp-tui openps3ftp)
+
+# UI model unit tests (the snapshot-diffing/event/history logic shared
+# by the PS3 OSD and the host TUI; platform-neutral, host-runnable).
+add_executable(test_ui tests/test_ui.c app/ui.c)
+target_include_directories(test_ui PRIVATE app)
+target_link_libraries(test_ui openps3ftp)
+add_test(NAME ui COMMAND test_ui)
+
 # P5 gate: the shim must define every function the old headers declare,
 # or legacy consumers fail at link time (DESIGN.md, "Symbol surface").
 add_test(NAME symbols COMMAND python3 ${CMAKE_SOURCE_DIR}/tests/check_symbols.py
   $<TARGET_FILE:openps3ftp> ${CMAKE_SOURCE_DIR}/include)
+
+# ---- Fuzzing: libFuzzer control-channel target (clang only) ----
+# Enable with -DOPFTP_FUZZ=ON -DOPFTP_SANITIZE=address -DCMAKE_C_COMPILER=clang
+# The server sources are compiled directly into the target (not via the
+# static lib) so they carry fuzzer coverage instrumentation.
+option(OPFTP_FUZZ "Build libFuzzer target for the FTP control channel" OFF)
+if(OPFTP_FUZZ)
+  if(NOT CMAKE_C_COMPILER_ID MATCHES "Clang")
+    message(FATAL_ERROR "OPFTP_FUZZ requires clang (-DCMAKE_C_COMPILER=clang)")
+  endif()
+  add_executable(fuzz_ftp_server fuzz/fuzz_ftp_server.c ${OPFTP_SRCS} src/fs_posix.c)
+  target_include_directories(fuzz_ftp_server PRIVATE src include)
+  target_compile_options(fuzz_ftp_server PRIVATE -fsanitize=fuzzer,address -O1 -g)
+  target_link_options(fuzz_ftp_server PRIVATE -fsanitize=fuzzer,address)
+  target_link_libraries(fuzz_ftp_server PUBLIC mbedtls mbedx509 mbedcrypto Threads::Threads)
+  target_compile_definitions(fuzz_ftp_server PUBLIC OPFTP_TLS=1)
+endif()
