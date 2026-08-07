@@ -164,47 +164,26 @@ void opftp_pollset_wake(opftp_pollset_t* p)
 #endif
 }
 
-int opftp_pollset_event_fd(opftp_pollset_t* p, int i)
+/* One pass after wait(): copy the (user, revents) pairs of every
+ * ready slot into caller arrays (bounded by max). Returns the count.
+ * Iterating the copy avoids the O(n) rescan-per-event of the old
+ * accessors AND the index-shift wart when a handler disconnects a
+ * client mid-iteration (the copy is stable). */
+int opftp_pollset_collect(opftp_pollset_t* p, void** users, short* events,
+                          int max)
 {
-    if (!p || i < 0) return -1;
-    for (int j = 0; j < p->count; j++) {
+    if (!p || !users || !events || max <= 0)
+        return 0;
+    int n = 0;
+    for (int j = 0; j < p->count && n < max; j++) {
 #ifndef OPFTP_PS3
         if (j == 0) continue;   /* wake slot */
 #endif
         if (p->fds[j].fd >= 0 && p->fds[j].revents != 0) {
-            if (i == 0) return p->fds[j].fd;
-            i--;
+            users[n] = p->users[j];
+            events[n] = p->fds[j].revents;
+            n++;
         }
     }
-    return -1;
-}
-
-short opftp_pollset_event_events(opftp_pollset_t* p, int i)
-{
-    if (!p || i < 0) return 0;
-    for (int j = 0; j < p->count; j++) {
-#ifndef OPFTP_PS3
-        if (j == 0) continue;   /* wake slot */
-#endif
-        if (p->fds[j].fd >= 0 && p->fds[j].revents != 0) {
-            if (i == 0) return p->fds[j].revents;
-            i--;
-        }
-    }
-    return 0;
-}
-
-void* opftp_pollset_event_user(opftp_pollset_t* p, int i)
-{
-    if (!p || i < 0) return NULL;
-    for (int j = 0; j < p->count; j++) {
-#ifndef OPFTP_PS3
-        if (j == 0) continue;   /* wake slot */
-#endif
-        if (p->fds[j].fd >= 0 && p->fds[j].revents != 0) {
-            if (i == 0) return p->users[j];
-            i--;
-        }
-    }
-    return NULL;
+    return n;
 }

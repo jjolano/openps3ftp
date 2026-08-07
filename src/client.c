@@ -94,7 +94,7 @@ bool opftp_client_getline(struct opftp_client* c, char* out, size_t outsz)
     while (i < c->rlen) {
         if (c->rbuf[i] == '\n') {
             size_t len = i - c->rpos;
-            if (c->rbuf[i - 1] == '\r')
+            if (i > c->rpos && c->rbuf[i - 1] == '\r')
                 len--;
             if (len >= outsz)
                 len = outsz - 1;      /* truncate silently (defensive) */

@@ -196,7 +196,23 @@ static int transfer_list(struct opftp_server* s, struct opftp_transfer_job* j,
 {
     const opftp_fs_t* fs = s->fs;
     char line[1024];
+    /* Batch listing lines: one send per entry = one poll+send syscall
+     * pair and one TCP segment per entry (a 1,000-entry dir = 1,000 of
+     * each, plus an ACK storm). Accumulate and flush instead. */
+    char batch[8 * 1024];
+    size_t blen = 0;
     int rc = 0;
+
+#define LIST_FLUSH() do { \
+        if (blen > 0) { \
+            rc = send_all(j, batch, blen); \
+            if (rc == 0) { \
+                *bytes += (uint64_t) blen; \
+                progress_store(j, *bytes); \
+            } \
+            blen = 0; \
+        } \
+    } while (0)
 
     opftp_stat_t st;
     if (fs->stat(fs->ctx, j->path, &st) != 0) {
@@ -219,8 +235,11 @@ static int transfer_list(struct opftp_server* s, struct opftp_transfer_job* j,
             n = opftp_listing_format_mlsd(line, sizeof(line), &de);
         else
             n = opftp_listing_format(line, sizeof(line), &de, NULL);
-        rc = send_all(j, line, (size_t) n);
-        if (rc == 0) *bytes += (uint64_t) n;
+        if ((size_t) n > sizeof(batch) - blen)
+            LIST_FLUSH();
+        memcpy(batch + blen, line, (size_t) n);
+        blen += (size_t) n;
+        LIST_FLUSH();
         return rc;
     }
 
@@ -243,13 +262,17 @@ static int transfer_list(struct opftp_server* s, struct opftp_transfer_job* j,
         } else {
             n = opftp_listing_format(line, sizeof(line), &de, NULL);
         }
-        rc = send_all(j, line, (size_t) n);
-        if (rc != 0) break;
-        *bytes += (uint64_t) n;
-        progress_store(j, *bytes);
+        if ((size_t) n > sizeof(batch) - blen)
+            LIST_FLUSH();
+        if (rc != 0)
+            break;
+        memcpy(batch + blen, line, (size_t) n);
+        blen += (size_t) n;
     }
+    LIST_FLUSH();
     fs->closedir(fs->ctx, dir);
     return rc;
+#undef LIST_FLUSH
 }
 
 /* ---- RETR ---- */
@@ -397,6 +420,15 @@ void opftp_transfer_run(struct opftp_server* s, struct opftp_transfer_job* j)
 {
     int rc;
     uint64_t bytes = 0;
+
+    /* Establish the data connection on the worker so a slow/broken
+     * client can never stall the reactor (PASV accept / PORT connect,
+     * both bounded + cancel-aware). COPY jobs have no data connection. */
+    if (j->op != OPFTP_JOB_COPY) {
+        rc = opftp_datachan_connect_job(s, j);
+        if (rc != 0)
+            goto out;               /* completion with the failure */
+    }
 
     /* PROT P: TLS-wrap the data channel and handshake first. */
     if (j->need_tls) {

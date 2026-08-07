@@ -516,9 +516,15 @@ void opftp_reactor_loop(struct opftp_server* s)
         snapshot_refresh(s);
         if (n < 0)
             break;
+        /* Copy the ready pairs once; iterating the copy is stable even
+         * when a handler disconnects a client mid-iteration. */
+        void* users[OPFTP_SNAPSHOT_MAX_CLIENTS + 4];
+        short evs[OPFTP_SNAPSHOT_MAX_CLIENTS + 4];
+        n = opftp_pollset_collect(ps, users, evs,
+                                  OPFTP_SNAPSHOT_MAX_CLIENTS + 4);
         for (int i = 0; i < n; i++) {
-            void* user = opftp_pollset_event_user(ps, i);
-            short ev = opftp_pollset_event_events(ps, i);
+            void* user = users[i];
+            short ev = evs[i];
             if (user == NULL) {
                 if (ev & POLLIN)
                     accept_clients(s);

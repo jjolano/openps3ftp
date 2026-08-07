@@ -154,14 +154,14 @@ void opftp_pollset_mod(opftp_pollset_t*, int handle, short events);
 void opftp_pollset_remove(opftp_pollset_t*, int handle);
 
 /* Wait up to timeout_ms. Returns event count (0 on timeout, -1 on
- * error). Iterate with opftp_pollset_event_* indexed 0..count-1.
- * The self-pipe is consumed internally; a pollset_wake() caller does
- * not need to read it. */
+ * error). The self-pipe is consumed internally; a pollset_wake() caller
+ * does not need to read it. After wait, call opftp_pollset_collect once
+ * to copy the ready (user, revents) pairs into caller arrays (bounded
+ * by max; returns the count). Iterate the copy, not the live pollset —
+ * handlers may disconnect clients mid-iteration. */
 int  opftp_pollset_wait(opftp_pollset_t*, int timeout_ms);
 void opftp_pollset_wake(opftp_pollset_t*);
-int  opftp_pollset_event_fd(opftp_pollset_t*, int i);
-short opftp_pollset_event_events(opftp_pollset_t*, int i);
-void* opftp_pollset_event_user(opftp_pollset_t*, int i);
+int  opftp_pollset_collect(opftp_pollset_t*, void** users, short* events, int max);
 
 /* ---- path resolution (core, not fs) ---- */
 
@@ -288,6 +288,17 @@ struct opftp_transfer_job {
     bool need_tls;                 /* PROT P: wrap data fd in TLS */
     struct opftp_tls_session* tls; /* worker-owned data TLS session */
 
+    /* data-connection setup (copied from the client at dispatch; the
+     * worker establishes the connection so a slow/broken client can
+     * never stall the reactor). */
+    int pasv_fd;                       /* PASV listener, or -1 */
+    opftp_sockaddr_storage data_peer;  /* PORT target */
+    uint16_t data_peerlen;
+    bool have_data_peer;
+    opftp_sockaddr_storage ctl_peer;   /* control peer (bounce check) */
+    uint16_t ctl_peerlen;
+    bool conn_ok;                      /* worker: connection established */
+
     /* live progress (worker writes, reactor/OSD reads) */
     _Atomic uint64_t bytes;
     uint64_t total;                /* expected total; 0 = unknown */
@@ -412,7 +423,8 @@ int opftp_datachan_init(struct opftp_server* s);   /* spawn workers */
 void opftp_datachan_shutdown(struct opftp_server* s); /* drain + join */
 /* Establish a data connection for a transfer (PASV accept or PORT
  * connect, with peer-matching). Returns fd or -1 (errno set). */
-int opftp_datachan_connect(struct opftp_client* c);
+int opftp_datachan_connect_job(struct opftp_server* s, struct opftp_transfer_job* j);
+int opftp_datachan_precheck(struct opftp_client* c);
 /* reply + bookkeeping after a completion (reactor side) */
 void opftp_datachan_complete(struct opftp_server* s, struct opftp_transfer_job* j);
 

@@ -101,6 +101,10 @@ void opftp_datachan_shutdown(struct opftp_server* s)
     opftp_mutex_lock(s->queue_mutex);
     for (unsigned i = 0; i < s->queue_count; i++) {
         struct opftp_transfer_job* j = s->queue[(s->queue_head + i) % s->queue_cap];
+        if (j->data_fd >= 0)
+            opftp_close_fd(j->data_fd);
+        if (j->pasv_fd >= 0)
+            opftp_close_fd(j->pasv_fd);
 #ifndef OPFTP_PS3
         close(j->cancel_pipe[0]);
         close(j->cancel_pipe[1]);
@@ -218,6 +222,18 @@ static bool peer_matches(struct opftp_client* c, const struct sockaddr* peer)
     return addr_eq((const struct sockaddr*) &c->peer, peer);
 }
 
+/* Reactor-side data-connection precheck: pure address comparison, no
+ * blocking. Rejects a PORT/EPRT target that differs from the control
+ * peer (bounce) BEFORE any 150 reply, so the client sees 425 first.
+ * Returns 0 if the configured target is acceptable (or none yet). */
+int opftp_datachan_precheck(struct opftp_client* c)
+{
+    if (c->have_data_peer &&
+        !peer_matches(c, (const struct sockaddr*) &c->data_peer))
+        return -EACCES;
+    return 0;
+}
+
 /* ps3dk's sys/socket layer doesn't define TCP_NODELAY (the legacy
  * common.h did: 0x01). Same value on Linux. */
 #ifndef TCP_NODELAY
@@ -239,82 +255,107 @@ static int set_nonblock(int fd)
     return opftp_set_nonblock(fd);
 }
 
-int opftp_datachan_connect(struct opftp_client* c)
+/* Worker-side data-connection establishment, called from the worker
+ * before the transfer loop. Uses the setup copied into the job at
+ * dispatch, so a slow/broken client can never stall the reactor.
+ * On success sets j->data_fd and j->conn_ok. Fds are left open on
+ * failure — fd numbers are only freed on the reactor thread (the
+ * completion handler closes them). Returns 0 or -errno. */
+int opftp_datachan_connect_job(struct opftp_server* s,
+                               struct opftp_transfer_job* j)
 {
-    struct opftp_server* s = c->server;
     int fd = -1;
 
-    if (c->pasv_fd >= 0) {
-        /* accept on the PASV listener with a deadline; verify the
-         * connecting peer against the control peer */
-        struct pollfd p = { .fd = c->pasv_fd, .events = POLLIN };
-        if (poll(&p, 1, 10000) <= 0) {
-            opftp_close_fd(c->pasv_fd);
-            c->pasv_fd = -1;
-            errno = ETIMEDOUT;
-            return -1;
+    if (j->pasv_fd >= 0) {
+        /* PASV: wait for the client's data connection (bounded,
+         * cancel-aware), then accept and verify the peer. */
+        struct pollfd p[2];
+        int np = 0;
+        p[np].fd = j->pasv_fd;
+        p[np].events = POLLIN;
+        p[np].revents = 0;
+        np++;
+#ifndef OPFTP_PS3
+        if (j->cancel_pipe[0] >= 0) {
+            p[np].fd = j->cancel_pipe[0];
+            p[np].events = POLLIN;
+            p[np].revents = 0;
+            np++;
         }
+#endif
+        int r = poll(p, np, 2000);
+        if (r <= 0)
+            return r == 0 ? -ETIMEDOUT : -errno;
+#ifndef OPFTP_PS3
+        if (np > 1 && (p[1].revents & (POLLIN | POLLERR | POLLHUP)))
+            return atomic_load_explicit(&j->cancelled, memory_order_relaxed)
+                       ? -ECANCELED : -EAGAIN;
+#endif
         opftp_sockaddr_storage ss;
         socklen_t sl = sizeof(ss);
-        fd = accept(c->pasv_fd, (struct sockaddr*) &ss, &sl);
-        int accept_errno = errno;
-        opftp_close_fd(c->pasv_fd);
-        c->pasv_fd = -1;
-        if (fd < 0) {
-            errno = accept_errno;
-            return -1;
-        }
-        if (!peer_matches(c, (const struct sockaddr*) &ss)) {
-            opftp_close_fd(fd);
+        fd = accept(j->pasv_fd, (struct sockaddr*) &ss, &sl);
+        if (fd < 0)
+            return -errno;
+        j->data_fd = fd;          /* reactor closes at completion */
+        set_nonblock(fd);
+        if (!s->allow_foreign_port &&
+            !addr_eq((const struct sockaddr*) &ss,
+                     (const struct sockaddr*) &j->ctl_peer)) {
             errno = EACCES;
-            return -1;
+            return -EACCES;       /* reactor closes fd */
         }
         tune_data_fd(fd);
-        return fd;
+        j->conn_ok = true;
+        return 0;
     }
 
-    if (c->have_data_peer) {
-        /* connect to the PORT target; verify the target IP matches the
-         * control peer (bounce protection) */
-        struct sockaddr* dst = (struct sockaddr*) &c->data_peer;
-        if (!peer_matches(c, dst)) {
-            errno = EACCES;
-            return -1;
-        }
+    if (j->have_data_peer) {
+        /* PORT/EPRT: connect to the client's listener (bounded). The
+         * target was already bounce-checked against the control peer
+         * on the reactor (pure address compare, no blocking). */
+        const struct sockaddr* dst = (const struct sockaddr*) &j->data_peer;
         fd = socket(dst->sa_family, SOCK_STREAM, 0);
         if (fd < 0)
-            return -1;
+            return -errno;
+        j->data_fd = fd;          /* reactor closes at completion */
         set_nonblock(fd);
-        int r = connect(fd, dst, c->data_peerlen);
-        if (r != 0 && errno != EINPROGRESS) {
-            int e = errno;
-            opftp_close_fd(fd);
-            errno = e;
-            return -1;
+        int r = connect(fd, dst, j->data_peerlen);
+        if (r != 0 && errno != EINPROGRESS)
+            return -errno;
+        struct pollfd p[2];
+        int np = 0;
+        p[np].fd = fd;
+        p[np].events = POLLOUT;
+        p[np].revents = 0;
+        np++;
+#ifndef OPFTP_PS3
+        if (j->cancel_pipe[0] >= 0) {
+            p[np].fd = j->cancel_pipe[0];
+            p[np].events = POLLIN;
+            p[np].revents = 0;
+            np++;
         }
-        struct pollfd p = { .fd = fd, .events = POLLOUT };
-        r = poll(&p, 1, 10000);
-        if (r <= 0) {
-            int e = r == 0 ? ETIMEDOUT : errno;
-            opftp_close_fd(fd);
-            errno = e;
-            return -1;
-        }
+#endif
+        r = poll(p, np, 2000);
+        if (r <= 0)
+            return r == 0 ? -ETIMEDOUT : -errno;
+#ifndef OPFTP_PS3
+        if (np > 1 && (p[1].revents & (POLLIN | POLLERR | POLLHUP)))
+            return atomic_load_explicit(&j->cancelled, memory_order_relaxed)
+                       ? -ECANCELED : -EAGAIN;
+#endif
         int soerr = 0;
         socklen_t sl = sizeof(soerr);
         getsockopt(fd, SOL_SOCKET, SO_ERROR, &soerr, &sl);
         if (soerr != 0) {
-            opftp_close_fd(fd);
             errno = soerr;
-            return -1;
+            return -soerr;
         }
-        set_nonblock(fd);
-        tune_data_fd(fd);
-        return fd;
+        j->conn_ok = true;
+        return 0;
     }
 
-    errno = ENOTCONN;   /* no PASV, no PORT */
-    return -1;
+    return -ENOTCONN;   /* no PASV, no PORT */
 }
 
 /* ---- completion draining (reactor thread) ---- */
@@ -333,6 +374,10 @@ void opftp_datachan_complete(struct opftp_server* s, struct opftp_transfer_job* 
         opftp_close_fd(j->data_fd);
         j->data_fd = -1;
     }
+    if (j->pasv_fd >= 0) {
+        opftp_close_fd(j->pasv_fd);
+        j->pasv_fd = -1;
+    }
 #ifndef OPFTP_PS3
     if (j->cancel_pipe[0] >= 0) {
         close(j->cancel_pipe[0]);
@@ -348,7 +393,17 @@ void opftp_datachan_complete(struct opftp_server* s, struct opftp_transfer_job* 
 
     c->job = NULL;
 
-    if (j->result == 0) {
+    if (!j->conn_ok && j->op != OPFTP_JOB_COPY) {
+        /* the worker never established the data connection (e.g. PASV
+         * accept timeout, bounce reject, PORT connect failure).
+         * COPY jobs have no data connection: conn_ok stays false but
+         * the op result decides the reply. */
+        if (j->result == -ECANCELED || j->result == -ETIMEDOUT ||
+            j->result == -EACCES)
+            opftp_client_send_reply(c, 425, "Cannot open data connection.");
+        else
+            opftp_client_send_reply(c, 451, "Data transfer error (network).");
+    } else if (j->result == 0) {
         if (j->op == OPFTP_JOB_COPY)
             opftp_client_send_reply(c, 250, "Copy successful.");
         else

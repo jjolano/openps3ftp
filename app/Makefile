@@ -10,7 +10,7 @@ TARGET		:= ftp.elf
 LIBPATHS	:= -L$(PORTLIBS)/lib -L$(PSL1GHT)/ppu/lib
 LIBS		:= -lopenps3ftp -lmbedtls -lmbedx509 -lmbedcrypto \
 		   -lsysfs -lnet -lnetctl -lsysmodule \
-		   -lNoRSX -lfreetype -lgcm_sys -lrsx -lsysutil -lio \
+		   -lNoRSX -lfreetype -lpng -lgcm_sys -lrsx -lsysutil -lio \
 		   -llv2 -lrt -lm -lz
 
 # Includes
@@ -18,7 +18,7 @@ INCLUDE		:= -I. -I$(PORTLIBS)/include -I$(PORTLIBS)/include/freetype2 \
 		   $(LIBPSL1GHT_INC)
 
 # Source Files
-SRCS		:= main.c osd.cpp
+SRCS		:= main.c osd.cpp sysutil_compat.c
 OBJS		:= $(filter %.c.ppu.o,$(SRCS:.c=.c.ppu.o)) \
 		   $(filter %.cpp.ppu.o,$(SRCS:.cpp=.cpp.ppu.o))
 

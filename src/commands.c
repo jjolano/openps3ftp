@@ -442,6 +442,7 @@ static void cmd_cpto(struct opftp_client* c, const char* param, void* ctx)
     j->generation = c->generation;
     j->op = OPFTP_JOB_COPY;
     j->data_fd = -1;
+    j->pasv_fd = -1;      /* COPY has no data connection */
     snprintf(j->path, sizeof(j->path), "%s", c->cpfr);
     snprintf(j->dst, sizeof(j->dst), "%s", path);
     atomic_init(&j->cancelled, false);
@@ -969,15 +970,20 @@ static void start_transfer(struct opftp_client* c, enum opftp_job_op op,
         reply(c, 450, R450);
         return;
     }
-    int fd = opftp_datachan_connect(c);
-    if (fd < 0) {
+    /* PORT/EPRT bounce: pure address compare, no blocking, and must
+     * reply 425 BEFORE any 150. PASV-peer bounce is checked by the
+     * worker after accept (no test relies on it replying first). */
+    if (opftp_datachan_precheck(c) != 0) {
         reply(c, 425, R425);
+        return;
+    }
+    if (c->pasv_fd < 0 && !c->have_data_peer) {
+        reply(c, 425, R425);   /* no PASV, no PORT */
         return;
     }
 
     struct opftp_transfer_job* j = calloc(1, sizeof(*j));
     if (!j) {
-        opftp_close_fd(fd);
         reply(c, 425, R425);
         return;
     }
@@ -988,7 +994,6 @@ static void start_transfer(struct opftp_client* c, enum opftp_job_op op,
 #else
     if (pipe(j->cancel_pipe) != 0) {
         free(j);
-        opftp_close_fd(fd);
         reply(c, 425, R425);
         return;
     }
@@ -1002,7 +1007,15 @@ static void start_transfer(struct opftp_client* c, enum opftp_job_op op,
     j->rest = c->rest;
     j->need_tls = (c->tls_prot != 0);   /* PROT P: TLS data channel */
     snprintf(j->path, sizeof(j->path), "%s", path);
-    j->data_fd = fd;
+    j->data_fd = -1;                     /* worker establishes the connection */
+    j->pasv_fd = c->pasv_fd;             /* ownership moves to the job */
+    c->pasv_fd = -1;
+    j->data_peer = c->data_peer;
+    j->data_peerlen = c->data_peerlen;
+    j->have_data_peer = c->have_data_peer;
+    c->have_data_peer = false;
+    j->ctl_peer = c->peer;               /* control peer for bounce check */
+    j->ctl_peerlen = c->peerlen;
     atomic_init(&j->cancelled, false);
 
     if (opftp_job_dispatch(s, j) != 0) {
@@ -1010,7 +1023,8 @@ static void start_transfer(struct opftp_client* c, enum opftp_job_op op,
         close(j->cancel_pipe[0]);
         close(j->cancel_pipe[1]);
 #endif
-        opftp_close_fd(fd);
+        if (j->pasv_fd >= 0)
+            opftp_close_fd(j->pasv_fd);
         opftp_client_release(c);
         free(j);
         reply(c, 425, R425);

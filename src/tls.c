@@ -12,6 +12,7 @@
 #include <mbedtls/x509_crt.h>
 #include <mbedtls/pk.h>
 #include <mbedtls/ssl.h>
+#include <mbedtls/ssl_ticket.h>
 #include <mbedtls/error.h>
 #include <errno.h>
 #include <stdlib.h>
@@ -28,6 +29,7 @@ struct opftp_tls_ctx {
     mbedtls_x509_crt cert;
     mbedtls_pk_context key;
     mbedtls_ssl_config conf;
+    mbedtls_ssl_ticket_context tickets;  /* TLS session tickets (RFC 5077) */
     void* rng_mutex;   /* guards drbg (handshakes only) */
     bool enabled;
 };
@@ -108,22 +110,31 @@ int opftp_tls_ctx_init(struct opftp_tls_ctx** out,
     mbedtls_x509_crt_init(&ctx->cert);
     mbedtls_pk_init(&ctx->key);
     mbedtls_ssl_config_init(&ctx->conf);
+    mbedtls_ssl_ticket_init(&ctx->tickets);
 
     int rc = mbedtls_ctr_drbg_seed(&ctx->drbg, mbedtls_entropy_func,
                                    &ctx->entropy, NULL, 0);
+    if (rc != 0)
+        goto fail;
 
     rc = mbedtls_x509_crt_parse(&ctx->cert,
                                 (const unsigned char*) cert_pem,
                                 strlen(cert_pem) + 1);
+    if (rc != 0)
+        goto fail;
 
     rc = mbedtls_pk_parse_key(&ctx->key,
                               (const unsigned char*) key_pem,
                               strlen(key_pem) + 1, NULL, 0);
+    if (rc != 0)
+        goto fail;
 
     rc = mbedtls_ssl_config_defaults(&ctx->conf,
                                      MBEDTLS_SSL_IS_SERVER,
                                      MBEDTLS_SSL_TRANSPORT_STREAM,
                                      MBEDTLS_SSL_PRESET_DEFAULT);
+    if (rc != 0)
+        goto fail;
 
     mbedtls_ssl_conf_authmode(&ctx->conf, MBEDTLS_SSL_VERIFY_NONE);
     mbedtls_ssl_conf_rng(&ctx->conf, rng_wrapper, ctx);
@@ -136,6 +147,22 @@ int opftp_tls_ctx_init(struct opftp_tls_ctx** out,
                                  MBEDTLS_SSL_MAJOR_VERSION_3,
                                  MBEDTLS_SSL_MINOR_VERSION_3);
     rc = mbedtls_ssl_conf_own_cert(&ctx->conf, &ctx->cert, &ctx->key);
+    if (rc != 0)
+        goto fail;
+
+    /* RFC 5077 session tickets: a PROT P data connection per file would
+     * otherwise pay a full RSA handshake each time. Stateless (ticket
+     * key is generated at init); works with FileZilla and curl. */
+    rc = mbedtls_ssl_ticket_setup(&ctx->tickets, rng_wrapper, ctx,
+                                  MBEDTLS_CIPHER_AES_256_GCM, 86400);
+    if (rc != 0)
+        goto fail;
+    mbedtls_ssl_conf_session_tickets_cb(&ctx->conf,
+                                        mbedtls_ssl_ticket_write,
+                                        mbedtls_ssl_ticket_parse,
+                                        &ctx->tickets);
+    mbedtls_ssl_conf_session_tickets(&ctx->conf,
+                                     MBEDTLS_SSL_SESSION_TICKETS_ENABLED);
 
     ctx->enabled = true;
     *out = ctx;
@@ -152,6 +179,7 @@ void opftp_tls_ctx_free(struct opftp_tls_ctx* ctx)
         return;
     if (ctx->rng_mutex)
         opftp_mutex_destroy(ctx->rng_mutex);
+    mbedtls_ssl_ticket_free(&ctx->tickets);
     mbedtls_ssl_config_free(&ctx->conf);
     mbedtls_pk_free(&ctx->key);
     mbedtls_x509_crt_free(&ctx->cert);

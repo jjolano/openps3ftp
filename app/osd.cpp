@@ -156,9 +156,11 @@ static struct {
     /* time */
     uint64_t  t0_us;                /* OSD start (server already up) */
     uint64_t  last_frame_us;
+    uint64_t  last_render_us;       /* 0 = no frame rendered yet */
 
     /* snapshot-derived data */
     opftp_snapshot_t snap;
+    opftp_snapshot_t snap_prev;     /* last snapshot; memcmp for dirty */
     bool      snap_ok;
 
     /* local ip (netctl, fetched once) */
@@ -1311,7 +1313,9 @@ static void switch_view(int dir)
     g.help = false;
 }
 
-static void handle_input(void)
+/* Returns true when any pad edge was seen this frame (a button event
+ * was consumed, whether or not it changed state). */
+static bool handle_input(void)
 {
     uint16_t p1 = pad_d1 & ~g.prev_d1;      /* edge-trigger only */
     uint16_t p2 = pad_d2 & ~g.prev_d2;
@@ -1354,6 +1358,7 @@ static void handle_input(void)
 done:
     g.prev_d1 = pad_d1;
     g.prev_d2 = pad_d2;
+    return (p1 | p2) != 0;
 }
 
 /* ------------------------------------------------------------------ *
@@ -1412,21 +1417,42 @@ extern "C" int opftp_osd_run(opftp_server_t* s, const char* version)
     while (gfx.GetAppStatus() && !g.quit) {
         uint64_t f0 = now_us();
 
+        /* poll + diff run every iteration, regardless of rendering:
+         * START-hold quit and transfer detection stay responsive */
         poll_pad();
-        handle_input();
+        bool any_edge = handle_input();
         opftp_server_snapshot(s, &g.snap);
         g.snap_ok = true;
+        bool snap_changed = memcmp(&g.snap, &g.snap_prev, sizeof(g.snap)) != 0;
+        if (snap_changed)
+            g.snap_prev = g.snap;
         update_from_snapshot();
-
-        render();
-        gfx.Flip();
 
         if (gfx.ExitSignalStatus()) g.quit = true;
 
-        /* ~30fps */
-        uint64_t elapsed = now_us() - f0;
-        if (elapsed < 33000ull)
-            sys_timer_usleep(33000ull - elapsed);
+        /* Idle-skip: the framebuffer persists between flips, so when
+         * nothing changed we skip render()+Flip() entirely and the last
+         * frame stays on screen. Dirty when: a pad event was consumed,
+         * the snapshot differs from the last one (memcmp; the server
+         * memsets its cache, so identical state == identical bytes), or
+         * >=1s since the last rendered frame so the clock/uptime tick. */
+        uint64_t since_render = now_us() - g.last_render_us;
+        bool dirty = any_edge || snap_changed || since_render >= 1000000ull;
+
+        if (dirty) {
+            render();
+            gfx.Flip();
+            g.last_render_us = now_us();
+
+            /* ~30fps pacing when rendering */
+            uint64_t elapsed = now_us() - f0;
+            if (elapsed < 33000ull)
+                sys_timer_usleep(33000ull - elapsed);
+        } else {
+            /* idle: longer sleep (pad + snapshot still polled each
+             * iteration above) */
+            sys_timer_usleep(100000ull);
+        }
         g.last_frame_us = now_us();
     }
 
