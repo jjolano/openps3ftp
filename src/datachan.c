@@ -218,6 +218,20 @@ static bool peer_matches(struct opftp_client* c, const struct sockaddr* peer)
     return addr_eq((const struct sockaddr*) &c->peer, peer);
 }
 
+/* ps3dk's sys/socket layer doesn't define TCP_NODELAY (the legacy
+ * common.h did: 0x01). Same value on Linux. */
+#ifndef TCP_NODELAY
+#define TCP_NODELAY 1
+#endif
+
+/* Data-channel socket tuning: disable Nagle so small transfers (and the
+ * last chunk of any transfer) aren't held for a delayed-ACK window. */
+static void tune_data_fd(int fd)
+{
+    int one = 1;
+    setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof(one));
+}
+
 /* ---- connection establishment ---- */
 
 static int set_nonblock(int fd)
@@ -255,6 +269,7 @@ int opftp_datachan_connect(struct opftp_client* c)
             errno = EACCES;
             return -1;
         }
+        tune_data_fd(fd);
         return fd;
     }
 
@@ -294,6 +309,7 @@ int opftp_datachan_connect(struct opftp_client* c)
             return -1;
         }
         set_nonblock(fd);
+        tune_data_fd(fd);
         return fd;
     }
 
