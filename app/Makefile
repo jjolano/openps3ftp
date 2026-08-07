@@ -18,7 +18,7 @@ INCLUDE		:= -I. -I$(PORTLIBS)/include -I$(PORTLIBS)/include/freetype2 \
 		   $(LIBPSL1GHT_INC)
 
 # Source Files
-SRCS		:= main.c osd.cpp sysutil_compat.c
+SRCS		:= main.c osd.cpp sysutil_compat.c ui.c
 OBJS		:= $(filter %.c.ppu.o,$(SRCS:.c=.c.ppu.o)) \
 		   $(filter %.cpp.ppu.o,$(SRCS:.cpp=.cpp.ppu.o))
 
@@ -50,12 +50,27 @@ MAKE_FSELF = $(FSELF) $(1) $(2)
 MAKE_SELF_NPDRM = scetool $(SCETOOL_FLAGS) -f $(3) -2 $(4) -e $(1) $(2)
 
 # Make rules
-.PHONY: all clean
+.PHONY: all clean headless
 
 all: $(TARGET)
 
+# Headless variant for the RPCS3 test harness: no OSD, no NoRSX/RSX
+# graphics stack — just the FTP server + printf status lines, which
+# RPCS3 captures as sys_tty output.
+headless: headless.elf
+
+headless.elf: main.c
+	$(CC) $(CFLAGS) -DOPFTP_HEADLESS=1 -c main.c -o main.headless.ppu.o
+	$(CXX) main.headless.ppu.o \
+		-s $(MACHDEP) \
+		-L$(PORTLIBS)/lib -L$(PSL1GHT)/ppu/lib \
+		-lopenps3ftp -lmbedtls -lmbedx509 -lmbedcrypto \
+		-lsysfs -lnet -lnetctl -lsysmodule -llv2 -lrt -lm -lz \
+		-o $@
+	$(SPRX) $@
+
 clean:
-	rm -f $(TARGET) $(OBJS) EBOOT.BIN
+	rm -f $(TARGET) $(OBJS) EBOOT.BIN headless.elf main.headless.ppu.o
 
 $(TARGET): $(OBJS)
 	$(CXX) $^ $(LDFLAGS) -o $@

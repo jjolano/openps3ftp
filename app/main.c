@@ -10,7 +10,9 @@
 #include <sys/ppu_thread.h>
 #include <sys/timer.h>
 
+#ifndef OPFTP_HEADLESS
 #include "osd.h"
+#endif
 
 int main(void)
 {
@@ -35,10 +37,18 @@ int main(void)
     printf("OpenPS3FTP: listening on port 2121\n");
 
 #ifdef OPFTP_PS3
+#ifndef OPFTP_HEADLESS
     /* Run the on-screen display on the main thread while the server
      * runs on its reactor thread. Returns when the user quits (hold
      * START for 2s) or the home button exit signal arrives. */
     opftp_osd_run(s, "v4.1");
+#else
+    /* Headless variant (RPCS3 harness): no OSD, no RSX. The reactor
+     * runs on its own thread; keep the main thread alive until the
+     * console is shut down. The STOP command can stop the server. */
+    for (;;)
+        sys_timer_sleep(1000);
+#endif
 #else
     /* Host build: run until the console is shut down; the STOP command
      * can be used to stop the server from an FTP client. */
