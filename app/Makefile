@@ -9,17 +9,21 @@ TARGET		:= ftp.elf
 # Libraries
 LIBPATHS	:= -L$(PORTLIBS)/lib -L$(PSL1GHT)/ppu/lib
 LIBS		:= -lopenps3ftp -lmbedtls -lmbedx509 -lmbedcrypto \
-		   -lsysfs -lnet -lnetctl -lsysmodule -llv2 -lrt -lm -lz
+		   -lsysfs -lnet -lnetctl -lsysmodule \
+		   -lNoRSX -lfreetype -lgcm_sys -lrsx -lsysutil -lio \
+		   -llv2 -lrt -lm -lz
 
 # Includes
-INCLUDE		:= -I. -I$(PORTLIBS)/include $(LIBPSL1GHT_INC)
+INCLUDE		:= -I. -I$(PORTLIBS)/include -I$(PORTLIBS)/include/freetype2 \
+		   $(LIBPSL1GHT_INC)
 
 # Source Files
-SRCS		:= main.c
-OBJS		= $(SRCS:.c=.c.ppu.o)
+SRCS		:= main.c osd.cpp
+OBJS		:= $(filter %.c.ppu.o,$(SRCS:.c=.c.ppu.o)) \
+		   $(filter %.cpp.ppu.o,$(SRCS:.cpp=.cpp.ppu.o))
 
 # Define compilation options
-DEFINES		= -DPSL1GHT_SDK
+DEFINES		= -DPSL1GHT_SDK -DOPFTP_PS3=1
 CXXFLAGS	= -ffunction-sections -fdata-sections -O2 -mregnames -Wall -mcpu=cell $(MACHDEP) $(INCLUDE) $(DEFINES)
 CXXFLAGS	+= -DAPP_VER_MIN=\"-g$(GIT_VERSION)\"
 CFLAGS		= $(CXXFLAGS)
@@ -66,3 +70,6 @@ endif
 
 %.c.ppu.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
+
+%.cpp.ppu.o: %.cpp
+	$(CXX) $(CXXFLAGS) -c $< -o $@

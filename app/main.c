@@ -10,6 +10,8 @@
 #include <sys/ppu_thread.h>
 #include <sys/timer.h>
 
+#include "osd.h"
+
 int main(void)
 {
     opftp_server_t* s = opftp_server_create(NULL);
@@ -28,10 +30,17 @@ int main(void)
     }
     printf("OpenPS3FTP: listening on port 2121\n");
 
-    /* Run until the console is shut down; the STOP command can be
-     * used to stop the server from an FTP client. */
+#ifdef OPFTP_PS3
+    /* Run the on-screen display on the main thread while the server
+     * runs on its reactor thread. Returns when the user quits (hold
+     * START for 2s) or the home button exit signal arrives. */
+    opftp_osd_run(s, "v4.1");
+#else
+    /* Host build: run until the console is shut down; the STOP command
+     * can be used to stop the server from an FTP client. */
     for (;;)
         sys_timer_sleep(1000);
+#endif
 
     opftp_server_stop(s);
     opftp_server_destroy(s);
