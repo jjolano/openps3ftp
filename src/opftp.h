@@ -284,9 +284,13 @@ struct opftp_transfer_job {
     bool need_tls;                 /* PROT P: wrap data fd in TLS */
     struct opftp_tls_session* tls; /* worker-owned data TLS session */
 
+    /* live progress (worker writes, reactor/OSD reads) */
+    _Atomic uint64_t bytes;
+    uint64_t total;                /* expected total; 0 = unknown */
+
     /* completion posted by worker (reactor clears/consumes): */
     int result;                    /* 0 ok, -ECANCELED aborted, -errno other */
-    uint64_t bytes;
+    uint64_t final_bytes;
     bool posted;
     struct opftp_transfer_job* compl_next;
 };
@@ -344,6 +348,10 @@ struct opftp_server {
     void* queue_cond;            /* signaled on enqueue */
     bool pool_running;
     int workers_alive;
+
+    /* status snapshot (reactor refreshes; readers take snap_mutex) */
+    void* snap_mutex;
+    struct opftp_snapshot snap_cache;
 };
 
 /* ---- reactor module (implemented by the reactor lane) ---- */

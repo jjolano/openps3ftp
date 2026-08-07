@@ -62,9 +62,11 @@ opftp_server_t* opftp_server_create(const opftp_callbacks_t* cb)
     atomic_init(&s->reactor_done, false);
     s->life_mutex = opftp_mutex_create();
     s->life_cond = opftp_cond_create(s->life_mutex);
-    if (!s->life_mutex || !s->life_cond) {
+    s->snap_mutex = opftp_mutex_create();
+    if (!s->life_mutex || !s->life_cond || !s->snap_mutex) {
         if (s->life_mutex) opftp_mutex_destroy(s->life_mutex);
         if (s->life_cond) opftp_cond_destroy(s->life_cond);
+        if (s->snap_mutex) opftp_mutex_destroy(s->snap_mutex);
         free(s);
         return NULL;
     }
@@ -384,6 +386,90 @@ static void handle_client_events(struct opftp_server* s, struct opftp_client* c,
         client_disconnect(s, c);
 }
 
+/* ---- status snapshot (reactor refreshes; readers take snap_mutex) ---- */
+
+static const char* job_op_name(enum opftp_job_op op)
+{
+    switch (op) {
+    case OPFTP_JOB_LIST: return "LIST";
+    case OPFTP_JOB_RETR: return "RETR";
+    case OPFTP_JOB_STOR: return "STOR";
+    case OPFTP_JOB_APPE: return "APPE";
+    case OPFTP_JOB_COPY: return "COPY";
+    }
+    return "?";
+}
+
+/* Format a peer address for display ("192.168.1.50" / "fe80::1").
+ * v4-mapped v6 peers display as their v4 form. */
+static void format_peer(const struct opftp_client* c, char* out, size_t n)
+{
+    const opftp_sockaddr_storage* p = &c->peer;
+    sa_family_t fam = opftp_sockaddr_family(p);
+    if (fam == AF_INET6 && opftp_is_v4mapped(&((const struct sockaddr_in6*) p)->sin6_addr)) {
+        const unsigned char* b = ((const struct sockaddr_in6*) p)->sin6_addr.s6_addr;
+        snprintf(out, n, "%u.%u.%u.%u", b[12], b[13], b[14], b[15]);
+        return;
+    }
+    if (fam == AF_INET) {
+        const unsigned char* b = (const unsigned char*) &((const struct sockaddr_in*) p)->sin_addr;
+        snprintf(out, n, "%u.%u.%u.%u", b[0], b[1], b[2], b[3]);
+        return;
+    }
+    if (fam == AF_INET6) {
+        const char* s = inet_ntop(AF_INET6, &((const struct sockaddr_in6*) p)->sin6_addr,
+                                  out, (socklen_t) n);
+        if (s)
+            return;
+    }
+    snprintf(out, n, "?");
+}
+
+/* Reactor thread: republish the snapshot cache. Cheap (client count is
+ * small); called once per reactor loop iteration. Builds into a local
+ * and publishes under the mutex so readers never see partial writes. */
+static void snapshot_refresh(struct opftp_server* s)
+{
+    struct opftp_snapshot tmp;
+    memset(&tmp, 0, sizeof(tmp));
+    int n = 0;
+    for (struct opftp_client* cl = s->clients; cl && n < OPFTP_SNAPSHOT_MAX_CLIENTS;
+         cl = cl->next, n++) {
+        struct opftp_snapshot_client* sc = &tmp.clients[n];
+        format_peer(cl, sc->peer, sizeof(sc->peer));
+        snprintf(sc->user, sizeof(sc->user), "%s", cl->user);
+        snprintf(sc->cwd, sizeof(sc->cwd), "%s", cl->cwd);
+        sc->logged_in = cl->logged_in;
+        if (cl->job) {
+            sc->xfer_active = true;
+            snprintf(sc->xfer_op, sizeof(sc->xfer_op), "%s",
+                     job_op_name(cl->job->op));
+            snprintf(sc->xfer_path, sizeof(sc->xfer_path), "%s", cl->job->path);
+            sc->xfer_bytes = atomic_load_explicit(&cl->job->bytes,
+                                                  memory_order_relaxed);
+            sc->xfer_total = cl->job->total;
+        }
+    }
+    tmp.started = atomic_load_explicit(&s->started, memory_order_acquire);
+    tmp.port = s->port;
+    snprintf(tmp.root, sizeof(tmp.root), "%s", s->root);
+    tmp.workers = s->workers_req;
+    tmp.num_clients = n;
+    opftp_mutex_lock(s->snap_mutex);
+    s->snap_cache = tmp;
+    opftp_mutex_unlock(s->snap_mutex);
+}
+
+int opftp_server_snapshot(opftp_server_t* s, opftp_snapshot_t* out)
+{
+    if (!s || !out)
+        return -EINVAL;
+    opftp_mutex_lock(s->snap_mutex);
+    *out = s->snap_cache;
+    opftp_mutex_unlock(s->snap_mutex);
+    return 0;
+}
+
 /* ---- completion draining ---- */
 
 static void drain_completions(struct opftp_server* s)
@@ -419,8 +505,15 @@ void opftp_reactor_loop(struct opftp_server* s)
     s->clients = NULL;
 
     while (!atomic_load_explicit(&s->stopping, memory_order_relaxed)) {
-        int n = opftp_pollset_wait(ps, 1000);
+        /* Refresh the snapshot at ~10Hz while any transfer is active
+         * so status UIs see live progress; idle keeps the 1s poll. */
+        int timeout = 1000;
+        for (struct opftp_client* cl = s->clients; cl; cl = cl->next) {
+            if (cl->job) { timeout = 100; break; }
+        }
+        int n = opftp_pollset_wait(ps, timeout);
         drain_completions(s);
+        snapshot_refresh(s);
         if (n < 0)
             break;
         for (int i = 0; i < n; i++) {
@@ -632,6 +725,8 @@ void opftp_server_destroy(opftp_server_t* s)
         opftp_mutex_destroy(s->life_mutex);
     if (s->life_cond)
         opftp_cond_destroy(s->life_cond);
+    if (s->snap_mutex)
+        opftp_mutex_destroy(s->snap_mutex);
     if (s->tls)
         opftp_tls_ctx_free(s->tls);
     free(s->cert_pem);

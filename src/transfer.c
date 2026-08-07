@@ -28,6 +28,12 @@ static bool job_cancelled(struct opftp_transfer_job* j)
     return atomic_load_explicit(&j->cancelled, memory_order_relaxed);
 }
 
+/* Publish live progress (relaxed; readers only display it). */
+static void progress_store(struct opftp_transfer_job* j, uint64_t bytes)
+{
+    atomic_store_explicit(&j->bytes, bytes, memory_order_relaxed);
+}
+
 /* Poll {fd, cancel pipe} with a timeout so cancellation is honored.
  * Returns 0 if fd ready, -ECANCELED if cancelled, -errno on error. */
 static int wait_fd(struct opftp_transfer_job* j, int fd, short events, int timeout_ms)
@@ -224,6 +230,7 @@ static int transfer_list(struct opftp_server* s, struct opftp_transfer_job* j,
         rc = send_all(j, line, (size_t) n);
         if (rc != 0) break;
         *bytes += (uint64_t) n;
+        progress_store(j, *bytes);
     }
     fs->closedir(fs->ctx, dir);
     return rc;
@@ -238,6 +245,9 @@ static int transfer_retr(struct opftp_server* s, struct opftp_transfer_job* j,
     int fd = -1;
     if (fs->open(fs->ctx, j->path, OPFTP_O_RDONLY, 0, &fd) != 0)
         return -errno;
+    opftp_stat_t st;
+    if (fs->fstat(fs->ctx, fd, &st) == 0 && (st.mode & S_IFMT) == S_IFREG)
+        j->total = st.size;   /* progress denominator for the OSD */
     if (j->rest > 0) {
         if (fs->seek(fs->ctx, fd, (int64_t) j->rest, SEEK_SET) < 0) {
             int e = errno;
@@ -258,6 +268,7 @@ static int transfer_retr(struct opftp_server* s, struct opftp_transfer_job* j,
         rc = send_all(j, buf, (size_t) n);
         if (rc != 0) break;
         *bytes += (uint64_t) n;
+        progress_store(j, *bytes);
     }
     free(buf);
     fs->close(fs->ctx, fd);
@@ -307,6 +318,7 @@ static int transfer_stor(struct opftp_server* s, struct opftp_transfer_job* j,
         }
         if (rc != 0) break;
         *bytes += (uint64_t) n;
+        progress_store(j, *bytes);
     }
     free(buf);
     fs->close(fs->ctx, fd);
@@ -323,6 +335,9 @@ static int transfer_copy(struct opftp_server* s, struct opftp_transfer_job* j,
 
     if (fs->open(fs->ctx, j->path, OPFTP_O_RDONLY, 0, &in) != 0)
         return -errno;
+    opftp_stat_t st;
+    if (fs->fstat(fs->ctx, in, &st) == 0 && (st.mode & S_IFMT) == S_IFREG)
+        j->total = st.size;   /* progress denominator for the OSD */
     if (fs->open(fs->ctx, j->dst, OPFTP_O_WRONLY | OPFTP_O_CREAT |
                                   OPFTP_O_TRUNC, 0644, &out) != 0) {
         int e = errno;
@@ -352,6 +367,7 @@ static int transfer_copy(struct opftp_server* s, struct opftp_transfer_job* j,
         }
         if (rc != 0) break;
         *bytes += (uint64_t) n;
+        progress_store(j, *bytes);
     }
     free(buf);
     fs->close(fs->ctx, in);
@@ -421,8 +437,9 @@ out:
      * reactor thread (serialized with accept/socket allocation) to
      * avoid a close racing a reused fd. The reactor closes them when
      * it processes this completion. */
+    atomic_store_explicit(&j->bytes, bytes, memory_order_relaxed);
     j->result = rc;
-    j->bytes = bytes;
+    j->final_bytes = bytes;
     j->posted = true;
 
     /* Post completion and wake the reactor under the completion lock:

@@ -127,6 +127,39 @@ void  opftp_client_send(opftp_client_t*, const char* msg);         /* raw line, 
 void  opftp_client_send_reply(opftp_client_t*, int code, const char* msg);
 void  opftp_client_disconnect(opftp_client_t*);
 
+/* ---- server snapshot (status UIs / OSD) ---- */
+
+#define OPFTP_SNAPSHOT_MAX_CLIENTS 16
+#define OPFTP_SNAPSHOT_PATH 1024
+
+/* One connected client with its active transfer, if any. */
+typedef struct opftp_snapshot_client {
+    char peer[64];            /* "ip" or "ip:port" string */
+    char user[64];
+    char cwd[OPFTP_SNAPSHOT_PATH];
+    bool logged_in;
+    bool xfer_active;         /* an opftp transfer/copy job is running */
+    char xfer_op[8];          /* "LIST" "RETR" "STOR" "APPE" "COPY" */
+    char xfer_path[OPFTP_SNAPSHOT_PATH];
+    uint64_t xfer_bytes;      /* progress so far */
+    uint64_t xfer_total;      /* expected total; 0 if unknown */
+} opftp_snapshot_client_t;
+
+/* Thread-safe server state snapshot. Callable from any thread (the
+ * reactor keeps the cache fresh while running). */
+typedef struct opftp_snapshot {
+    bool started;             /* reactor running */
+    uint16_t port;            /* bound port */
+    char root[OPFTP_SNAPSHOT_PATH];
+    int workers;
+    int num_clients;
+    opftp_snapshot_client_t clients[OPFTP_SNAPSHOT_MAX_CLIENTS];
+} opftp_snapshot_t;
+
+/* Copy the current snapshot into out. Returns 0 (always fills out;
+ * fields are zero/empty before start and after stop). */
+int opftp_server_snapshot(opftp_server_t*, opftp_snapshot_t* out);
+
 #ifdef __cplusplus
 }
 #endif
