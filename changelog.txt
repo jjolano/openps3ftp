@@ -1,5 +1,21 @@
-[Version 4.4-experimental]
-- Added multithreading code. Should improve performance at a cost of stability.
+[Version 5.0 - August 7, 2026]
+- New on-screen OSD status UI (NoRSX, 4 views, gamepad navigation) with
+  server status, connected clients, and transfer activity.
+- New Linux TUI with the same views and UI model; the PS3 app gained
+  native OSK (on-screen keyboard) text input for the root path setting,
+  with runtime root change (no restart needed).
+- New commands: MLSD/MLST, MFMT, STOU, SITE UTIME, CPFR/CPTO (server-side
+  copy).
+- Configurable PASV/EPSV listener port range.
+- Strict RFC 959 TYPE parsing; STOP canonicalized as SITE STOP.
+- FTP compliance fixes found by the FluentFTP test harness: 550 message
+  classification and rooted-fs ENOENT handling.
+- Fixed a heap-use-after-free in the in-memory filesystem (RMD on root,
+  rename into own subtree) found by the new libFuzzer harness.
+- Performance: LIST batching, OSD idle-skip, worker-side connect, TLS
+  session tickets, full-chunk disk writes (MSG_WAITALL), Nagle disabled
+  on the data channel, reduced locking and thread count for stability.
+- Headless PS3 app variant plus RPCS3 test harness for automated testing.
 
 [Version 4.3 - March 31, 2017]
 - Fixed console hardlock when shutting down while a client is connected.
