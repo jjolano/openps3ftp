@@ -48,7 +48,7 @@ jobs:
         run: ./build-fuzz/fuzz_ftp_server -runs=100 fuzz/corpus
 
   ps3:
-    name: PS3 cross-build (ps3dk)
+    name: PS3 cross-build lib (stock ps3dk)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -66,8 +66,6 @@ jobs:
         run: |
           cmake -S . -B build-ps3 -DOPFTP_PS3=1 -DCMAKE_TOOLCHAIN_FILE=cmake/ps3dk.cmake
           cmake --build build-ps3 -j$(nproc)
-      - name: Build app (EBOOT)
-        run: |
-          cmake --install build-ps3 --prefix "$PORTLIBS"
-          make -C app ftp.elf
-          make_self_npdrm app/ftp.elf app/EBOOT.BIN UP0001-NPXS91337_00-0000000000000000 04
+      # The PS3 app (OSD/NoRSX, cell/* headers) needs the expanded local
+      # ps3dk stage, which isn't published for CI; the lib gate covers
+      # engine portability against stock PSL1GHT.

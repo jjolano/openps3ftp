@@ -22,8 +22,7 @@
 #include <cell/sysutil.h>
 #include <cell/sysutil_oskdialog.h>
 #include <sys/memory.h>
-#include <sys/systime.h>
-#include <sys/timer.h>
+#include <sys/systime.h>    /* sysUsleep; no sys/timer.h in stock PSL1GHT */
 
 #include <NoRSX.h>
 
@@ -1268,11 +1267,11 @@ extern "C" int opftp_osd_run(opftp_server_t* s, const char* version)
             /* ~30fps pacing when rendering */
             uint64_t elapsed = now_us() - f0;
             if (elapsed < 33000ull)
-                sys_timer_usleep(33000ull - elapsed);
+                sysUsleep((u32)(33000ull - elapsed));
         } else {
             /* idle: longer sleep (pad + snapshot still polled each
              * iteration above) */
-            sys_timer_usleep(100000ull);
+            sysUsleep(100000u);
         }
         last_frame_us = now_us();
     }

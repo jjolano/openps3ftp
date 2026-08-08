@@ -7,7 +7,7 @@
 #include <string.h>
 
 #include <openps3ftp/openps3ftp.h>
-#include <sys/timer.h>
+#include <sys/systime.h>    /* sysSleep; no sys/timer.h in stock PSL1GHT */
 
 #ifndef OPFTP_HEADLESS
 #include "osd.h"
@@ -46,13 +46,13 @@ int main(void)
      * runs on its own thread; keep the main thread alive until the
      * console is shut down. The STOP command can stop the server. */
     for (;;)
-        sys_timer_sleep(1000);
+        sysSleep(1000);
 #endif
 #else
     /* Host build: run until the console is shut down; the STOP command
      * can be used to stop the server from an FTP client. */
     for (;;)
-        sys_timer_sleep(1000);
+        sysSleep(1000);
 #endif
 
     opftp_server_stop(s);
