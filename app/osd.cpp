@@ -23,11 +23,13 @@
 #include <cell/sysutil_oskdialog.h>
 #include <sys/memory.h>
 #include <sys/systime.h>    /* sysUsleep; no sys/timer.h in stock PSL1GHT */
+#include <ppu-lv2.h>        /* lv2syscallN macros for sys_fs_mount/unmount */
 
 #include <NoRSX.h>
 
 #include "osd.h"
 #include "ui.h"
+#include "log.h"
 
 /*
  * Local netctl declarations only: <net/netctl.h> pulls <net/net.h> ->
@@ -108,6 +110,11 @@ static uint16_t prev_d1, prev_d2;
 static uint64_t start_hold_us;      /* 0 = START not held */
 static uint64_t last_frame_us;
 static uint64_t last_render_us;     /* 0 = no frame rendered yet */
+
+/* dev_blind: mounts the flash filesystem writable (lv2 syscalls 837/838,
+ * device CELL_FS_IOS:BUILTIN_FLSH1). Opt-in only — writing flash can
+ * brick the console, so this is never done automatically. */
+static bool dev_blind_mounted = false;
 
 /* ------------------------------------------------------------------ *
  * On-screen keyboard (system OSK via sysutil) for the model's text
@@ -299,6 +306,12 @@ static void glyph_start(int x, int y, const char* label)
     box(x, y, w, 26, C_TEXT, C_BG);
     font->Printf(x + (w - CHAR_W(16) * (int)strlen(label)) / 2, y + 3,
                  C_TEXT, 16, "%s", label);
+}
+
+/* SELECT button: small rounded-ish rect (box = 2px border). */
+static void glyph_select(int x, int y, u32 c)
+{
+    box(x, y, 24, 24, c, C_BG);
 }
 
 /* Direction arrow. up: RETR/LIST (blue), down: STOR/APPE/COPY (acc). */
@@ -551,9 +564,14 @@ static void draw_status_card(int y)
     char dur[16], gb[16];
     opftp_ui_fmt_dur(dur, sizeof(dur), up);
     opftp_ui_fmt_size(gb, sizeof(gb), g.session_bytes);
-    text(MX + 24, y + 104, C_MUTED, 22,
-         "UPTIME %s \xC2\xB7 %" PRIu64 " TRANSFERS \xC2\xB7 %s THIS SESSION",
-         dur, g.session_xfers, gb);
+    char base[96];
+    snprintf(base, sizeof(base),
+             "UPTIME %s \xC2\xB7 %" PRIu64 " TRANSFERS \xC2\xB7 %s THIS SESSION",
+             dur, g.session_xfers, gb);
+    text(MX + 24, y + 104, C_MUTED, 22, "%s", base);
+    if (dev_blind_mounted)          /* persistent brick-risk warning */
+        text(MX + 24 + tw(22, base), y + 104, C_WARN, 22,
+             " \xC2\xB7 dev_blind MOUNTED");
 }
 
 /* ------------------------------------------------------------------ *
@@ -1069,9 +1087,10 @@ static void draw_help(void)
 
     text(x, y + 20, C_MUTED, 22, "HELP");
 
-    static const char* rows[6] = {
+    static const char* rows[7] = {
         "Move selection", "Switch view", "Open details",
-        "Close / clear selection", "Close this panel", "Hold to quit",
+        "Close / clear selection", "Close this panel", "Toggle dev_blind",
+        "Hold to quit",
     };
     int gy = y + 64;
     glyph_tri(x, gy, C_TEXT);       text(x + 34, gy + 2, C_TEXT, 24, "%s", rows[0]);  gy += 40;
@@ -1081,7 +1100,8 @@ static void draw_help(void)
     glyph_x(x, gy, C_TEXT);         text(x + 34, gy + 2, C_TEXT, 24, "%s", rows[2]);  gy += 40;
     glyph_circle(x, gy, C_TEXT);    text(x + 34, gy + 2, C_TEXT, 24, "%s", rows[3]);  gy += 40;
     glyph_tri(x, gy, C_TEXT);       text(x + 34, gy + 2, C_TEXT, 24, "%s", rows[4]);  gy += 40;
-    glyph_start(x, gy, "START"); text(x + 74 + 14, gy + 2, C_TEXT, 24, "%s", rows[5]);
+    glyph_select(x, gy, C_TEXT);    text(x + 34, gy + 2, C_TEXT, 24, "%s", rows[5]);  gy += 40;
+    glyph_start(x, gy, "START"); text(x + 74 + 14, gy + 2, C_TEXT, 24, "%s", rows[6]);
 
     text(x, y + hh - 44, C_MUTED, 20, "\xE2\x96\xB3 Help  \xC3\x97 Select  \xE2\x97\x8B Back  START Quit");
 }
@@ -1101,6 +1121,19 @@ static void draw_detail_or_help(void)
  * Pad input — edge-triggered navigation (act on press, not hold)
  * ------------------------------------------------------------------ */
 static uint16_t pad_d1, pad_d2;
+
+static int dev_blind_mount(void)
+{
+    lv2syscall8(837, (u64)"CELL_FS_IOS:BUILTIN_FLSH1", (u64)"CELL_FS_FAT",
+                (u64)"/dev_blind", 0, 0, 0, 0, 0);
+    return (int) p1;
+}
+
+static int dev_blind_unmount(void)
+{
+    lv2syscall1(838, (u64)"/dev_blind");
+    return (int) p1;
+}
 
 static void poll_pad(void)
 {
@@ -1145,6 +1178,23 @@ static bool handle_input(void)
     }
     if (g.edit.field != OPFTP_UI_EDIT_NONE) {
         /* the OSK owns input while a text field is active */
+        goto done;
+    }
+
+    if (p2 & CELL_PAD_CTRL_SELECT) {        /* dev_blind toggle (opt-in) */
+        int rc = dev_blind_mounted ? dev_blind_unmount() : dev_blind_mount();
+        if (rc == 0) {
+            dev_blind_mounted = !dev_blind_mounted;
+            opftp_app_log(0, dev_blind_mounted ? "dev_blind mounted"
+                                               : "dev_blind unmounted");
+            opftp_ui_event(&g,
+                           dev_blind_mounted ? "dev_blind mounted (flash writable)"
+                                             : "dev_blind unmounted",
+                           false, now);
+        } else {
+            opftp_app_log(0, "dev_blind mount failed (rc=%d)", rc);
+            opftp_ui_event(&g, "dev_blind mount failed", true, now);
+        }
         goto done;
     }
 
@@ -1278,6 +1328,10 @@ extern "C" int opftp_osd_run(opftp_server_t* s, const char* version)
 
     cellPadEnd();
     cellSysutilUnregisterCallback(0);
+
+    /* leave flash read-only on the way out */
+    if (dev_blind_mounted)
+        dev_blind_unmount();
 
     printf("OpenPS3FTP: OSD closed (quit=%d)\n", g.quit ? 1 : 0);
     return 0;

@@ -9,6 +9,14 @@
 #include <openps3ftp/openps3ftp.h>
 #include <sys/systime.h>    /* sysSleep; no sys/timer.h in stock PSL1GHT */
 
+#include "log.h"
+
+/* Server log callback -> app log file (see log.c). */
+static void log_cb(int level, const char* msg)
+{
+    opftp_app_log(level, "%s", msg);
+}
+
 #ifdef OPFTP_PS3
 /* ps3dk routes net calls through libnet module imports, which RPCS3
  * HLEs as return-0 TODO stubs (socket()→fd 0, bind/listen "succeed"
@@ -193,9 +201,12 @@ const char* inet_ntop(int af, const void* src, char* dst, socklen_t size)
 
 int main(void)
 {
-    opftp_server_t* s = opftp_server_create(NULL);
+    opftp_app_log_open();
+    static const opftp_callbacks_t cb = { .log = log_cb, .log_level = 3 };
+    opftp_server_t* s = opftp_server_create(&cb);
     if (!s) {
         printf("OpenPS3FTP: create failed\n");
+        opftp_app_log(0, "create failed");
         return 1;
     }
     opftp_server_set_port(s, 2121);
@@ -217,6 +228,7 @@ int main(void)
         return 1;
     }
     printf("OpenPS3FTP: listening on port 2121\n");
+    opftp_app_log(0, "listening on port 2121");
 
 #ifdef OPFTP_PS3
 #ifndef OPFTP_HEADLESS
@@ -240,5 +252,6 @@ int main(void)
 
     opftp_server_stop(s);
     opftp_server_destroy(s);
+    opftp_app_log_close();
     return 0;
 }
