@@ -12,6 +12,15 @@ if(NOT DEFINED ENV{PS3DEV})
 endif()
 set(PS3DEV $ENV{PS3DEV})
 
+# PSL1GHT root: env wins; fall back to the local ps3dk stage layout.
+# (The ps3dev nightly tarball installs PSL1GHT at $PS3DEV itself, so
+# PS3DEV and PSL1GHT coincide there.)
+if(DEFINED ENV{PSL1GHT})
+    set(PSL1GHT $ENV{PSL1GHT})
+else()
+    set(PSL1GHT ${PS3DEV}/ps3dk)
+endif()
+
 set(CMAKE_C_COMPILER ${PS3DEV}/ppu/bin/powerpc64-ps3-elf-gcc)
 set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
 

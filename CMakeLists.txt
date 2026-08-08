@@ -85,7 +85,7 @@ if(OPFTP_TLS)
     if(OPFTP_PS3)
       # entropy_poll.c pulls <lv2/system.h> under __PPU__
       target_include_directories(${tgt} SYSTEM PUBLIC
-        ${PS3DEV}/ps3dk/ppu/include)
+        ${PSL1GHT}/ppu/include)
     endif()
   endforeach()
   target_link_libraries(openps3ftp PUBLIC mbedtls mbedx509 mbedcrypto)
@@ -117,11 +117,11 @@ enable_testing()
 if(OPFTP_PS3)
   # ps3 sysfs/net syscall stubs
   target_link_libraries(openps3ftp PUBLIC
-    ${PS3DEV}/ps3dk/ppu/lib/libsysfs.a
-    ${PS3DEV}/ps3dk/ppu/lib/libnet.a
-    ${PS3DEV}/ps3dk/ppu/lib/libnetctl.a
-    ${PS3DEV}/ps3dk/ppu/lib/liblv2.a
-    ${PS3DEV}/ps3dk/ppu/lib/librt.a)
+    ${PSL1GHT}/ppu/lib/libsysfs.a
+    ${PSL1GHT}/ppu/lib/libnet.a
+    ${PSL1GHT}/ppu/lib/libnetctl.a
+    ${PSL1GHT}/ppu/lib/liblv2.a
+    ${PSL1GHT}/ppu/lib/librt.a)
   # install into portlibs (ps3dev convention), like the PS3Libraries ports
   install(TARGETS openps3ftp mbedtls mbedx509 mbedcrypto
     ARCHIVE DESTINATION ${PS3DEV}/portlibs/ppu/lib)
