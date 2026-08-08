@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  host:
+    name: Host (Linux) build + tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: cmake -S . -B build
+      - name: Build
+        run: cmake --build build -j$(nproc)
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+  sanitizers:
+    name: Sanitizer build + tests
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        sanitizer: [address, thread]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: cmake -S . -B build-${{ matrix.sanitizer }} -DOPFTP_SANITIZE=${{ matrix.sanitizer }}
+      - name: Build
+        run: cmake --build build-${{ matrix.sanitizer }} -j$(nproc)
+      - name: Test
+        run: ctest --test-dir build-${{ matrix.sanitizer }} --output-on-failure
+
+  fuzz:
+    name: Fuzz target build (clang)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: cmake -S . -B build-fuzz -DOPFTP_FUZZ=ON -DOPFTP_SANITIZE=address -DCMAKE_C_COMPILER=clang
+      - name: Build
+        run: cmake --build build-fuzz -j$(nproc)
+      - name: Smoke (seed corpus, 100 runs)
+        run: ./build-fuzz/fuzz_ftp_server -runs=100 fuzz/corpus
+
+  ps3:
+    name: PS3 cross-build (ps3dk)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download prebuilt ps3dev SDK (nightly)
+        run: |
+          TAG=$(gh api repos/ps3dev/ps3dev/releases --jq '.[0].tag_name')
+          curl -sL "https://github.com/ps3dev/ps3dev/releases/download/$TAG/ps3dev-linux-X64.tar.gz" | tar xz -C "$RUNNER_TEMP"
+          echo "PS3DEV=$RUNNER_TEMP/ps3dev" >> "$GITHUB_ENV"
+          echo "PSL1GHT=$RUNNER_TEMP/ps3dev" >> "$GITHUB_ENV"
+          echo "PORTLIBS=$RUNNER_TEMP/ps3dev/portlibs/ppu" >> "$GITHUB_ENV"
+          echo "PATH=$RUNNER_TEMP/ps3dev/bin:$RUNNER_TEMP/ps3dev/ppu/bin:$PATH" >> "$GITHUB_ENV"
+      - name: Build lib (ps3dk)
+        run: |
+          cmake -S . -B build-ps3 -DOPFTP_PS3=1 -DCMAKE_TOOLCHAIN_FILE=cmake/ps3dk.cmake
+          cmake --build build-ps3 -j$(nproc)
+      - name: Build app (EBOOT)
+        run: |
+          cmake --install build-ps3 --prefix "$PORTLIBS"
+          make -C app ftp.elf
+          make_self_npdrm app/ftp.elf app/EBOOT.BIN UP0001-NPXS91337_00-0000000000000000 04
