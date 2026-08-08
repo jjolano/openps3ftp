@@ -9,11 +9,30 @@
 
 #include "opftp.h"
 #include <lv2/sysfs.h>
+#include <sys/memory.h>      /* sysMemContainerCreate */
 #include <sys/file.h>
 #include <sys/types.h>
 #include <errno.h>
 #include <stdio.h>
 #include <string.h>
+
+/* Shared kernel io-buffer pool. Without an io buffer, each sysFsRead/Write
+ * does small DMA transfers with per-call syscall overhead; with a 64KB
+ * page buffer the kernel batches transfers (the classic PS3 FTP trick).
+ * One container for the whole server (sysFsSetDefaultContainer), set up
+ * once in opftp_fs_ps3() at server create — before any worker threads or
+ * opens exist, so no locking is needed. Non-fatal: if the container can't
+ * be allocated, I/O stays unbuffered and still works. */
+#define PS3_IO_BUFFER_SIZE  (64 * 1024)
+#define PS3_IO_POOL_SIZE    (1024 * 1024)
+
+static void ps3_io_init(void)
+{
+    sys_mem_container_t cid;
+    if (sysMemContainerCreate(&cid, PS3_IO_POOL_SIZE) != 0)
+        return;
+    sysFsSetDefaultContainer(cid, PS3_IO_POOL_SIZE);
+}
 
 /* lv2 cell error -> errno. cell codes arrive as negative s32
  * (0x8001xxxx in two's complement). */
@@ -66,6 +85,10 @@ static int ps3_open(void* ctx, const char* path, int flags, uint16_t mode, int* 
     s32 f = -1;
     s32 rc = sysFsOpen(path, oflags, &f, NULL, 0);
     if (rc != 0) { errno = cell_to_errno(rc); return -1; }
+    /* best-effort: give the fd a kernel io buffer from the shared pool
+     * (set up in opftp_fs_ps3(); failure just means unbuffered I/O) */
+    sysFsSetIoBufferFromDefaultContainer(f, PS3_IO_BUFFER_SIZE,
+                                         SYS_FS_IO_BUFFER_PAGE_SIZE_64KB);
     *fd = f;
     return 0;
 }
@@ -250,6 +273,11 @@ static int ps3_utimes(void* ctx, const char* path, int64_t mtime)
 
 const opftp_fs_t* opftp_fs_ps3(void)
 {
+    static int io_pool_ready = 0;
+    if (!io_pool_ready) {
+        ps3_io_init();   /* one shared io-buffer pool for all fds */
+        io_pool_ready = 1;
+    }
     static const opftp_fs_t fs = {
         .ctx = NULL,
         .open = ps3_open,
