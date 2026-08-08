@@ -53,6 +53,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Download prebuilt ps3dev SDK (nightly)
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           TAG=$(gh api repos/ps3dev/ps3dev/releases --jq '.[0].tag_name')
           curl -sL "https://github.com/ps3dev/ps3dev/releases/download/$TAG/ps3dev-linux-X64.tar.gz" | tar xz -C "$RUNNER_TEMP"
