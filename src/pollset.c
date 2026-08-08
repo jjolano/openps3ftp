@@ -98,9 +98,6 @@ int opftp_pollset_add(opftp_pollset_t* p, int fd, short events, void* user)
     }
     if (ensure_cap(p, p->count + 1) != 0) return -1;
     int h = p->count++;
-#ifdef OPFTP_PS3
-    if (h == 0) h = p->count++;   /* no wake slot on ps3 */
-#endif
     p->fds[h].fd = fd;
     p->fds[h].events = events;
     p->fds[h].revents = 0;

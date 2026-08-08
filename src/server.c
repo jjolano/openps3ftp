@@ -150,6 +150,11 @@ void opftp_server_set_pasv_range(opftp_server_t* s, uint16_t min_port,
     s->pasv_max = max_port;
 }
 
+void opftp_server_set_v4only(opftp_server_t* s, bool on)
+{
+    s->v4only = on;
+}
+
 uint16_t opftp_server_bound_port(opftp_server_t* s)
 {
     return s->port;
@@ -160,36 +165,39 @@ uint16_t opftp_server_bound_port(opftp_server_t* s)
 static int bind_listener(struct opftp_server* s)
 {
     /* Dual-stack: prefer AF_INET6 with V4MAPPED (accepts both v4 and
-     * v6), fall back to AF_INET if IPv6 is unavailable. */
-    int fd = socket(AF_INET6, SOCK_STREAM, 0);
-    bool is_v6 = (fd >= 0);
-    if (is_v6) {
-        int one = 1;
-        setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
+     * v6), fall back to AF_INET if IPv6 is unavailable. RPCS3's lv2
+     * sys_net only supports AF_INET (and aborts on AF_INET6), so the
+     * headless RPCS3 build sets v4only and binds v4. */
+    if (!s->v4only) {
+        int fd = socket(AF_INET6, SOCK_STREAM, 0);
+        if (fd >= 0) {
+            int one = 1;
+            setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
 #ifdef IPV6_V6ONLY
-        int zero = 0;
-        setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &zero, sizeof(zero));
+            int zero = 0;
+            setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &zero, sizeof(zero));
 #endif
-        struct sockaddr_in6 a6 = {0};
-        a6.sin6_family = AF_INET6;
-        a6.sin6_addr = in6addr_any;
-        a6.sin6_port = htons(s->port);
-        if (bind(fd, (struct sockaddr*) &a6, sizeof(a6)) == 0 &&
-            listen(fd, 16) == 0) {
-            socklen_t sl = sizeof(a6);
-            getsockname(fd, (struct sockaddr*) &a6, &sl);
-            s->port = ntohs(a6.sin6_port);
-            goto done;
+            struct sockaddr_in6 a6 = {0};
+            a6.sin6_family = AF_INET6;
+            a6.sin6_addr = in6addr_any;
+            a6.sin6_port = htons(s->port);
+            if (bind(fd, (struct sockaddr*) &a6, sizeof(a6)) == 0 &&
+                listen(fd, 16) == 0) {
+                socklen_t sl = sizeof(a6);
+                getsockname(fd, (struct sockaddr*) &a6, &sl);
+                s->port = ntohs(a6.sin6_port);
+                goto done;
+            }
+            int e = errno;
+            opftp_close_fd(fd);
+            (void) e;   /* fall back to IPv4 */
         }
-        int e = errno;
-        opftp_close_fd(fd);
-        (void) e;   /* fall back to IPv4 */
     }
 
-    fd = socket(AF_INET, SOCK_STREAM, 0);
-    if (fd < 0)
-        return -errno;
     {
+        int fd = socket(AF_INET, SOCK_STREAM, 0);
+        if (fd < 0)
+            return -errno;
         int one = 1;
         setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
         struct sockaddr_in a4 = {0};
@@ -209,12 +217,12 @@ static int bind_listener(struct opftp_server* s)
         socklen_t sl = sizeof(a4);
         getsockname(fd, (struct sockaddr*) &a4, &sl);
         s->port = ntohs(a4.sin_port);
+        s->listen_fd = fd;
+        goto done;
     }
 done:
-    s->listen_fd = fd;
-    (void) is_v6;
     /* non-blocking: the accept loop relies on EAGAIN */
-    opftp_set_nonblock(fd);
+    opftp_set_nonblock(s->listen_fd);
     return 0;
 }
 
