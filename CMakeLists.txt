@@ -115,8 +115,9 @@ endif()
 enable_testing()
 
 if(OPFTP_PS3)
-  # ps3 sysfs/net syscall stubs
+  # ps3 cellFs/net syscall stubs
   target_link_libraries(openps3ftp PUBLIC
+    ${PSL1GHT}/ppu/lib/libfs_stub.a
     ${PSL1GHT}/ppu/lib/libsysfs.a
     ${PSL1GHT}/ppu/lib/libnet.a
     ${PSL1GHT}/ppu/lib/libnetctl.a
