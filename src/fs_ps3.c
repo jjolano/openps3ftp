@@ -34,16 +34,23 @@ static void ps3_io_init(void)
     sysFsSetDefaultContainer(cid, PS3_IO_POOL_SIZE);
 }
 
-/* lv2 cell error -> errno. cell codes arrive as negative s32
- * (0x8001xxxx in two's complement). */
+/* lv2 cell error -> errno. CELL codes arrive either as negative s32
+ * (0x8001xxxx in two's complement — lv2 syscall convention) or as
+ * positive u32 (0x8001xxxx — RPCS3's libsysfs module HLE returns the
+ * raw error_code), and plain errno values arrive as small negatives
+ * (the cell compat layer does this). The switch key is the raw u32:
+ * for a negative s32 the two's complement form IS the CELL code
+ * (abs() would corrupt it, e.g. 0x80010006 -> 0x7FFEFFFA). */
 static int cell_to_errno(s32 ret)
 {
-    if (ret >= 0)
-        return EIO;
-    s32 e = -ret;
-    /* already a plain errno (the cell compat layer does this) */
+    u32 e = (u32) ret;
+    if (ret < 0) {
+        s32 m = -ret;
+        if (m > 0 && m < 4096)
+            return (int) m;              /* plain errno, negative form */
+    }
     if (e > 0 && e < 4096)
-        return (int) e;
+        return (int) e;                  /* plain errno, positive form */
     switch (e) {
     case 0x80010001: return EPERM;      /* CELL_EPERM */
     case 0x80010005: return EIO;        /* CELL_EIO */

@@ -691,25 +691,30 @@ def scenario_abor(binary, root):
         check("abor-alive", read_reply(raw).startswith(b"200"))
         raw.close()
 
-        # OOB ABOR (ftplib style)
-        raw = raw_connect(port)
-        raw_login(raw)
-        raw.sendall(b"TYPE I\r\n")
-        read_reply(raw)
-        raw.sendall(b"PASV\r\n")
-        r = read_reply(raw)
-        m = re.search(rb"\((\d+),(\d+),(\d+),(\d+),(\d+),(\d+)\)", r)
-        data_addr = ("127.0.0.1", (int(m.group(5)) << 8) | int(m.group(6)))
-        data = socket.create_connection(data_addr, timeout=10)
-        raw.sendall(b"RETR satfile\r\n")
-        read_reply(raw)
-        raw.sendall(b"ABOR\r\n", socket.MSG_OOB)
-        r426 = read_reply(raw)
-        r226 = read_reply(raw)
-        check("oob-abor", r426.startswith(b"426") and r226.startswith(b"226"),
-              (r426, r226))
-        data.close()
-        raw.close()
+        # OOB ABOR (ftplib style). External mode: RPCS3's
+        # sys_net_bnet_poll only reports POLLIN/POLLOUT/POLLERR, never
+        # POLLPRI, so out-of-band data cannot wake the reactor there —
+        # this is an emulator gap, not a server bug (in-band ABOR above
+        # exercises the same abort path).
+        if not EXTERNAL:
+            raw = raw_connect(port)
+            raw_login(raw)
+            raw.sendall(b"TYPE I\r\n")
+            read_reply(raw)
+            raw.sendall(b"PASV\r\n")
+            r = read_reply(raw)
+            m = re.search(rb"\((\d+),(\d+),(\d+),(\d+),(\d+),(\d+)\)", r)
+            data_addr = ("127.0.0.1", (int(m.group(5)) << 8) | int(m.group(6)))
+            data = socket.create_connection(data_addr, timeout=10)
+            raw.sendall(b"RETR satfile\r\n")
+            read_reply(raw)
+            raw.sendall(b"ABOR\r\n", socket.MSG_OOB)
+            r426 = read_reply(raw)
+            r226 = read_reply(raw)
+            check("oob-abor", r426.startswith(b"426") and r226.startswith(b"226"),
+                  (r426, r226))
+            data.close()
+            raw.close()
     finally:
         stop_server(proc)
 

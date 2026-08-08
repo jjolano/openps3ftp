@@ -360,11 +360,15 @@ static void cmd_cwd(struct opftp_client* c, const char* param, void* ctx)
         reply_fs_error(c);
         return;
     }
-    /* store the FTP-visible cwd (root-relative) */
+    /* store the FTP-visible cwd (root-relative, leading slash kept).
+     * root "/" must not strip the slash (path + 1 would drop it and
+     * break PWD/LIST: the slashless cwd is treated as relative and
+     * double-appended by the resolver). */
     if (strcmp(path, s->root) == 0) {
         strcpy(c->cwd, "/");
     } else {
-        snprintf(c->cwd, sizeof(c->cwd), "%s", path + strlen(s->root));
+        const char* vis = strlen(s->root) > 1 ? path + strlen(s->root) : path;
+        snprintf(c->cwd, sizeof(c->cwd), "%s", vis);
     }
     reply(c, 250, R250);
 }

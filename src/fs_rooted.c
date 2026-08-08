@@ -14,6 +14,10 @@
 #include <string.h>
 #include <errno.h>
 #include <limits.h>
+
+#ifndef PATH_MAX
+#define PATH_MAX 4096   /* PSL1GHT has no limits.h PATH_MAX */
+#endif
 #include <unistd.h>
 
 struct rooted {
@@ -39,7 +43,9 @@ static bool under_root(const struct rooted* r, const char* path)
  * lets callers distinguish "not found" from "forbidden"). */
 static bool realpath_contained(const struct rooted* r, const char* path)
 {
-    char resolved[OPFTP_MAX_PATH];
+    /* realpath() needs a PATH_MAX buffer; a smaller one trips glibc's
+     * fortified __realpath_chk (abort "buffer overflow detected"). */
+    char resolved[PATH_MAX];
     if (realpath(path, resolved) != NULL)
         return under_root(r, resolved);
 
