@@ -126,13 +126,14 @@ def read_multiline_reply(sock, timeout=10):
     return b"".join(lines)
 
 
-def start_server(binary, root, workers=2, allow_stop=False):
+def start_server(binary, root, workers=2, allow_stop=False, reject_auth=False):
     if EXTERNAL:
         # Target a server that is already running (e.g. the headless
         # PS3 build under RPCS3). No process is spawned.
         return None, EXTERNAL[1]
     proc = subprocess.Popen(
-        [binary, root, "0", str(workers), "", "", "0", "1" if allow_stop else "0"],
+        [binary, root, "0", str(workers), "", "", "0", "1" if allow_stop else "0",
+         "0", "0", "1" if reject_auth else "0"],
         stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
     line = proc.stdout.readline().decode().strip()
     m = re.match(r"PORT (\d+)", line)
@@ -719,6 +720,65 @@ def scenario_abor(binary, root):
         stop_server(proc)
 
 
+def scenario_auth_failure(binary, root):
+    # Server with a rejecting auth callback: PASS must get 530 and the
+    # user state must be cleared so a later USER starts fresh (331).
+    proc, port = start_server(binary, root, reject_auth=True)
+    try:
+        raw = raw_connect(port)
+        raw.sendall(b"USER u\r\n")
+        r = read_reply(raw)
+        check("auth-reject-331", r.startswith(b"331"), r)
+        raw.sendall(b"PASS p\r\n")
+        r = read_reply(raw)
+        check("auth-reject-530", r.startswith(b"530"), r)
+        # server still alive after the rejection
+        raw.sendall(b"NOOP\r\n")
+        check("auth-reject-alive", read_reply(raw).startswith(b"200"))
+        # user state cleared: next USER gets 331 again, not 503
+        raw.sendall(b"USER u2\r\n")
+        check("auth-reject-reset-331", read_reply(raw).startswith(b"331"))
+        raw.close()
+    finally:
+        stop_server(proc)
+
+
+def scenario_tls_stall(binary, root):
+    # Slow-read a TLS transfer so the server's TLS write hits
+    # WANT_WRITE repeatedly (the retry loop in tls.c/transfer.c).
+    import ssl
+    import io
+    from ftplib import FTP_TLS
+
+    pk = gen_cert(root)
+    if pk is None:
+        return           # no openssl: skip
+    cert, key = pk
+
+    proc, port = start_server_tls(binary, root, cert, key)
+    try:
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        ftp = FTP_TLS(context=ctx)
+        ftp.connect("127.0.0.1", port, timeout=15)
+        ftp.login("u", "p")
+        ftp.prot_p()
+        chunks = []
+        # read in small pieces with a pause: forces the server's TLS
+        # write path to block and retry (WANT_WRITE) instead of
+        # draining the whole file into the socket buffer at once
+        def slow_cb(b):
+            chunks.append(b)
+            time.sleep(0.01)
+        ftp.retrbinary("RETR bigfile", slow_cb)
+        with open(os.path.join(root, "bigfile"), "rb") as f:
+            check("tls-stall-data", b"".join(chunks) == f.read())
+        ftp.quit()
+    finally:
+        stop_server(proc)
+
+
 def scenario_one_transfer_and_saturation(binary, root):
     # satfile (256MB, created in main) can't fit any socket buffer, so
     # transfers stay in flight while the clients never read
@@ -986,6 +1046,8 @@ def main():
 
         scenario_ipv6(binary, ftp_root)
         scenario_tls(binary, ftp_root)
+        scenario_tls_stall(binary, ftp_root)
+        scenario_auth_failure(binary, ftp_root)
         scenario_abor(binary, ftp_root)
         scenario_one_transfer_and_saturation(binary, ftp_root)
         scenario_fragmented_and_disconnect(binary, ftp_root)

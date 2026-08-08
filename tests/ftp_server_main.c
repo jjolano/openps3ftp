@@ -19,6 +19,13 @@ static void on_signal(int sig)
     g_stop = 1;
 }
 
+/* Reject every login (exercises the 530 auth-failure path). */
+static bool reject_auth(void* ctx, const char* user, const char* pass)
+{
+    (void) ctx; (void) user; (void) pass;
+    return false;
+}
+
 static char* read_file(const char* path)
 {
     FILE* f = fopen(path, "rb");
@@ -50,8 +57,13 @@ int main(int argc, char** argv)
     bool allow_stop = argc > 7 && atoi(argv[7]) != 0;
     unsigned pasv_min = argc > 8 ? (unsigned) atoi(argv[8]) : 0;
     unsigned pasv_max = argc > 9 ? (unsigned) atoi(argv[9]) : 0;
+    bool reject = argc > 10 && atoi(argv[10]) != 0;
 
-    opftp_server_t* s = opftp_server_create(NULL);
+    opftp_callbacks_t cb;
+    memset(&cb, 0, sizeof(cb));
+    if (reject)
+        cb.auth = reject_auth;
+    opftp_server_t* s = opftp_server_create(reject ? &cb : NULL);
     if (!s) { fprintf(stderr, "create failed\n"); return 1; }
     opftp_server_set_port(s, (uint16_t) port);
     opftp_server_set_root(s, root);
