@@ -19,7 +19,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <net/poll.h>
-#include <sys/sys_time.h>
+#include <sys/systime.h>
 /* this toolchain's libnet exports closesocket(); sys/socket.h declares
  * socketclose() which is only in the stub lib. Declare it here. */
 int closesocket(int s);
@@ -117,7 +117,9 @@ static inline bool opftp_is_v4mapped(const struct in6_addr* a)
 static inline int64_t opftp_now_ms(void)
 {
 #ifdef OPFTP_PS3
-    return (int64_t) (sys_time_get_system_time() / 1000);
+    u64 sec = 0, nsec = 0;
+    sysGetCurrentTime(&sec, &nsec);
+    return (int64_t) (sec * 1000 + nsec / 1000000);
 #else
     struct timespec ts;
     if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0)
@@ -384,6 +386,7 @@ struct opftp_server {
     char* cert_pem; char* key_pem;
     bool allow_foreign_port;
     bool allow_stop;               /* register the STOP command (opt-in) */
+    bool v4only;                   /* listener: AF_INET only (RPCS3) */
     struct opftp_tls_ctx* tls;     /* parsed server TLS context, or NULL */
 
     /* PASV/EPSV listener port range (0,0 = ephemeral). Lets a firewall

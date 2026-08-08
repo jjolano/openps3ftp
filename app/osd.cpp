@@ -22,7 +22,7 @@
 #include <cell/sysutil.h>
 #include <cell/sysutil_oskdialog.h>
 #include <sys/memory.h>
-#include <sys/sys_time.h>
+#include <sys/systime.h>
 #include <sys/timer.h>
 
 #include <NoRSX.h>
