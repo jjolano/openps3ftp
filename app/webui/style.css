@@ -1,0 +1,174 @@
+/*
+ * OpenPS3FTP web console — dark console theme.
+ * Conservative on purpose: tables and blocks only, no flexbox/grid,
+ * no CSS variables, no external fonts. Renders in the PS3 stock
+ * browser and in any modern browser.
+ */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+  background: #0b0e11;
+  color: #c8d0d8;
+  font: 13px/1.45 "Courier New", Courier, monospace;
+}
+
+/* ---- header ---- */
+#hdr {
+  width: 100%;
+  border-collapse: collapse;
+  background: #10151a;
+  border-bottom: 1px solid #1e262e;
+}
+#hdr td { padding: 8px 10px; vertical-align: middle; }
+.brand { white-space: nowrap; font-size: 15px; font-weight: bold; color: #e8eef4; }
+.brand .mark { color: #3fae6a; }
+.brand .ver { color: #6b7683; font-size: 12px; font-weight: normal; margin-left: 8px; }
+.brand .conn { font-size: 11px; font-weight: normal; margin-left: 10px; color: #3fae6a; }
+.brand .conn.off { color: #c0504d; }
+
+.tabs { text-align: right; white-space: nowrap; }
+.tab {
+  display: inline-block;
+  padding: 4px 12px;
+  margin-left: 4px;
+  border: 1px solid #1a262e;
+  color: #7d8894;
+  cursor: pointer;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.tab:hover { color: #c8d0d8; border-color: #2a3640; }
+.tab.act { color: #0b0e11; background: #3fae6a; border-color: #3fae6a; font-weight: bold; }
+
+.clock { text-align: right; color: #5a7683; white-space: nowrap; }
+
+/* ---- event strip ---- */
+#cstrip {
+  background: #0e1216;
+  border-bottom: 1px solid #1a262e;
+  padding: 4px 10px;
+  font-size: 12px;
+  color: #8a95a1;
+  white-space: nowrap;
+  overflow: hidden;
+}
+#cstrip .ev { margin-right: 22px; }
+#cstrip .ev .t { color: #4a5560; }
+#cstrip .ev.warn { color: #d8a24a; }
+
+/* ---- views ---- */
+#view { padding: 10px; min-height: 320px; }
+
+.panel {
+  background: #10151a;
+  border: 1px solid #1a262e;
+  margin-bottom: 10px;
+}
+.panel h2 {
+  font-size: 12px;
+  letter-spacing: 1px;
+  color: #3fae6a;
+  padding: 6px 10px;
+  border-bottom: 1px solid #1a262e;
+  background: #0d1216;
+}
+
+table.grid { width: 100%; border-collapse: collapse; }
+table.grid th {
+  text-align: left;
+  font-size: 11px;
+  letter-spacing: 1px;
+  color: #5a7684;
+  padding: 5px 10px;
+  border-bottom: 1px solid #1a262e;
+  white-space: nowrap;
+}
+table.grid td {
+  padding: 5px 10px;
+  border-bottom: 1px solid #141a20;
+  vertical-align: top;
+  word-break: break-all;
+}
+table.grid tr.sel td { background: #16222b; }
+table.grid tr.click { cursor: pointer; }
+table.grid tr.click:hover td { background: #131c23; }
+table.grid tr.empty td { color: #5a6570; font-style: italic; }
+
+.kv { width: 100%; border-collapse: collapse; }
+.kv td { padding: 4px 10px; border-bottom: 1px solid #141a20; }
+.kv td.k { color: #5a7684; white-space: nowrap; width: 1%; padding-right: 20px; }
+.kv td.v { color: #c8d0d8; word-break: break-all; }
+
+/* status colors */
+.ok    { color: #3fae6a; }
+.warn  { color: #e8a23a; }
+.err   { color: #d0504a; }
+.dim   { color: #5a7684; }
+.big   { font-size: 15px; }
+
+/* ---- settings ---- */
+input[type=text] {
+  background: #0b0e11;
+  border: 1px solid #2a3640;
+  color: #c8d0d8;
+  font: 13px "Courier New", Courier, monospace;
+  padding: 5px 8px;
+  width: 70%;
+}
+button {
+  background: #16202a;
+  border: 1px solid #2a3640;
+  color: #c8d0d8;
+  font: 12px "Courier New", Courier, monospace;
+  padding: 5px 14px;
+  cursor: pointer;
+}
+button:hover { border-color: #3fae6a; color: #e8eef4; }
+button.danger { border-color: #5a2a28; color: #d0807a; }
+button.danger:hover { border-color: #d0504a; color: #f0b0aa; }
+button:disabled { opacity: 0.4; cursor: default; }
+
+/* ---- detail overlay ---- */
+#ovroot { position: relative; }
+#ov {
+  position: absolute;
+  left: 10%;
+  right: 10%;
+  top: 8px;
+  background: #10151a;
+  border: 1px solid #2a3640;
+  box-shadow: 0 0 0 2000px rgba(0, 0, 0, 0.55);
+  z-index: 10;
+}
+#ov h2 {
+  font-size: 12px;
+  letter-spacing: 1px;
+  color: #3fae6a;
+  padding: 6px 10px;
+  border-bottom: 1px solid #1a262e;
+  background: #0d1216;
+}
+#ov .close { float: right; color: #5a7684; cursor: pointer; }
+#ov .close:hover { color: #c8d0d8; }
+
+/* ---- footer ---- */
+#ftr {
+  width: 100%;
+  border-collapse: collapse;
+  border-top: 1px solid #1a262e;
+  background: #10151a;
+}
+#ftr td { padding: 6px 10px; font-size: 11px; color: #5a7684; }
+#ftr .vind { text-align: right; white-space: nowrap; }
+#ftr .vind .mut { color: #3a444e; }
+#ftr .vind #vname { color: #7d8894; }
+
+/* ---- banner ---- */
+#banner {
+  background: #3a2a10;
+  border: 1px solid #6a4a1a;
+  color: #e8c06a;
+  padding: 6px 10px;
+  margin-bottom: 10px;
+  font-size: 12px;
+}

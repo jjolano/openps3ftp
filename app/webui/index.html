@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<!--
+  OpenPS3FTP — web console (third renderer of the shared UI model).
+  Sibling of app/osd.cpp (NoRSX OSD) and app/tui.c (terminal TUI).
+  Served from the plugin's embedded HTTP server; rendered by the PS3
+  stock browser, so: table/block layout, no external anything.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OpenPS3FTP</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<table id="hdr" cellspacing="0" cellpadding="0">
+<tr>
+  <td class="brand"><span class="mark">&#9632;</span> OpenPS3FTP<span class="ver" id="ver">&#8212;</span><span class="conn" id="conn">&#9679; CONNECTING</span></td>
+  <td class="tabs"><span class="tab act" id="tab0" onclick="App.go(0)">STATUS</span><span class="tab" id="tab1" onclick="App.go(1)">TRANSFERS</span><span class="tab" id="tab2" onclick="App.go(2)">CLIENTS</span><span class="tab" id="tab3" onclick="App.go(3)">SETTINGS</span></td>
+  <td class="clock" id="clock">--:--</td>
+</tr>
+</table>
+
+<div id="cstrip"></div>
+<div id="view"></div>
+<div id="ovroot"></div>
+
+<table id="ftr" cellspacing="0" cellpadding="0">
+<tr>
+  <td class="hints">&#8592; &#8594; switch view &nbsp;&#183;&nbsp; &#8593; &#8595; select &nbsp;&#183;&nbsp; Enter detail &nbsp;&#183;&nbsp; Esc back</td>
+  <td class="vind"><span id="vname">STATUS</span><span class="mut"> &#8212; VIEW <span id="vnum">1</span>/4</span></td>
+</tr>
+</table>
+
+<script src="app.js"></script>
+</body>
+</html>

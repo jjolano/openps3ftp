@@ -21,3 +21,4 @@ Testing/
 
 __pycache__/
 scripts/rpcs3-libs/
+core.*
