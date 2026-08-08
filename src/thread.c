@@ -12,7 +12,7 @@
 
 #include <sys/mutex.h>
 #include <sys/cond.h>
-#include <sys/ppu_thread.h>
+#include <sys/thread.h>     /* sysThreadCreate/Join (lv2/thread.h: Exit/GetId) */
 
 void* opftp_mutex_create(void)
 {
@@ -73,7 +73,7 @@ static void ps3_thread_entry(uint64_t arg)
     struct start_args* sa = (struct start_args*) (uintptr_t) arg;
     sa->fn(sa->arg);
     free(sa);
-    sys_ppu_thread_exit(0);
+    sysThreadExit(0);
 }
 
 void* opftp_thread_create(void (*fn)(void*), void* arg)
@@ -83,9 +83,9 @@ void* opftp_thread_create(void (*fn)(void*), void* arg)
     if (!wt || !sa) { free(wt); free(sa); return NULL; }
     sa->fn = fn;
     sa->arg = arg;
-    if (sys_ppu_thread_create(&wt->t, ps3_thread_entry,
-                             (uint64_t) (uintptr_t) sa, 1001, 128 * 1024,
-                             SYS_PPU_THREAD_CREATE_JOINABLE, "opftp") != 0) {
+    if (sysThreadCreate(&wt->t, (void (*)(void*)) ps3_thread_entry,
+                        (void*) (uintptr_t) sa, 1001, 128 * 1024,
+                        THREAD_JOINABLE, "opftp") != 0) {
         free(wt);
         free(sa);
         return NULL;
@@ -98,7 +98,7 @@ void* opftp_thread_join(void* t)
     struct opftp_thread* wt = t;
     if (wt) {
         uint64_t ret = 0;
-        sys_ppu_thread_join(wt->t, &ret);
+        sysThreadJoin(wt->t, &ret);
     }
     return NULL;
 }
@@ -111,7 +111,7 @@ void opftp_thread_destroy(void* t)
 void opftp_thread_self(opftp_tid_t* out)
 {
     sys_ppu_thread_t id = 0;
-    sys_ppu_thread_get_id(&id);
+    sysThreadGetId(&id);
     out->id = (uint64_t) id;
 }
 
