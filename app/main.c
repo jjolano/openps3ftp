@@ -7,7 +7,6 @@
 #include <string.h>
 
 #include <openps3ftp/openps3ftp.h>
-#include <sys/ppu_thread.h>
 #include <sys/timer.h>
 
 #ifndef OPFTP_HEADLESS
