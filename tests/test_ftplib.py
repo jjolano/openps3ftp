@@ -25,6 +25,76 @@ import ftplib
 
 FAILURES = []
 
+# External-server mode: instead of spawning the driver on an ephemeral
+# port, target a server that is already running (e.g. the headless PS3
+# build inside RPCS3 at 127.0.0.1:2121). EXTERNAL is (host, port);
+# fixtures are seeded over FTP into BASE and verification goes through
+# FTP probes rather than the local filesystem. Host-only scenarios
+# (TLS, IPv6, lifecycle, STOP opt-in, worker-count saturation) are
+# skipped because they spawn their own server instances.
+EXTERNAL = None
+BASE = ""               # remote dir where fixtures live (external mode)
+VERIFIER = None         # ftplib.FTP used for remote checks (external mode)
+
+
+def rp(path):
+    """Server-side path for raw sessions (which start at the server
+    root, not at BASE): absolute under BASE in external mode, else
+    unchanged."""
+    if EXTERNAL and path and not path.startswith("/"):
+        return BASE + "/" + path
+    return path
+
+
+def v_exists(rel):
+    """True when the fixture path exists. Host mode: local fs. External
+    mode: probe via MLSD on the parent (handles dirs and files)."""
+    if not EXTERNAL:
+        return os.path.exists(os.path.join(ftp_root, rel))
+    parent, name = os.path.split(rel)
+    try:
+        entries = dict(VERIFIER.mlsd(parent or "."))
+    except ftplib.error_perm:
+        return False
+    return name in entries
+
+
+def v_read(rel):
+    """Bytes of a fixture path. Host mode: local fs. External: RETR."""
+    if not EXTERNAL:
+        with open(os.path.join(ftp_root, rel), "rb") as f:
+            return f.read()
+    chunks = []
+    VERIFIER.retrbinary("RETR " + rel, chunks.append)
+    return b"".join(chunks)
+
+
+def ftp_delete(rel):
+    """Delete a fixture path. Host mode: local fs. External: DELE."""
+    if not EXTERNAL:
+        os.remove(os.path.join(ftp_root, rel))
+    else:
+        VERIFIER.delete(rel)
+
+
+def seed_external(ftp):
+    """Seed the fixtures over FTP into BASE (external mode only)."""
+    global BASE
+    BASE = "/dev_hdd0/tmp/opftp_it_%d" % os.getpid()
+    try:
+        ftp.mkd(BASE)
+    except ftplib.error_perm:
+        pass                    # stale dir from a previous run
+    ftp.cwd(BASE)
+    ftp.voidcmd("TYPE I")
+    for name in ("small.txt", "bigfile", "satfile"):
+        with open(os.path.join(ftp_root, name), "rb") as f:
+            ftp.storbinary("STOR " + name, f)
+    ftp.mkd("sub")
+    with open(os.path.join(ftp_root, "sub", "nested.txt"), "rb") as f:
+        ftp.storbinary("STOR sub/nested.txt", f)
+    ftp.voidcmd("TYPE A")
+
 
 def check(name, cond, detail=""):
     if cond:
@@ -57,6 +127,10 @@ def read_multiline_reply(sock, timeout=10):
 
 
 def start_server(binary, root, workers=2, allow_stop=False):
+    if EXTERNAL:
+        # Target a server that is already running (e.g. the headless
+        # PS3 build under RPCS3). No process is spawned.
+        return None, EXTERNAL[1]
     proc = subprocess.Popen(
         [binary, root, "0", str(workers), "", "", "0", "1" if allow_stop else "0"],
         stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
@@ -69,6 +143,8 @@ def start_server(binary, root, workers=2, allow_stop=False):
 
 
 def stop_server(proc):
+    if proc is None:
+        return                      # external mode: nothing to stop
     try:
         proc.send_signal(signal.SIGTERM)
         proc.wait(timeout=10)
@@ -78,7 +154,8 @@ def stop_server(proc):
 
 
 def raw_connect(port, timeout=10):
-    s = socket.create_connection(("127.0.0.1", port), timeout=timeout)
+    s = socket.create_connection((EXTERNAL[0] if EXTERNAL else "127.0.0.1", port),
+                                 timeout=timeout)
     read_reply(s)  # 220
     return s
 
@@ -90,6 +167,13 @@ def raw_login(s):
     r2 = read_reply(s)
     assert r1.startswith(b"331"), r1
     assert r2.startswith(b"230"), r2
+    if EXTERNAL:
+        # raw sessions start at the server root ("/" on the PS3 vfs),
+        # while fixtures live under BASE: cd there so relative paths
+        # behave like the host mode.
+        s.sendall(b"CWD " + BASE.encode() + b"\r\n")
+        r = read_reply(s)
+        assert r.startswith(b"250"), r
 
 
 def make_big_file(path, size=1 << 20):
@@ -98,9 +182,11 @@ def make_big_file(path, size=1 << 20):
 
 
 def scenario_basic(ftp, root, port):
-    # PWD/CWD
-    check("pwd", ftp.pwd() == "/", ftp.pwd())
-    check("cwd", ftp.cwd("/sub") == "250 File operation successful.")
+    # PWD/CWD. In external mode the session is cd'd to BASE, so the
+    # expected PWD and absolute paths are BASE-relative.
+    base = BASE or "/"
+    check("pwd", ftp.pwd() == base, ftp.pwd())
+    check("cwd", ftp.cwd(base + "/sub") == "250 File operation successful.")
     check("cwd-back", ftp.cwd("..") == "250 File operation successful.")
     # LIST / NLST
     lines = []
@@ -116,8 +202,7 @@ def scenario_basic(ftp, root, port):
     # RETR
     data = []
     ftp.retrbinary("RETR small.txt", data.append)
-    with open(os.path.join(root, "small.txt"), "rb") as f:
-        check("retr", b"".join(data) == f.read())
+    check("retr", b"".join(data) == v_read("small.txt"))
     # SIZE / MDTM
     check("size", ftp.size("small.txt") == os.path.getsize(os.path.join(root, "small.txt")))
     mdtm = ftp.sendcmd("MDTM small.txt")
@@ -126,34 +211,29 @@ def scenario_basic(ftp, root, port):
     payload = b"stor payload \x00\x01\x02" * 100
     import io
     ftp.storbinary("STOR uploaded.bin", io.BytesIO(payload))
-    with open(os.path.join(root, "uploaded.bin"), "rb") as f:
-        check("stor", f.read() == payload)
+    check("stor", v_read("uploaded.bin") == payload)
     # APPE
     ftp.storbinary("APPE uploaded.bin", io.BytesIO(b"tail"))
-    with open(os.path.join(root, "uploaded.bin"), "rb") as f:
-        check("appe", f.read() == payload + b"tail")
+    check("appe", v_read("uploaded.bin") == payload + b"tail")
     # REST + RETR
     data = []
     ftp.retrbinary("RETR uploaded.bin", data.append, rest=5)
     check("rest-retr", b"".join(data) == (payload + b"tail")[5:])
     # REST + STOR
     ftp.storbinary("STOR uploaded.bin", io.BytesIO(b"XY"), rest=3)
-    with open(os.path.join(root, "uploaded.bin"), "rb") as f:
-        got = f.read()
+    got = v_read("uploaded.bin")
     check("rest-stor", got[:3] == (payload + b"tail")[:3] and got[3:5] == b"XY", got[:8])
     # RNFR/RNTO
     ftp.rename("small.txt", "renamed.txt")
-    check("rnto", os.path.exists(os.path.join(root, "renamed.txt")))
+    check("rnto", v_exists("renamed.txt"))
     ftp.rename("renamed.txt", "small.txt")
     # CPFR/CPTO (server-side copy, worker job; #9)
     resp = ftp.sendcmd("CPFR small.txt")
     check("cpfr", resp.startswith("350"), resp)
     resp = ftp.sendcmd("CPTO copied.txt")
     check("cpto", resp.startswith("250"), resp)
-    with open(os.path.join(root, "small.txt"), "rb") as f:
-        orig = f.read()
-    with open(os.path.join(root, "copied.txt"), "rb") as f:
-        check("cpfr-cpto-content", f.read() == orig)
+    orig = v_read("small.txt")
+    check("cpfr-cpto-content", v_read("copied.txt") == orig)
     ftp.delete("copied.txt")
     # CPTO without CPFR -> 503
     try:
@@ -177,7 +257,7 @@ def scenario_basic(ftp, root, port):
     except ftplib.error_perm as e:
         check("cpto-same-path", str(e).startswith("550"), e)
     with open(os.path.join(root, "small.txt"), "rb") as f:
-        check("cpto-same-path-intact", f.read() == orig)
+        check("cpto-same-path-intact", v_read("small.txt") == orig)
     # a failed CPTO leaves no partial destination behind
     try:
         ftp.sendcmd("CPFR small.txt")
@@ -185,15 +265,26 @@ def scenario_basic(ftp, root, port):
         check("cpto-bad-dst", False, "expected 550")
     except ftplib.error_perm as e:
         check("cpto-bad-dst", str(e).startswith("550"), e)
-    check("cpto-bad-dst-clean", not os.path.exists(os.path.join(root, "no_such_dir")))
+    check("cpto-bad-dst-clean", not v_exists("no_such_dir"))
     # ---- CPFR/CPTO on a directory tree (#9: "copy a game from a usb key") ----
-    os.makedirs(os.path.join(root, "tree", "a", "b"))
-    with open(os.path.join(root, "tree", "top.bin"), "wb") as f:
-        f.write(b"\x01" * 4096)
-    with open(os.path.join(root, "tree", "a", "mid.txt"), "wb") as f:
-        f.write(b"middle")
-    with open(os.path.join(root, "tree", "a", "b", "deep.txt"), "wb") as f:
-        f.write(b"deep")
+    if EXTERNAL:
+        # the tree must exist on the remote server: seed it over FTP
+        for d in ("tree", "tree/a", "tree/a/b"):
+            try:
+                ftp.mkd(d)
+            except ftplib.error_perm:
+                pass
+        ftp.storbinary("STOR tree/top.bin", io.BytesIO(b"\x01" * 4096))
+        ftp.storbinary("STOR tree/a/mid.txt", io.BytesIO(b"middle"))
+        ftp.storbinary("STOR tree/a/b/deep.txt", io.BytesIO(b"deep"))
+    else:
+        os.makedirs(os.path.join(root, "tree", "a", "b"))
+        with open(os.path.join(root, "tree", "top.bin"), "wb") as f:
+            f.write(b"\x01" * 4096)
+        with open(os.path.join(root, "tree", "a", "mid.txt"), "wb") as f:
+            f.write(b"middle")
+        with open(os.path.join(root, "tree", "a", "b", "deep.txt"), "wb") as f:
+            f.write(b"deep")
     resp = ftp.sendcmd("CPFR tree")
     check("cpfr-dir", resp.startswith("350"), resp)
     resp = ftp.sendcmd("CPTO tree_copy")
@@ -203,10 +294,8 @@ def scenario_basic(ftp, root, port):
         (os.path.join("a", "mid.txt"), b"middle"),
         (os.path.join("a", "b", "deep.txt"), b"deep"),
     ):
-        p = os.path.join(root, "tree_copy", rel)
-        check("cpto-dir-" + rel, os.path.isfile(p), p)
-        with open(p, "rb") as f:
-            check("cpto-dir-content-" + rel, f.read() == want)
+        check("cpto-dir-" + rel, v_exists("tree_copy/" + rel), rel)
+        check("cpto-dir-content-" + rel, v_read("tree_copy/" + rel) == want)
     # destination inside the source tree would recurse forever -> 550
     try:
         ftp.sendcmd("CPFR tree")
@@ -214,15 +303,23 @@ def scenario_basic(ftp, root, port):
         check("cpto-dst-inside-src", False, "expected 550")
     except ftplib.error_perm as e:
         check("cpto-dst-inside-src", str(e).startswith("550"), e)
-    check("cpto-dst-inside-src-clean",
-          not os.path.exists(os.path.join(root, "tree", "nested")))
-    shutil.rmtree(os.path.join(root, "tree"))
-    shutil.rmtree(os.path.join(root, "tree_copy"))
+    check("cpto-dst-inside-src-clean", not v_exists("tree/nested"))
+    if EXTERNAL:
+        for f in ("tree/top.bin", "tree/a/mid.txt", "tree/a/b/deep.txt",
+                  "tree_copy/top.bin", "tree_copy/a/mid.txt",
+                  "tree_copy/a/b/deep.txt"):
+            ftp.delete(f)
+        for d in ("tree_copy/a/b", "tree_copy/a", "tree_copy",
+                  "tree/a/b", "tree/a", "tree"):
+            ftp.rmd(d)
+    else:
+        shutil.rmtree(os.path.join(root, "tree"))
+        shutil.rmtree(os.path.join(root, "tree_copy"))
     # MKD / RMD / DELE
     ftp.mkd("newdir")
-    check("mkd", os.path.isdir(os.path.join(root, "newdir")))
+    check("mkd", v_exists("newdir"))
     ftp.rmd("newdir")
-    check("rmd", not os.path.exists(os.path.join(root, "newdir")))
+    check("rmd", not v_exists("newdir"))
     ftp.delete("uploaded.bin")
     # FEAT
     feat = ftp.sendcmd("FEAT")
@@ -251,11 +348,14 @@ def scenario_basic(ftp, root, port):
     except ftplib.error_perm as e:
         check("type-bogus", str(e).startswith("504"), e)
     ftp.voidcmd("TYPE I")
-    # SITE CHMOD
+    # SITE CHMOD (mode verified locally only in host mode; the remote
+    # vfs may not expose a readable mode, but a 5xx would still fail
+    # the sendcmd)
     ftp.sendcmd("SITE CHMOD 600 small.txt")
-    check("site-chmod", (os.stat(os.path.join(root, "small.txt")).st_mode & 0o777) == 0o600)
+    if not EXTERNAL:
+        check("site-chmod", (os.stat(os.path.join(root, "small.txt")).st_mode & 0o777) == 0o600)
     # ---- RFC 3659: MLSD / MLST / MFMT; STOU; SITE UTIME ----
-    entries = dict(ftp.mlsd("/"))
+    entries = dict(ftp.mlsd(BASE or "/"))
     check("mlsd-dir", entries.get("sub", {}).get("type") == "dir", entries.get("sub"))
     sf = entries.get("small.txt", {})
     check("mlsd-file", sf.get("type") == "file", sf)
@@ -320,8 +420,7 @@ def scenario_port_and_bounce(ftp, port):
     conn.close()
     lsock.close()
     ftp.voidresp()
-    with open(os.path.join(ftp_root, "small.txt"), "rb") as f:
-        check("port-retr", b"".join(chunks) == f.read())
+    check("port-retr", b"".join(chunks) == v_read("small.txt"))
 
     # PORT bounce: target IP differs from control peer -> 425
     raw = raw_connect(port)
@@ -714,7 +813,7 @@ def scenario_fragmented_and_disconnect(binary, root):
         time.sleep(0.3)
         # server must still accept and serve
         ftp = ftplib.FTP()
-        ftp.connect("127.0.0.1", port, timeout=10)
+        ftp.connect(EXTERNAL[0] if EXTERNAL else "127.0.0.1", port, timeout=10)
         ftp.login("a", "b")
         check("alive-after-dc", ftp.voidcmd("NOOP") == "200 OK.")
         ftp.quit()
@@ -724,6 +823,7 @@ def scenario_fragmented_and_disconnect(binary, root):
 
 def scenario_concurrent_and_multi(binary, root):
     proc, port = start_server(binary, root)
+    host = EXTERNAL[0] if EXTERNAL else "127.0.0.1"
     try:
         # concurrent STOR from 2 clients
         payloads = [os.urandom(1 << 18), os.urandom(1 << 18)]
@@ -731,8 +831,10 @@ def scenario_concurrent_and_multi(binary, root):
 
         def upload(payload, name):
             f = ftplib.FTP()
-            f.connect("127.0.0.1", port, timeout=15)
+            f.connect(host, port, timeout=15)
             f.login("u", "p")
+            if EXTERNAL:
+                f.cwd(BASE)
             f.storbinary(f"STOR {name}", io.BytesIO(payload))
             f.quit()
 
@@ -745,17 +847,18 @@ def scenario_concurrent_and_multi(binary, root):
         for t in threads:
             t.join()
         for i, p in enumerate(payloads):
-            with open(os.path.join(root, f"conc{i}.bin"), "rb") as f:
-                check(f"concurrent-stor-{i}", f.read() == p)
-            os.remove(os.path.join(root, f"conc{i}.bin"))
+            check(f"concurrent-stor-{i}", v_read(f"conc{i}.bin") == p)
+            ftp_delete(f"conc{i}.bin")
 
         # multi-client: 5 concurrent sessions do LIST + NOOP + QUIT
         results = []
 
         def session():
             f = ftplib.FTP()
-            f.connect("127.0.0.1", port, timeout=15)
+            f.connect(host, port, timeout=15)
             f.login("u", "p")
+            if EXTERNAL:
+                f.cwd(BASE)
             ok = f.voidcmd("NOOP") == "200 OK."
             f.quit()
             results.append(ok)
@@ -816,10 +919,15 @@ def scenario_stop_optin(binary, root):
 
 def main():
     if len(sys.argv) < 2:
-        print("usage: test_ftplib.py <ftp_server_main>")
+        print("usage: test_ftplib.py <ftp_server_main> [--external host:port]")
         return 1
     binary = sys.argv[1]
     global ftp_root
+    global EXTERNAL
+    global VERIFIER
+    if "--external" in sys.argv:
+        host, _, port_s = sys.argv[sys.argv.index("--external") + 1].partition(":")
+        EXTERNAL = (host, int(port_s))
     ftp_root = tempfile.mkdtemp(prefix="opftp_it_")
 
     with open(os.path.join(ftp_root, "small.txt"), "wb") as f:
@@ -828,32 +936,57 @@ def main():
     # in flight (socket buffers can hold a few MB on loopback)
     make_big_file(os.path.join(ftp_root, "bigfile"), 8 << 20)
     # satfile: far beyond any socket buffer — guarantees in-flight
-    # transfers for ABOR and queue-saturation scenarios
-    make_big_file(os.path.join(ftp_root, "satfile"), 256 << 20)
+    # transfers for ABOR and queue-saturation scenarios. External mode
+    # (emulated PS3) is slow, so 32MB is plenty and seeds much faster.
+    make_big_file(os.path.join(ftp_root, "satfile"),
+                  32 << 20 if EXTERNAL else 256 << 20)
     os.mkdir(os.path.join(ftp_root, "sub"))
     with open(os.path.join(ftp_root, "sub", "nested.txt"), "wb") as f:
         f.write(b"nested\n")
 
-    proc, port = start_server(binary, ftp_root)
-    try:
+    if EXTERNAL:
+        # Target an already-running server (e.g. the headless PS3 build
+        # under RPCS3). Fixtures are seeded over FTP into BASE; state
+        # verification goes through the same session (VERIFIER).
+        host, port = EXTERNAL
         ftp = ftplib.FTP()
-        ftp.connect("127.0.0.1", port, timeout=10)
+        ftp.connect(host, port, timeout=15)
         ftp.login("anonymous", "test@test")
         check("login", True)
+        VERIFIER = ftp
+        seed_external(ftp)          # CWDs to BASE, STORs the fixtures
         scenario_basic(ftp, ftp_root, port)
         scenario_port_and_bounce(ftp, port)
-        ftp.quit()
-    finally:
-        stop_server(proc)
+        # keep ftp/VERIFIER open: later scenarios verify via FTP probes
+        scenario_abor(binary, ftp_root)
+        scenario_fragmented_and_disconnect(binary, ftp_root)
+        scenario_concurrent_and_multi(binary, ftp_root)
+        try:
+            ftp.quit()
+        except Exception:
+            pass
+        # host-only (spawn/worker-count/TLS/IPv6 semantics): skipped
+    else:
+        proc, port = start_server(binary, ftp_root)
+        try:
+            ftp = ftplib.FTP()
+            ftp.connect("127.0.0.1", port, timeout=10)
+            ftp.login("anonymous", "test@test")
+            check("login", True)
+            scenario_basic(ftp, ftp_root, port)
+            scenario_port_and_bounce(ftp, port)
+            ftp.quit()
+        finally:
+            stop_server(proc)
 
-    scenario_ipv6(binary, ftp_root)
-    scenario_tls(binary, ftp_root)
-    scenario_abor(binary, ftp_root)
-    scenario_one_transfer_and_saturation(binary, ftp_root)
-    scenario_fragmented_and_disconnect(binary, ftp_root)
-    scenario_concurrent_and_multi(binary, ftp_root)
-    scenario_lifecycle(binary)
-    scenario_stop_optin(binary, ftp_root)
+        scenario_ipv6(binary, ftp_root)
+        scenario_tls(binary, ftp_root)
+        scenario_abor(binary, ftp_root)
+        scenario_one_transfer_and_saturation(binary, ftp_root)
+        scenario_fragmented_and_disconnect(binary, ftp_root)
+        scenario_concurrent_and_multi(binary, ftp_root)
+        scenario_lifecycle(binary)
+        scenario_stop_optin(binary, ftp_root)
 
     if FAILURES:
         print(f"{len(FAILURES)} FAILURES: {FAILURES}")

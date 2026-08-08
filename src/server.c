@@ -186,6 +186,7 @@ static int bind_listener(struct opftp_server* s)
                 socklen_t sl = sizeof(a6);
                 getsockname(fd, (struct sockaddr*) &a6, &sl);
                 s->port = ntohs(a6.sin6_port);
+                s->listen_fd = fd;
                 goto done;
             }
             int e = errno;
