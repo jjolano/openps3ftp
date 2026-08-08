@@ -360,6 +360,7 @@ static int mem_rmdir(void* ctx, const char* path)
     if (!n) { opftp_mutex_unlock(c->mutex); errno = err; return -1; }
     if ((n->mode & S_IFMT) != S_IFDIR) { opftp_mutex_unlock(c->mutex); errno = ENOTDIR; return -1; }
     if (n->children) { opftp_mutex_unlock(c->mutex); errno = ENOTEMPTY; return -1; }
+    if (!n->parent) { opftp_mutex_unlock(c->mutex); errno = EBUSY; return -1; }   /* the root node */
     /* unlink from parent */
     if (n->parent) {
         struct mnode** p = &n->parent->children;
@@ -397,12 +398,22 @@ static int mem_rename(void* ctx, const char* oldp, const char* newp)
     int err = 0;
     struct mnode* n = node_lookup(c, oldp, &err);
     if (!n) { opftp_mutex_unlock(c->mutex); errno = err; return -1; }
+    if (!n->parent) { opftp_mutex_unlock(c->mutex); errno = EBUSY; return -1; }   /* the root node */
     struct mnode* np;
     const char* nn;
     if (!node_lookup_parent(c, newp, &np, &nn, &err)) {
         opftp_mutex_unlock(c->mutex);
         errno = err;
         return -1;
+    }
+    /* reject moving a node into its own subtree: would orphan a
+     * cyclic node that destroy() can never reach (leak) */
+    for (struct mnode* p = np; p; p = p->parent) {
+        if (p == n) {
+            opftp_mutex_unlock(c->mutex);
+            errno = EINVAL;
+            return -1;
+        }
     }
     struct mnode* existing = node_find_child(np, nn);
     if (existing) {
