@@ -1,0 +1,7 @@
+USER a
+PASS b
+MKD /d2
+CWD;d
+/1 RNFR /d1
+R³TO /d2
+PWD

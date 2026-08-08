@@ -1,0 +1,8 @@
+USPORTER a
+PASS
+PA
+PASV
+ Iÿÿÿÿÿÿÿÿÿÿÿ
+PASV
+STOR /f.bin
+PASV/f.biSTOR ?/f.b”n

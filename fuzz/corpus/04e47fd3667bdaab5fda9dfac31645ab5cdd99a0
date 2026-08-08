@@ -1,0 +1,9 @@
+USRETRI
+PASV
+STOR 
+PAPORT
+TYPE I
+PASV
+STOR /f.bin
+PASV
+RETR /f.bin

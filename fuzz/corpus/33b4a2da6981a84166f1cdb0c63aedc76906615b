@@ -1,0 +1,9 @@
+USER a
+PASS b
+PORT 127,0,0,1,7,2USER a
+PASS b
+PASV
+b
+PASV
+EPSV
+EPSVTR /p.bin

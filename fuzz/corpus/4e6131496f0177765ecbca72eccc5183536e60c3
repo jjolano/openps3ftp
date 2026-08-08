@@ -1,0 +1,8 @@
+USER a
+PASS b
+MKD /d2
+APPE/d1
+RNFR /d1
+R
+RNFR /d
+PWD

@@ -1,0 +1,5 @@
+USER Sa
+PASS b
+MKD /d1
+CWD /dS1
+Pb

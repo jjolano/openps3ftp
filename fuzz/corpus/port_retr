@@ -1,0 +1,6 @@
+USER a
+PASS b
+PORT 127,0,0,1,7,234
+STOR /p.bin
+PORT 127,0,0,1,7,234
+RETR /p.bin

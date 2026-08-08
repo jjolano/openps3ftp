@@ -1,0 +1,8 @@
+USER a
+PASS b
+MKD /d2
+MKD /d2
+b
+MKD /d2
+CWD; /d1
+PWD

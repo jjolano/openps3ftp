@@ -1,0 +1,5 @@
+USER a
+PASS d1
+CWD /d1
+RNFR /d1
+R NTO /Ь═Єїпи╗Ё

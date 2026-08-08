@@ -1,0 +1,5 @@
+USER a
+PASS b
+PORT 128,0,0,1,
+PORT 127,234
+STOR /ib.pn

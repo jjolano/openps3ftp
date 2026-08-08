@@ -1,0 +1,6 @@
+USER :
+PASS b
+CWD /nontent
+DELE /x
+RMD /x
+MKD /a

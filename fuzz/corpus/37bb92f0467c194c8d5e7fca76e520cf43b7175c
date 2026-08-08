@@ -1,0 +1,6 @@
+USER a
+PROT b
+CWD /nonexistent
+DELE /x
+RMD /x
+MKD /a

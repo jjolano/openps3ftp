@@ -1,0 +1,12 @@
+USER :
+PASS b
+CWDUSER a
+PASS 
+PASV
+EPSV b
+PA
+ ÿÿSER a
+PASS 
+PASV
+EPSV bx
+M

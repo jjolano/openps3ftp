@@ -1,0 +1,9 @@
+USER a
+PASS b
+S b
+TYPE I
+PASV
+SMKD 7d1
+CWD UUU/d1
+RNFR /d1
+RNTO /Ь═Єїпи╗Ё

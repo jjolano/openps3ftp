@@ -1,0 +1,4 @@
+USER anonymous
+PASS x
+PWD
+QUIT

@@ -1,0 +1,9 @@
+USER a
+PASS
+PA
+PASVSER a
+PASS
+PA
+PASV
+STOR /f
+STOR /f.bin
