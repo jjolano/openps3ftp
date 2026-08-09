@@ -121,7 +121,11 @@ endif()
 enable_testing()
 
 if(OPFTP_PS3)
-  # ps3 cellFs/net syscall stubs
+  # ps3 cellFs/net syscall stubs. libfs.a (real LV2 cellFs impl) takes
+  # precedence over the import-stub archive when the SDK ships it.
+  if(EXISTS ${PSL1GHT}/ppu/lib/libfs.a)
+    target_link_libraries(openps3ftp PUBLIC ${PSL1GHT}/ppu/lib/libfs.a)
+  endif()
   target_link_libraries(openps3ftp PUBLIC
     ${PSL1GHT}/ppu/lib/libfs_stub.a
     ${PSL1GHT}/ppu/lib/libsysfs.a

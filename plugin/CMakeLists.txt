@@ -40,7 +40,7 @@ set(OPFTP_CORE_SRCS
   ../src/tls.c)
 
 add_executable(openps3ftp-plugin
-    main.c netbridge.c httpd.c
+    main.c httpd.c
     ../app/ui.c           # shared UI model (third renderer: web)
     ${OPFTP_CORE_SRCS})
 target_compile_features(openps3ftp-plugin PRIVATE c_std_11)
@@ -61,10 +61,14 @@ target_link_libraries(openps3ftp-plugin PRIVATE
 # refs between libc and libsysbase).  Mirrors the toolchain's default
 # LIB_LV2_SPEC group (-lsysbase -lc -lrt -llv2 -llv2_stub -lc_stub)
 # plus the sysfs archive; lv2_stub provides newlib's sys_lwmutex_*
-# import pointers.  All live in $PS3DK/ppu/lib.
+# import pointers.  libfs/libnet are the real syscall-backed cellFs /
+# sys_net implementations from the FirebirdTA01 PS3DK; libfs_stub and
+# the old module-import libnet would not resolve cleanly in the vsh
+# process, which is why netbridge.c (raw lv2 calls) existed before.
+# All live in $PS3DK/ppu/lib.
 target_link_libraries(openps3ftp-plugin PRIVATE
     -L"${PS3DK}/ppu/lib"
-    -Wl,--start-group -lsysfs -lfs_stub -lsysbase -lc -lrt -llv2 -llv2_stub -lc_stub
+    -Wl,--start-group -lsysfs -lfs -lfs_stub -lnet -lsysbase -lc -lrt -llv2 -llv2_stub -lc_stub
                      -lm -lgcc -Wl,--end-group)
 
 target_include_directories(openps3ftp-plugin PRIVATE

@@ -16,8 +16,8 @@
  * HTTP/1.0-style: read one request, respond, close.  Fine for a
  * browser polling once per second.
  *
- * Sockets come from the platform: on ps3 the plugin's netbridge.c
- * provides them (raw lv2 syscalls), on host they are POSIX.
+ * Sockets come from the platform: on ps3 the SDK's libnet (real
+ * sys_net syscall wrappers) provides them, on host they are POSIX.
  */
 #include "opftp.h"
 #include "ui.h"

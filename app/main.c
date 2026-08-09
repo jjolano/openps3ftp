@@ -18,10 +18,8 @@ static void log_cb(int level, const char* msg)
 }
 
 #ifdef OPFTP_PS3
-/* lv2 sys_net bridge — see plugin/netbridge.c for the implementation.
- * Overrides libc/libnet socket functions with raw lv2 syscalls (700-716)
- * so the app works on RPCS3 (which stubs libnet module imports). */
-#include "../plugin/netbridge.h"
+/* net calls resolve to the SDK's libnet (real sys_net syscall
+ * wrappers); no bridge needed. */
 #endif
 
 #ifndef OPFTP_HEADLESS

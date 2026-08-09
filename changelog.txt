@@ -1,3 +1,11 @@
+[Version 5.3 - August 9, 2026]
+- Use the real libfs / libnet from the updated PS3DK (raw LV2 cellFs
+  + sys_net syscall wrappers) instead of import stubs; deleted the
+  hand-rolled lv2 netbridge (app + plugin). cellFs/net calls now work
+  on RPCS3 and hardware without relying on sysmodule imports.
+- App/plugin link the SDK's libfs.a before libfs_stub.a; netctl call
+  renamed to the cell-style API (cellNetCtlGetInfo).
+
 [Version 5.1 - August 8, 2026]
 - dev_blind support: press SELECT to mount/unmount the flash filesystem
   (opt-in only, never automatic), with a persistent "dev_blind MOUNTED"

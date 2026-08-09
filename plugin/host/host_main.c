@@ -2,8 +2,7 @@
  * OpenPS3FTP — host harness for the vsh-plugin web console.
  *
  * Runs the FTP server + shared UI model + the plugin's httpd.c on
- * Linux (POSIX sockets, no netbridge), serving the web assets from
- * disk.  Lets us verify the web UI against the real server/model
+ * Linux (POSIX sockets), serving the web assets from disk.  Lets us verify the web UI against the real server/model
  * with a desktop browser before touching a PS3.
  *
  * Build:  cmake -S plugin/host -B plugin/host/build && cmake --build plugin/host/build

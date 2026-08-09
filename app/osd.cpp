@@ -39,7 +39,7 @@
  * into ip_address at offset 0 (NET_CTL_IPV4_ADDR_STR_LEN = 16).
  */
 #define NET_CTL_INFO_IP_ADDRESS (16)
-extern "C" int netCtlGetInfo(int code, void* info);
+extern "C" int cellNetCtlGetInfo(int code, void* info);
 typedef union {
     char ip_address[16];
 } osd_net_ctl_info_t;
@@ -1253,7 +1253,7 @@ extern "C" int opftp_osd_run(opftp_server_t* s, const char* version)
     {
         osd_net_ctl_info_t info;
         memset(&info, 0, sizeof(info));
-        if (netCtlGetInfo(NET_CTL_INFO_IP_ADDRESS, &info) == 0)
+        if (cellNetCtlGetInfo(NET_CTL_INFO_IP_ADDRESS, &info) == 0)
             strncpy(g.local_ip, info.ip_address, sizeof(g.local_ip) - 1);
         else
             strncpy(g.local_ip, "\xE2\x80\x94", sizeof(g.local_ip) - 1);
