@@ -1,7 +1,8 @@
 /*
  * OpenPS3FTP — host terminal UI (TUI).
  * Faithful text port of the PS3 OSD (app/osd.cpp); shares the UI
- * model via ui.h. ANSI truecolor, no external deps.
+ * model via ui.h and the dark-console theme with app/webui/style.css.
+ * ANSI truecolor, no external deps.
  */
 #define _POSIX_C_SOURCE 200809L   /* clock_gettime, gmtime_r, sigaction */
 
@@ -28,25 +29,32 @@
 #include "tui.h"
 
 /* ------------------------------------------------------------------ *
- * Palette (same values as osd.cpp — the design mockup's style guide)
+ * Palette (same values as osd.cpp — the shared dark-console theme
+ * codified in app/webui/style.css: near-black layered surfaces,
+ * green accent, blue-grey labels, amber warn, red err)
  * ------------------------------------------------------------------ */
 enum {
-    C_BG      = 0x0B0F16,
-    C_PANEL   = 0x121826,
-    C_INSET   = 0x0D1220,
-    C_LINE    = 0x2A3446,
-    C_TEXT    = 0xE7EBF2,
-    C_MUTED   = 0x8A94A8,
-    C_ACC     = 0x33D17A,
-    C_BLUE    = 0x4FA3E3,
-    C_WARN    = 0xE5A13D,
-    C_ERR     = 0xE05252,
-    C_ERRBG   = 0x211117,
-    C_WARNBG  = 0x1F1710,
-    C_FOCUS   = 0x141C2B,
-    C_EMPTY   = 0xAAB3C5,
-    C_EMSG    = 0xE8B9B7,
-    C_EMSW    = 0xD8C39A,
+    C_BG      = 0x0B0E11,   /* screen background                    */
+    C_PANEL   = 0x10151A,   /* card/panel background                */
+    C_INSET   = 0x0D1216,   /* inset: tracks, strip band            */
+    C_LINE    = 0x1E262E,   /* borders, rules                       */
+    C_RAISE   = 0x2A3640,   /* raised surface border (overlays)     */
+    C_TEXT    = 0xC8D0D8,   /* primary text                         */
+    C_BRIGHT  = 0xE8EEF4,   /* brand, headline values               */
+    C_MUTED   = 0x7D8894,   /* secondary text                       */
+    C_LABEL   = 0x5A7684,   /* labels, table heads, hints           */
+    C_ACC     = 0x3FAE6A,   /* green accent / ok / LISTENING        */
+    C_BLUE    = 0x5E8CA8,   /* RETR direction (steel blue-grey kin) */
+    C_WARN    = 0xE8A23A,   /* amber warn                           */
+    C_ERR     = 0xD0504A,   /* red err                              */
+    C_ERRBG   = 0x2A1512,   /* error strip tint                     */
+    C_WARNBG  = 0x3A2A10,   /* warning strip tint (webui banner)    */
+    C_ERRLINE = 0x5A2A28,   /* error strip edge                     */
+    C_WARNLINE= 0x6A4A1A,   /* warning strip edge                   */
+    C_FOCUS   = 0x16222B,   /* selected row tint                    */
+    C_EMPTY   = 0x5A6570,   /* empty-state text                     */
+    C_EMSG    = 0xF0B0AA,   /* error strip message                  */
+    C_EMSW    = 0xE8C06A,   /* warning strip message                */
 };
 
 /* ------------------------------------------------------------------ *
@@ -80,34 +88,36 @@ static void put(int row, int col, uint32_t fg, uint32_t bg, const char* s)
     }
 }
 
-static void txt(int row, int col, uint32_t fg, const char* fmt, ...)
+/* Text on a surface: bg != 0 keeps panels solid (unset bg cells emit
+ * no SGR and would speckle with the terminal's default background). */
+static void txt(int row, int col, uint32_t fg, uint32_t bg, const char* fmt, ...)
 {
     char b[512];
     va_list va;
     va_start(va, fmt);
     vsnprintf(b, sizeof(b), fmt, va);
     va_end(va);
-    put(row, col, fg, 0, b);
+    put(row, col, fg, bg, b);
 }
 
-static void txt_r(int row, int xr, uint32_t fg, const char* fmt, ...)
+static void txt_r(int row, int xr, uint32_t fg, uint32_t bg, const char* fmt, ...)
 {
     char b[512];
     va_list va;
     va_start(va, fmt);
     vsnprintf(b, sizeof(b), fmt, va);
     va_end(va);
-    put(row, xr - uw(b), fg, 0, b);
+    put(row, xr - uw(b), fg, bg, b);
 }
 
-static void txt_c(int row, int cx, uint32_t fg, const char* fmt, ...)
+static void txt_c(int row, int cx, uint32_t fg, uint32_t bg, const char* fmt, ...)
 {
     char b[512];
     va_list va;
     va_start(va, fmt);
     vsnprintf(b, sizeof(b), fmt, va);
     va_end(va);
-    put(row, cx - uw(b) / 2, fg, 0, b);
+    put(row, cx - uw(b) / 2, fg, bg, b);
 }
 
 static void hline(int y, int x0, int x1, const char* ch, uint32_t fg, uint32_t bg)
@@ -261,8 +271,8 @@ static void on_sig(int s)
 static void draw_header(void)
 {
     put(0, 0, C_ACC, 0, "\xE2\x96\xA0");                  /* ■ brand mark */
-    txt(0, 2, C_TEXT, "OpenPS3FTP");
-    txt(0, 2 + uw("OpenPS3FTP") + 2, C_MUTED, "%s", g.version);
+    txt(0, 2, C_BRIGHT, 0, "OpenPS3FTP");
+    txt(0, 2 + uw("OpenPS3FTP") + 2, C_LABEL, 0, "%s", g.version);
 
     /* clock (UTC, like the OSD) */
     char clock[8];
@@ -271,7 +281,8 @@ static void draw_header(void)
     gmtime_r(&t, &tm);
     snprintf(clock, sizeof(clock), "%02d:%02d", tm.tm_hour, tm.tm_min);
 
-    /* view tabs, right-aligned before the clock */
+    /* view tabs, right-aligned before the clock; active tab is a
+     * solid accent chip (webui .tab.act) */
     int tabs_w = 0;
     for (int i = 0; i < OPFTP_UI_V_COUNT; i++)
         tabs_w += uw(opftp_ui_view_name(i)) + 4;
@@ -279,17 +290,17 @@ static void draw_header(void)
     for (int i = 0; i < OPFTP_UI_V_COUNT; i++) {
         const char* n = opftp_ui_view_name(i);
         if (g.view == i) {
-            put(0, x, C_ACC, C_FOCUS, "[");
-            put(0, x + 1, C_ACC, C_FOCUS, n);
-            put(0, x + 1 + uw(n), C_ACC, C_FOCUS, "]");
+            put(0, x, C_BG, C_ACC, " ");
+            put(0, x + 1, C_BG, C_ACC, n);
+            put(0, x + 1 + uw(n), C_BG, C_ACC, " ");
         } else {
-            put(0, x, C_MUTED, 0, "[");
+            put(0, x, 0, 0, " ");
             put(0, x + 1, C_MUTED, 0, n);
-            put(0, x + 1 + uw(n), C_MUTED, 0, "]");
+            put(0, x + 1 + uw(n), 0, 0, " ");
         }
         x += uw(n) + 4;
     }
-    txt_r(0, scr_cols - 1, C_TEXT, "%s", clock);
+    txt_r(0, scr_cols - 1, C_LABEL, 0, "%s", clock);
     hline(1, 0, scr_cols - 1, "\xE2\x94\x80", C_LINE, 0);
 }
 
@@ -297,28 +308,28 @@ static void draw_footer(void)
 {
     int row = scr_rows - 1;
     hline(row - 1, 0, scr_cols - 1, "\xE2\x94\x80", C_LINE, 0);
-    txt(row, 0, C_MUTED, "? help   Enter detail   Esc back   q quit");
+    txt(row, 0, C_LABEL, 0, "? help   Enter detail   Esc back   q quit");
     char right[40];
     snprintf(right, sizeof(right), " \xE2\x80\x94 VIEW %d/%d", g.view + 1,
              OPFTP_UI_V_COUNT);
     int vw = uw(opftp_ui_view_name(g.view));
     int rx = scr_cols - 1 - (vw + uw(right));   /* right block, 1-col margin */
-    txt(row, rx, C_TEXT, "%s", opftp_ui_view_name(g.view));
-    txt(row, rx + vw, C_MUTED, "%s", right);
+    txt(row, rx, C_MUTED, 0, "%s", opftp_ui_view_name(g.view));
+    txt(row, rx + vw, C_LABEL, 0, "%s", right);
 }
 
 /* Section label: accent bar + label + optional boxed count + right text. */
 static void slab(int y, const char* label, const char* cnt, const char* right)
 {
     put(y, 0, C_ACC, 0, "\xE2\x96\x8D");                  /* ▍ */
-    txt(y, 2, C_MUTED, "%s", label);
+    txt(y, 2, C_LABEL, 0, "%s", label);
     int x = 2 + uw(label) + 2;
     if (cnt) {
-        txt(y, x, C_LINE, "[");
-        txt(y, x + 1, C_TEXT, "%s", cnt);
-        txt(y, x + 1 + uw(cnt), C_LINE, "]");
+        txt(y, x, C_LINE, 0, "[");
+        txt(y, x + 1, C_MUTED, 0, "%s", cnt);
+        txt(y, x + 1 + uw(cnt), C_LINE, 0, "]");
     }
-    if (right) txt_r(y, scr_cols - 1, C_MUTED, "%s", right);
+    if (right) txt_r(y, scr_cols - 1, C_LABEL, 0, "%s", right);
 }
 
 /* Block progress bar: colored fill, inset track. */
@@ -348,13 +359,16 @@ static int draw_event_strip(int y)
             &g.events[(g.ev_head - i + OPFTP_UI_MAX_EVENTS) % OPFTP_UI_MAX_EVENTS];
         uint32_t col = e->warn ? C_WARN : C_ERR;
         uint32_t bg = e->warn ? C_WARNBG : C_ERRBG;
+        uint32_t edge = e->warn ? C_WARNLINE : C_ERRLINE;
         hline(y + i, 0, scr_cols - 1, " ", 0, bg);
-        put(y + i, 0, col, bg, "!");
-        txt(y + i, 3, e->warn ? C_EMSW : C_EMSG, "%s", e->text);
+        put(y + i, 0, col, bg, "\xE2\x96\x8E");            /* ▎edge tick */
+        put(y + i, 1, edge, bg, " ");
+        put(y + i, 3, col, bg, "!");
+        txt(y + i, 5, e->warn ? C_EMSW : C_EMSG, bg, "%s", e->text);
         if (i == 0 && g.ev_count >= 2) {
             char b[24];
             snprintf(b, sizeof(b), "%d RECENT", g.ev_count);
-            txt_r(y, scr_cols - 2, col, "%s", b);
+            txt_r(y, scr_cols - 2, col, bg, "%s", b);
         }
     }
     return n;
@@ -366,7 +380,7 @@ static void draw_status_card(int y)
     uint32_t state_col = listening ? C_ACC : C_ERR;
     box(y, 0, 6, scr_cols, C_LINE, C_PANEL);
     put(y + 1, 1, state_col, C_PANEL, "\xE2\x97\x8F");    /* ● */
-    txt(y + 1, 4, state_col, "%s", listening ? "LISTENING" : "STOPPED");
+    txt(y + 1, 4, state_col, C_PANEL, "%s", listening ? "LISTENING" : "STOPPED");
 
     /* stat columns (right-aligned block, labels under values) */
     char portb[8], addr[24], rootb[40], workers[8];
@@ -383,8 +397,8 @@ static void draw_status_card(int y)
     for (int i = 0; i < 4; i++) {
         char v[20];
         t_trunc(v, sizeof(v), vals[i], widths[i]);
-        put(y + 1, seg[i], C_TEXT, C_PANEL, v);
-        put(y + 2, seg[i], C_MUTED, C_PANEL, labels[i]);
+        put(y + 1, seg[i], C_BRIGHT, C_PANEL, v);
+        put(y + 2, seg[i], C_LABEL, C_PANEL, labels[i]);
     }
 
     /* uptime strip (own row above the bottom border) */
@@ -393,7 +407,7 @@ static void draw_status_card(int y)
     char dur[16], gb[16];
     opftp_ui_fmt_dur(dur, sizeof(dur), up);
     opftp_ui_fmt_size(gb, sizeof(gb), g.session_bytes);
-    txt(y + 5, 1, C_MUTED, "UPTIME %s \xC2\xB7 %" PRIu64
+    txt(y + 5, 1, C_LABEL, C_PANEL, "UPTIME %s \xC2\xB7 %" PRIu64
         " TRANSFERS \xC2\xB7 %s THIS SESSION", dur, g.session_xfers, gb);
 }
 
@@ -402,12 +416,12 @@ static void draw_xfer_card(int y, int idx, bool focused)
     const opftp_snapshot_client_t* c = &g.snap.clients[idx];
     bool up = !strcmp(c->xfer_op, "RETR") || !strcmp(c->xfer_op, "LIST");
     uint32_t ac = up ? C_BLUE : C_ACC;
-    box(y, 0, 3, scr_cols, focused ? C_ACC : C_LINE,
-        focused ? C_FOCUS : C_PANEL);
+    uint32_t cb = focused ? C_FOCUS : C_PANEL;
+    box(y, 0, 3, scr_cols, focused ? C_ACC : C_LINE, cb);
 
     /* op + name + pct */
-    put(y + 1, 1, ac, focused ? C_FOCUS : C_PANEL, up ? "\xE2\x86\x91" : "\xE2\x86\x93");
-    txt(y + 1, 4, C_MUTED, "%s", c->xfer_op);
+    put(y + 1, 1, ac, cb, up ? "\xE2\x86\x91" : "\xE2\x86\x93");
+    txt(y + 1, 4, C_MUTED, cb, "%s", c->xfer_op);
     char pctb[8];
     if (c->xfer_total)
         snprintf(pctb, sizeof(pctb), "%d%%", (int)(c->xfer_bytes * 100 / c->xfer_total));
@@ -417,8 +431,8 @@ static void draw_xfer_card(int y, int idx, bool focused)
     char name[128];
     t_trunc(name, sizeof(name), c->xfer_path, scr_cols - 4 - uw(c->xfer_op) - 2
             - uw(pctb) - 4);
-    txt(y + 1, x, C_TEXT, "%s", name);
-    txt_r(y + 1, scr_cols - 2, C_TEXT, "%s", pctb);
+    txt(y + 1, x, C_TEXT, cb, "%s", name);
+    txt_r(y + 1, scr_cols - 2, C_BRIGHT, cb, "%s", pctb);
 
     /* progress bar + meta */
     opftp_ui_trk_t* t = 0;
@@ -436,7 +450,7 @@ static void draw_xfer_card(int y, int idx, bool focused)
     int barw = scr_cols - 4 - uw(meta) - 3;
     if (barw < 8) barw = 8;
     progress_bar(y + 2, 1, barw, c->xfer_bytes, c->xfer_total, up);
-    txt_r(y + 2, scr_cols - 2, C_MUTED, "%s", meta);
+    txt_r(y + 2, scr_cols - 2, C_LABEL, cb, "%s", meta);
 }
 
 static void draw_status(void)
@@ -465,8 +479,8 @@ static void draw_status(void)
         shown++;
     }
     if (nxfer == 0 && avail >= 5) {
-        box(y, 0, 3, scr_cols, C_LINE, C_BG);
-        txt_c(y + 1, scr_cols / 2, C_EMPTY, "No active transfers");
+        box(y, 0, 3, scr_cols, C_LINE, C_INSET);
+        txt_c(y + 1, scr_cols / 2, C_EMPTY, C_INSET, "No active transfers");
         y += 3;
     } else {
         y += shown * 3;
@@ -500,15 +514,15 @@ static void draw_status(void)
         int cw = 2 + uw(peerb) + 1 + uw(chipt);
         if (x + cw > scr_cols - 8) break;
         put(y, x, C_ACC, 0, "\xE2\x97\x8F");
-        txt(y, x + 2, C_TEXT, "%s", peerb);
-        txt(y, x + 2 + uw(peerb) + 1, C_MUTED, "%s", chipt);
+        txt(y, x + 2, C_TEXT, 0, "%s", peerb);
+        txt(y, x + 2 + uw(peerb) + 1, C_LABEL, 0, "%s", chipt);
         x += cw + 2;
         drawn++;
     }
     if (g.snap.num_clients > drawn) {
         char more[16];
         snprintf(more, sizeof(more), "+%d", g.snap.num_clients - drawn);
-        txt(y, x, C_MUTED, "%s", more);
+        txt(y, x, C_LABEL, 0, "%s", more);
     }
 }
 
@@ -544,11 +558,11 @@ static void draw_transfers(void)
          g.hist_count ? showing : 0);
 
     /* head */
-    txt(3, 1, C_MUTED, "TIME");
-    txt(3, 8, C_MUTED, "DIR");
-    txt(3, 18, C_MUTED, "FILE");
-    txt_r(3, scr_cols - 12, C_MUTED, "SIZE");
-    txt_r(3, scr_cols - 2, C_MUTED, "RESULT");
+    txt(3, 1, C_LABEL, 0, "TIME");
+    txt(3, 8, C_LABEL, 0, "DIR");
+    txt(3, 18, C_LABEL, 0, "FILE");
+    txt_r(3, scr_cols - 12, C_LABEL, 0, "SIZE");
+    txt_r(3, scr_cols - 2, C_LABEL, 0, "RESULT");
     hline(4, 0, scr_cols - 2, "\xE2\x94\x80", C_LINE, 0);
 
     int y = 5;
@@ -569,20 +583,20 @@ static void draw_transfers(void)
 
         char t[8];
         snprintf(t, sizeof(t), "%02d:%02d", h->hh, h->mm);
-        txt(ry, 1, C_MUTED, "%s", t);
+        txt(ry, 1, C_MUTED, bg, "%s", t);
         put(ry, 8, ac, bg, up ? "\xE2\x86\x91" : "\xE2\x86\x93");
-        txt(ry, 11, C_MUTED, "%s", h->op);
+        txt(ry, 11, C_MUTED, bg, "%s", h->op);
         char f[128];
         t_trunc(f, sizeof(f), h->path, scr_cols - 18 - 9 - 10 - 6);
-        txt(ry, 18, C_TEXT, "%s", f);
+        txt(ry, 18, C_TEXT, bg, "%s", f);
         char sz[16];
         opftp_ui_fmt_size(sz, sizeof(sz), h->bytes);
-        txt_r(ry, scr_cols - 12, C_TEXT, "%s", sz);
+        txt_r(ry, scr_cols - 12, C_TEXT, bg, "%s", sz);
         const char* rs = h->result == OPFTP_UI_H_OK ? "OK"
                        : h->result == OPFTP_UI_H_ABORTED ? "ABORTED" : "ERROR";
         uint32_t rc = h->result == OPFTP_UI_H_OK ? C_ACC
                     : h->result == OPFTP_UI_H_ABORTED ? C_WARN : C_ERR;
-        txt_r(ry, scr_cols - 2, rc, "%s", rs);
+        txt_r(ry, scr_cols - 2, rc, bg, "%s", rs);
     }
     draw_scrollbar(y, rows_h, g.scroll_hist, rows_h, total);
 }
@@ -598,10 +612,10 @@ static void draw_clients(void)
              g.snap.num_clients, OPFTP_SNAPSHOT_MAX_CLIENTS);
     slab(2, "CLIENTS", g.snap.num_clients ? cnt : 0, slots);
 
-    txt(3, 2, C_MUTED, "IP ADDRESS");
-    txt(3, 20, C_MUTED, "USER");
-    txt(3, 34, C_MUTED, "CURRENT DIRECTORY");
-    txt_r(3, scr_cols - 2, C_MUTED, "IDLE");
+    txt(3, 2, C_LABEL, 0, "IP ADDRESS");
+    txt(3, 20, C_LABEL, 0, "USER");
+    txt(3, 34, C_LABEL, 0, "CURRENT DIRECTORY");
+    txt_r(3, scr_cols - 2, C_LABEL, 0, "IDLE");
     hline(4, 0, scr_cols - 2, "\xE2\x94\x80", C_LINE, 0);
 
     int y = 5;
@@ -617,16 +631,16 @@ static void draw_clients(void)
         const opftp_snapshot_client_t* c = &g.snap.clients[ci];
         uint32_t bg = (g.sel_cli == ci) ? C_FOCUS : 0;
 
-        put(ry, 0, c->xfer_active ? C_ACC : C_MUTED, bg, "\xE2\x96\xA0");
+        put(ry, 0, c->xfer_active ? C_ACC : C_LINE, bg, "\xE2\x96\xA0");
         char ip[24];
         t_trunc(ip, sizeof(ip), c->peer, 16);
-        txt(ry, 2, C_TEXT, "%s", ip);
+        txt(ry, 2, C_TEXT, bg, "%s", ip);
         char usr[16];
         t_trunc(usr, sizeof(usr), c->user[0] ? c->user : "?", 11);
-        txt(ry, 20, C_TEXT, "%s", usr);
+        txt(ry, 20, C_TEXT, bg, "%s", usr);
         char cwd[128];
         t_trunc(cwd, sizeof(cwd), c->cwd, scr_cols - 34 - 8 - 6);
-        txt(ry, 34, C_TEXT, "%s", cwd);
+        txt(ry, 34, C_TEXT, bg, "%s", cwd);
 
         char idle[8];
         uint64_t idl = 0;
@@ -637,11 +651,11 @@ static void draw_clients(void)
             break;
         }
         opftp_ui_fmt_idle(idle, sizeof(idle), idl);
-        txt_r(ry, scr_cols - 2, C_TEXT, "%s", idle);
+        txt_r(ry, scr_cols - 2, C_MUTED, bg, "%s", idle);
     }
     draw_scrollbar(y, rows_h, g.scroll_cli, rows_h, total);
 
-    txt(scr_rows - 2, 0, C_MUTED,
+    txt(scr_rows - 2, 0, C_LABEL, 0,
         "Square marker: client has a transfer in progress. "
         "Idle time is mm:ss since the last command.");
 }
@@ -673,24 +687,24 @@ static void draw_settings(void)
         hline(ry, 1, scr_cols - 2, " ", 0, bg);   /* focus fill */
         if (g.sel_settings == i)
             put(ry, 1, C_ACC, bg, "\xE2\x96\xB6");   /* ▶ marker */
-        txt(ry, 4, C_TEXT, "%s", keys[i]);
+        txt(ry, 4, C_TEXT, bg, "%s", keys[i]);
         if (i < 3) {
-            txt_r(ry, scr_cols - 2, C_TEXT, "%s", vals[i]);
+            txt_r(ry, scr_cols - 2, C_TEXT, bg, "%s", vals[i]);
             if (i == 1) {           /* Root path: editable */
-                txt_r(ry, scr_cols - 2 - uw(vals[i]) - 2, C_ACC, "[EDIT]");
+                txt_r(ry, scr_cols - 2 - uw(vals[i]) - 2, C_ACC, bg, "[EDIT]");
                 if (g.sel_settings == i)
                     txt_r(ry, scr_cols - 2 - uw(vals[i]) - 2
-                          - uw(" [Enter]") , C_MUTED, "Enter");
+                          - uw(" [Enter]"), C_MUTED, bg, "Enter");
             }
         } else {
-            txt_r(ry, scr_cols - 2, C_LINE, "[");
-            txt_r(ry, scr_cols - 3, C_MUTED, "%s", vals[i]);
+            txt_r(ry, scr_cols - 2, C_LINE, bg, "[");
+            txt_r(ry, scr_cols - 3, C_LABEL, bg, "%s", vals[i]);
         }
         if (i < 4) hline(ry + 1, 1, scr_cols - 2, "\xE2\x94\x80", C_LINE, C_PANEL);
     }
 
     if (g.edit.field == OPFTP_UI_EDIT_NONE)
-        txt(y + 7, 0, C_MUTED,
+        txt(y + 7, 0, C_LABEL, 0,
             "Press Enter on the Root path row to change it. "
             "Other values are read-only.");
 }
@@ -703,7 +717,7 @@ static void overlay_panel(int* y, int* x, int* hh, int* w)
     *w = scr_cols - 8 < 52 ? scr_cols - 8 : 52;
     *x = (scr_cols - *w) / 2;
     *y = (scr_rows - *hh) / 2;
-    box(*y, *x, *hh, *w, C_LINE, C_PANEL);
+    box(*y, *x, *hh, *w, C_RAISE, C_PANEL);   /* raised border, webui #ov */
 }
 
 static void draw_detail_hist(void)
@@ -715,15 +729,15 @@ static void draw_detail_hist(void)
     int x, y, w, hh = 8;
     overlay_panel(&y, &x, &hh, &w);
 
-    txt(y + 1, x + 2, C_MUTED, "TRANSFER DETAIL");
+    txt(y + 1, x + 2, C_LABEL, C_PANEL, "TRANSFER DETAIL");
     put(y + 2, x + 2, up ? C_BLUE : C_ACC, C_PANEL, up ? "\xE2\x86\x91" : "\xE2\x86\x93");
     char sz[16], tot[16];
     opftp_ui_fmt_size(sz, sizeof(sz), h->bytes);
     opftp_ui_fmt_size(tot, sizeof(tot), h->total);
-    txt(y + 2, x + 5, C_TEXT, "%s", h->op);
-    txt(y + 2, x + 5 + uw(h->op) + 2, C_MUTED, "%02d:%02d \xC2\xB7 %s", h->hh, h->mm, sz);
+    txt(y + 2, x + 5, C_TEXT, C_PANEL, "%s", h->op);
+    txt(y + 2, x + 5 + uw(h->op) + 2, C_MUTED, C_PANEL, "%02d:%02d \xC2\xB7 %s", h->hh, h->mm, sz);
     if (h->total)
-        txt_r(y + 2, x + w - 2, C_MUTED, "of %s", tot);
+        txt_r(y + 2, x + w - 2, C_MUTED, C_PANEL, "of %s", tot);
 
     size_t len = strlen(h->path), off = 0, li = 0;
     while (off < len && li < 3) {
@@ -731,17 +745,17 @@ static void draw_detail_hist(void)
         char line[128];
         memcpy(line, h->path + off, take);
         line[take] = 0;
-        txt(y + 3 + (int)li, x + 2, C_TEXT, "%s", line);
+        txt(y + 3 + (int)li, x + 2, C_TEXT, C_PANEL, "%s", line);
         off += (size_t)take; li++;
     }
-    if (off < len) txt(y + 3 + (int)li, x + 2, C_MUTED, "\xE2\x80\xA6");
+    if (off < len) txt(y + 3 + (int)li, x + 2, C_MUTED, C_PANEL, "\xE2\x80\xA6");
 
     const char* rs = h->result == OPFTP_UI_H_OK ? "OK"
                    : h->result == OPFTP_UI_H_ABORTED ? "ABORTED" : "ERROR";
     uint32_t rc = h->result == OPFTP_UI_H_OK ? C_ACC
                 : h->result == OPFTP_UI_H_ABORTED ? C_WARN : C_ERR;
-    txt(y + hh - 2, x + 2, rc, "RESULT: %s", rs);
-    txt_r(y + hh - 2, x + w - 2, C_MUTED, "\xC3\x97 Close");
+    txt(y + hh - 2, x + 2, rc, C_PANEL, "RESULT: %s", rs);
+    txt_r(y + hh - 2, x + w - 2, C_LABEL, C_PANEL, "\xC3\x97 Close");
 }
 
 static void draw_detail_xfer(void)
@@ -753,9 +767,9 @@ static void draw_detail_xfer(void)
     int x, y, w, hh = 8;
     overlay_panel(&y, &x, &hh, &w);
 
-    txt(y + 1, x + 2, C_MUTED, "ACTIVE TRANSFER");
+    txt(y + 1, x + 2, C_LABEL, C_PANEL, "ACTIVE TRANSFER");
     put(y + 2, x + 2, up ? C_BLUE : C_ACC, C_PANEL, up ? "\xE2\x86\x91" : "\xE2\x86\x93");
-    txt(y + 2, x + 5, C_TEXT, "%s", c->xfer_op);
+    txt(y + 2, x + 5, C_TEXT, C_PANEL, "%s", c->xfer_op);
 
     char sz[24], tot[24], rate[16];
     opftp_ui_fmt_size(sz, sizeof(sz), c->xfer_bytes);
@@ -765,9 +779,9 @@ static void draw_detail_xfer(void)
         if (g.trk[i].present && !strcmp(g.trk[i].peer, c->peer)) { t = &g.trk[i]; break; }
     opftp_ui_fmt_rate(rate, sizeof(rate), t && t->rate > 0 ? t->rate : 0);
     if (c->xfer_total)
-        txt_r(y + 2, x + w - 2, C_TEXT, "%s of %s \xC2\xB7 %s", sz, tot, rate);
+        txt_r(y + 2, x + w - 2, C_TEXT, C_PANEL, "%s of %s \xC2\xB7 %s", sz, tot, rate);
     else
-        txt_r(y + 2, x + w - 2, C_TEXT, "%s \xC2\xB7 %s", sz, rate);
+        txt_r(y + 2, x + w - 2, C_TEXT, C_PANEL, "%s \xC2\xB7 %s", sz, rate);
 
     size_t len = strlen(c->xfer_path), off = 0, li = 0;
     while (off < len && li < 3) {
@@ -775,13 +789,13 @@ static void draw_detail_xfer(void)
         char line[128];
         memcpy(line, c->xfer_path + off, take);
         line[take] = 0;
-        txt(y + 3 + (int)li, x + 2, C_TEXT, "%s", line);
+        txt(y + 3 + (int)li, x + 2, C_TEXT, C_PANEL, "%s", line);
         off += (size_t)take; li++;
     }
-    if (off < len) txt(y + 3 + (int)li, x + 2, C_MUTED, "\xE2\x80\xA6");
+    if (off < len) txt(y + 3 + (int)li, x + 2, C_MUTED, C_PANEL, "\xE2\x80\xA6");
 
-    txt(y + hh - 2, x + 2, C_MUTED, "CLIENT %s", c->peer);
-    txt_r(y + hh - 2, x + w - 2, C_MUTED, "\xC3\x97 Close");
+    txt(y + hh - 2, x + 2, C_MUTED, C_PANEL, "CLIENT %s", c->peer);
+    txt_r(y + hh - 2, x + w - 2, C_LABEL, C_PANEL, "\xC3\x97 Close");
 }
 
 static void draw_detail_client(void)
@@ -791,26 +805,26 @@ static void draw_detail_client(void)
     int x, y, w, hh = 9;
     overlay_panel(&y, &x, &hh, &w);
 
-    txt(y + 1, x + 2, C_MUTED, "CLIENT DETAIL");
-    txt(y + 2, x + 2, C_TEXT, "%s", c->peer);
-    txt(y + 3, x + 2, C_MUTED, "USER");
-    txt(y + 3, x + 8, C_TEXT, "%s", c->user[0] ? c->user : "?");
-    txt(y + 4, x + 2, C_MUTED, "STATUS");
-    txt(y + 4, x + 12, c->xfer_active ? C_ACC : C_MUTED, "%s",
+    txt(y + 1, x + 2, C_LABEL, C_PANEL, "CLIENT DETAIL");
+    txt(y + 2, x + 2, C_TEXT, C_PANEL, "%s", c->peer);
+    txt(y + 3, x + 2, C_LABEL, C_PANEL, "USER");
+    txt(y + 3, x + 8, C_TEXT, C_PANEL, "%s", c->user[0] ? c->user : "?");
+    txt(y + 4, x + 2, C_LABEL, C_PANEL, "STATUS");
+    txt(y + 4, x + 12, c->xfer_active ? C_ACC : C_MUTED, C_PANEL, "%s",
         c->xfer_active ? c->xfer_op : "idle");
 
     size_t len = strlen(c->cwd), off = 0, li = 0;
-    txt(y + 5, x + 2, C_MUTED, "CWD");
+    txt(y + 5, x + 2, C_LABEL, C_PANEL, "CWD");
     while (off < len && li < 2) {
         int take = (int)(len - off > (size_t)(w - 8) ? (size_t)(w - 8) : len - off);
         char line[128];
         memcpy(line, c->cwd + off, take);
         line[take] = 0;
-        txt(y + 6 + (int)li, x + 2, C_TEXT, "%s", line);
+        txt(y + 6 + (int)li, x + 2, C_TEXT, C_PANEL, "%s", line);
         off += (size_t)take; li++;
     }
-    if (off < len) txt(y + 6 + (int)li, x + 2, C_MUTED, "\xE2\x80\xA6");
-    txt_r(y + hh - 2, x + w - 2, C_MUTED, "\xC3\x97 Close");
+    if (off < len) txt(y + 6 + (int)li, x + 2, C_MUTED, C_PANEL, "\xE2\x80\xA6");
+    txt_r(y + hh - 2, x + w - 2, C_LABEL, C_PANEL, "\xC3\x97 Close");
 }
 
 static void draw_help(void)
@@ -818,7 +832,7 @@ static void draw_help(void)
     int x, y, w, hh = 9;
     overlay_panel(&y, &x, &hh, &w);
 
-    txt(y + 1, x + 2, C_MUTED, "HELP");
+    txt(y + 1, x + 2, C_LABEL, C_PANEL, "HELP");
     static const char* rows[6] = {
         "\xE2\x86\x91\xE2\x86\x93 Move selection",
         "\xE2\x86\x90\xE2\x86\x92 Switch view",
@@ -828,7 +842,7 @@ static void draw_help(void)
         "q      Quit",
     };
     for (int i = 0; i < 6; i++)
-        txt(y + 2 + i, x + 2, C_TEXT, "%s", rows[i]);
+        txt(y + 2 + i, x + 2, C_TEXT, C_PANEL, "%s", rows[i]);
 }
 
 static void draw_detail_or_help(void)
@@ -847,16 +861,16 @@ static void draw_edit_line(void)
 {
     int y = scr_rows - 3;
     hline(y, 0, scr_cols - 1, " ", 0, C_INSET);
-    txt(y, 1, C_MUTED, "EDIT ROOT PATH:");
+    txt(y, 1, C_ACC, C_INSET, "EDIT ROOT PATH:");
     int x = 1 + uw("EDIT ROOT PATH:") + 2;
     int maxw = scr_cols - x - 24;
     if (maxw < 8) maxw = 8;
     char buf[128];
     t_trunc(buf, sizeof(buf), g.edit.buf, maxw);
-    txt(y, x, C_TEXT, "%s", buf);
+    txt(y, x, C_TEXT, C_INSET, "%s", buf);
     if ((now_us() / 500000ull) & 1)             /* 2Hz cursor blink */
         put(y, x + uw(buf), C_ACC, C_INSET, "\xE2\x96\x8C");
-    txt_r(y, scr_cols - 2, C_MUTED, "[Enter] apply  [Esc] cancel");
+    txt_r(y, scr_cols - 2, C_LABEL, C_INSET, "[Enter] apply  [Esc] cancel");
 }
 
 /* ------------------------------------------------------------------ *

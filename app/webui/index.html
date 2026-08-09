@@ -14,6 +14,7 @@
 </head>
 <body>
 
+<div id="hdwrap">
 <table id="hdr" cellspacing="0" cellpadding="0">
 <tr>
   <td class="brand"><span class="mark">&#9632;</span> OpenPS3FTP<span class="ver" id="ver">&#8212;</span><span class="conn" id="conn">&#9679; CONNECTING</span></td>
@@ -21,15 +22,22 @@
   <td class="clock" id="clock">--:--</td>
 </tr>
 </table>
+</div>
 
-<div id="cstrip"></div>
+<table id="stripwrap" cellspacing="0" cellpadding="0">
+<tr>
+  <td class="slabel">EVENTS</td>
+  <td class="scell"><div id="cstrip"></div></td>
+</tr>
+</table>
+
 <div id="view"></div>
 <div id="ovroot"></div>
 
 <table id="ftr" cellspacing="0" cellpadding="0">
 <tr>
   <td class="hints">&#8592; &#8594; switch view &nbsp;&#183;&nbsp; &#8593; &#8595; select &nbsp;&#183;&nbsp; Enter detail &nbsp;&#183;&nbsp; Esc back</td>
-  <td class="vind"><span id="vname">STATUS</span><span class="mut"> &#8212; VIEW <span id="vnum">1</span>/4</span></td>
+  <td class="vind"><span class="vdots" id="vdots">&#9679;&#9675;&#9675;&#9675;</span><span id="vname">STATUS</span><span class="mut"> &#8212; VIEW <span id="vnum">1</span>/4</span></td>
 </tr>
 </table>
 

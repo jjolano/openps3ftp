@@ -1,11 +1,11 @@
 /*
  * OpenPS3FTP — PS3 on-screen display (OSD).
  *
- * NoRSX C++ implementation.  Faithful translation of the 1280x720 OSD
- * design mockup (see /tmp/opencode/osd_mockup.html): flat colors only,
- * no rounded corners (the only "radius" in the design is the Circle pad
+ * NoRSX C++ implementation.  1280x720 layout: flat colors only, no
+ * rounded corners (the only "radius" in the design is the Circle pad
  * glyph, drawn as a ring primitive), 8px spacing grid, 2px borders,
- * 32px overscan margin.
+ * 32px overscan margin.  Shares the dark-console theme with
+ * app/webui/style.css and app/tui.c.
  *
  * Runs on the main thread while the FTP server runs on its reactor
  * thread; opftp_server_snapshot() is polled every frame (~30fps).
@@ -45,25 +45,32 @@ typedef union {
 } osd_net_ctl_info_t;
 
 /* ------------------------------------------------------------------ *
- * Palette (mockup style guide — flat fills only)
+ * Palette (flat fills only) — shared dark-console theme codified in
+ * app/webui/style.css: near-black layered surfaces, green accent,
+ * blue-grey labels, amber warn, red err.  Same values as tui.c.
  * ------------------------------------------------------------------ */
 enum {
-    C_BG      = 0x0B0F16, /* screen background                      */
-    C_PANEL   = 0x121826, /* card background                        */
-    C_INSET   = 0x0D1220, /* progress track / scrollbar track       */
-    C_LINE    = 0x2A3446, /* borders, rules                         */
-    C_TEXT    = 0xE7EBF2, /* primary text                           */
-    C_MUTED   = 0x8A94A8, /* secondary text                         */
-    C_ACC     = 0x33D17A, /* accent / active / OK / LISTENING       */
-    C_BLUE    = 0x4FA3E3, /* RETR (server -> client)                */
-    C_WARN    = 0xE5A13D, /* warnings, ABORTED                      */
-    C_ERR     = 0xE05252, /* errors, STOPPED                        */
-    C_ERRBG   = 0x211117, /* flat error strip tint                  */
-    C_WARNBG  = 0x1F1710, /* flat warning strip tint                */
-    C_FOCUS   = 0x141C2B, /* gamepad focus panel tint               */
-    C_EMPTY   = 0xAAB3C5, /* empty-state primary text               */
-    C_EMSG    = 0xE8B9B7, /* error row message text                 */
-    C_EMSW    = 0xD8C39A, /* warning row message text               */
+    C_BG      = 0x0B0E11, /* screen background                      */
+    C_PANEL   = 0x10151A, /* card background                        */
+    C_INSET   = 0x0D1216, /* inset: progress/scrollbar track        */
+    C_LINE    = 0x1E262E, /* borders, rules                         */
+    C_RAISE   = 0x2A3640, /* raised surface border (overlays, ticks)*/
+    C_TEXT    = 0xC8D0D8, /* primary text                           */
+    C_BRIGHT  = 0xE8EEF4, /* brand, headline values                 */
+    C_MUTED   = 0x7D8894, /* secondary text                         */
+    C_LABEL   = 0x5A7684, /* labels, table heads, hints             */
+    C_ACC     = 0x3FAE6A, /* green accent / OK / LISTENING          */
+    C_BLUE    = 0x5E8CA8, /* RETR direction (steel blue-grey kin)   */
+    C_WARN    = 0xE8A23A, /* amber warnings, ABORTED                */
+    C_ERR     = 0xD0504A, /* red errors, STOPPED                    */
+    C_ERRBG   = 0x2A1512, /* flat error strip tint                  */
+    C_WARNBG  = 0x3A2A10, /* flat warning strip tint (webui banner) */
+    C_ERRLINE = 0x5A2A28, /* error strip edge                       */
+    C_WARNLINE= 0x6A4A1A, /* warning strip edge                     */
+    C_FOCUS   = 0x16222B, /* gamepad focus panel tint               */
+    C_EMPTY   = 0x5A6570, /* empty-state text                       */
+    C_EMSG    = 0xF0B0AA, /* error strip message                    */
+    C_EMSW    = 0xE8C06A, /* warning strip message                  */
 };
 
 /* Layout: 1280x720 screen, 32px overscan margin, 8px spacing grid. */
@@ -410,16 +417,16 @@ static void slab(int y, const char* label, const char* cnt, bool cnt_muted,
                  const char* right)
 {
     fill(MX, y + 4, 6, 22, C_ACC);
-    text(MX + 18, y + 4, C_MUTED, 22, "%s", label);
+    text(MX + 18, y + 4, C_LABEL, 22, "%s", label);
     int x = MX + 18 + tw(22, label) + 14;
     if (cnt) {
         int w = tw(20, cnt) + 24;
         box(x, y + 2, w, 26, C_LINE, C_BG);
-        text_c(x + w / 2, y + 5, cnt_muted ? C_MUTED : C_TEXT, 20, "%s", cnt);
+        text_c(x + w / 2, y + 5, cnt_muted ? C_LABEL : C_MUTED, 20, "%s", cnt);
         x += w + 14;
     }
     if (right)
-        text_r(MX + W, y + 4, C_MUTED, 22, "%s", right);
+        text_r(MX + W, y + 4, C_LABEL, 22, "%s", right);
 }
 
 /* ------------------------------------------------------------------ *
@@ -429,30 +436,32 @@ static void draw_header(const char* version)
 {
     /* brand mark + word */
     fill(MX, 46, 16, 16, C_ACC);
-    text(MX + 30, HDR_TEXT_TOP, C_TEXT, 36, "OpenPS3FTP");
+    text(MX + 30, HDR_TEXT_TOP, C_BRIGHT, 36, "OpenPS3FTP");
     int bx = MX + 30 + tw(36, "OpenPS3FTP") + 14;
     int bw = tw(20, version) + 24;
     box(bx, 41, bw, 28, C_LINE, C_BG);
-    text_c(bx + bw / 2, 45, C_MUTED, 20, "%s", version);
+    text_c(bx + bw / 2, 45, C_LABEL, 20, "%s", version);
 
     /* clock (UTC — no TZ API in ps3dk; see report) */
     uint64_t sec = now_us() / 1000000ull;
     char clock[8];
     snprintf(clock, sizeof(clock), "%02" PRIu64 ":%02" PRIu64,
              (sec / 3600) % 24, (sec / 60) % 60);
-    text_r(MX + W, HDR_TEXT_TOP, C_TEXT, 34, "%s", clock);
+    text_r(MX + W, HDR_TEXT_TOP, C_LABEL, 34, "%s", clock);
 
-    /* view tabs, right-aligned before the clock */
+    /* view tabs, right-aligned before the clock; active tab is a
+     * solid accent chip (webui .tab.act) */
     int x = MX + W - tw(34, clock) - 28;
     for (int i = OPFTP_UI_V_COUNT - 1; i >= 0; i--) {
         const char* n = opftp_ui_view_name(i);
         int w = tw(23, n) + 28;
         x -= w;
         if (g.view == i) {
-            box(x, 43, w, 36, C_ACC, C_BG);
-            text_c(x + w / 2, 49, C_ACC, 23, "%s", n);
+            fill(x, 43, w, 36, C_ACC);
+            text_c(x + w / 2, 49, C_BG, 23, "%s", n);
         } else {
-            text(x, 49, C_MUTED, 23, "%s", n);
+            box(x, 43, w, 36, C_LINE, C_BG);
+            text_c(x + w / 2, 49, C_MUTED, 23, "%s", n);
         }
         x -= 10;
     }
@@ -469,17 +478,17 @@ static void draw_footer(void)
     int y = FTR_TOP + 12;
     int x = MX;
 
-    glyph_tri(x, y, C_TEXT);      text(x + 30, y + 2, C_MUTED, 24, "HELP");      x += 30 + tw(24, "HELP") + 36;
-    glyph_x(x, y, C_TEXT);        text(x + 30, y + 2, C_MUTED, 24, "SELECT");    x += 30 + tw(24, "SELECT") + 36;
-    glyph_circle(x, y, C_TEXT);   text(x + 30, y + 2, C_MUTED, 24, "BACK");      x += 30 + tw(24, "BACK") + 36;
-    glyph_start(x, y, "START"); text(x + 74 + 14, y + 2, C_MUTED, 24, "QUIT");
+    glyph_tri(x, y, C_TEXT);      text(x + 30, y + 2, C_LABEL, 24, "HELP");      x += 30 + tw(24, "HELP") + 36;
+    glyph_x(x, y, C_TEXT);        text(x + 30, y + 2, C_LABEL, 24, "SELECT");    x += 30 + tw(24, "SELECT") + 36;
+    glyph_circle(x, y, C_TEXT);   text(x + 30, y + 2, C_LABEL, 24, "BACK");      x += 30 + tw(24, "BACK") + 36;
+    glyph_start(x, y, "START"); text(x + 74 + 14, y + 2, C_LABEL, 24, "QUIT");
 
     /* view indicator right-aligned: "STATUS — VIEW 1/4" */
     char right[40];
     snprintf(right, sizeof(right), " — VIEW %d/%d", g.view + 1, OPFTP_UI_V_COUNT);
     int rw = tw(22, opftp_ui_view_name(g.view)) + tw(22, right);
-    text(MX + W - rw, y + 2, C_TEXT, 22, "%s", opftp_ui_view_name(g.view));
-    text(MX + W - rw + tw(22, opftp_ui_view_name(g.view)), y + 2, C_MUTED, 22, "%s", right);
+    text(MX + W - rw, y + 2, C_MUTED, 22, "%s", opftp_ui_view_name(g.view));
+    text(MX + W - rw + tw(22, opftp_ui_view_name(g.view)), y + 2, C_LABEL, 22, "%s", right);
 }
 
 /* ------------------------------------------------------------------ *
@@ -495,7 +504,8 @@ static int draw_event_strip(int y)
         const opftp_ui_ev_t* e = &g.events[(g.ev_head - i + OPFTP_UI_MAX_EVENTS) % OPFTP_UI_MAX_EVENTS];
         u32 col = e->warn ? C_WARN : C_ERR;
         u32 tint = e->warn ? C_WARNBG : C_ERRBG;
-        box(MX, yy, W, ER_ROW_H, col, tint);
+        box(MX, yy, W, ER_ROW_H, e->warn ? C_WARNLINE : C_ERRLINE, tint);
+        fill(MX + 2, yy + 2, 4, ER_ROW_H - 4, col);   /* accent edge tick */
 
         /* "!" icon box */
         int icx = MX + 14;
@@ -552,8 +562,8 @@ static void draw_status_card(int y)
     for (int i = 3; i >= 0; i--) {
         char v[40];
         truncate(v, sizeof(v), vals[i], colw[i], 38);
-        text_r(xr, y + 18, C_TEXT, 38, "%s", v);
-        text_r(xr, y + 18 + 38 + 6, C_MUTED, 20, "%s", labels[i]);
+        text_r(xr, y + 18, C_BRIGHT, 38, "%s", v);
+        text_r(xr, y + 18 + 38 + 6, C_LABEL, 20, "%s", labels[i]);
         xr -= colw[i];
         if (i > 0) vline(xr, y + 18, 76, C_LINE);   /* 2px rule */
     }
@@ -568,7 +578,7 @@ static void draw_status_card(int y)
     snprintf(base, sizeof(base),
              "UPTIME %s \xC2\xB7 %" PRIu64 " TRANSFERS \xC2\xB7 %s THIS SESSION",
              dur, g.session_xfers, gb);
-    text(MX + 24, y + 104, C_MUTED, 22, "%s", base);
+    text(MX + 24, y + 104, C_LABEL, 22, "%s", base);
     if (dev_blind_mounted)          /* persistent brick-risk warning */
         text(MX + 24 + tw(22, base), y + 104, C_WARN, 22,
              " \xC2\xB7 dev_blind MOUNTED");
@@ -585,8 +595,8 @@ static void progress_bar(int x, int y, int w, uint64_t bytes, uint64_t total, bo
     if (pct > 100) pct = 100;
     if (pct > 0)
         fill(x + 2, y + 2, iw * pct / 100, 18, up ? C_BLUE : C_ACC);
-    for (int t = 1; t <= 3; t++)            /* cut ticks in bg color */
-        fill(x + 2 + iw * t / 4 - 1, y + 2, 2, 18, C_BG);
+    for (int t = 1; t <= 3; t++)            /* quarter ticks */
+        fill(x + 2 + iw * t / 4 - 1, y + 2, 2, 18, C_RAISE);
 }
 
 /* ------------------------------------------------------------------ *
@@ -616,7 +626,7 @@ static void draw_xfer_card(int y, int idx, bool focused)
     truncate(name, sizeof(name), c->xfer_path,
              W - 36 - 22 - 14 - tw(20, c->xfer_op) - 14 - tw(32, pctb) - 14, 26);
     text(cx, y + 16, C_TEXT, 26, "%s", name);
-    text_r(MX + W - 18, y + 17, C_TEXT, 32, "%s", pctb);
+    text_r(MX + W - 18, y + 17, C_BRIGHT, 32, "%s", pctb);
 
     /* progress bar + meta */
     opftp_ui_trk_t* t = 0;
@@ -634,7 +644,7 @@ static void draw_xfer_card(int y, int idx, bool focused)
     int mw = tw(23, meta);
     int barw = W - 36 - mw - 18;
     progress_bar(cx, y + 52, barw, c->xfer_bytes, c->xfer_total, up);
-    text_r(MX + W - 18, y + 54, C_MUTED, 23, "%s", meta);
+    text_r(MX + W - 18, y + 54, C_LABEL, 23, "%s", meta);
 }
 
 /* ------------------------------------------------------------------ *
@@ -673,9 +683,9 @@ static void draw_status(void)
         /* empty state fills the remaining area */
         int eh = area_h;
         if (eh >= 90) {
-            box(MX, y, W, eh, C_LINE, C_BG);
+            box(MX, y, W, eh, C_LINE, C_INSET);
             text_c(MX + W / 2, y + eh / 2 - 26, C_EMPTY, 28, "No active transfers");
-            text_c(MX + W / 2, y + eh / 2 + 10, C_MUTED, 22,
+            text_c(MX + W / 2, y + eh / 2 + 10, C_LABEL, 22,
                    "Transfers appear here while clients send or receive files");
         }
         y += eh;
@@ -713,7 +723,7 @@ static void draw_status(void)
         box(x, y, cw, CHIP_H, C_LINE, C_PANEL);
         fill(x + 16, y + 20, 10, 10, C_ACC);
         text(x + 16 + 10 + 12, y + 13, C_TEXT, 25, "%s", peerb);
-        text(x + 16 + 10 + 12 + tw(25, peerb) + 12, y + 15, C_MUTED, 21, "%s", chipt);
+        text(x + 16 + 10 + 12 + tw(25, peerb) + 12, y + 15, C_LABEL, 21, "%s", chipt);
         x += cw + 12;
         drawn++;
     }
@@ -722,7 +732,7 @@ static void draw_status(void)
         snprintf(more, sizeof(more), "+%d", g.snap.num_clients - drawn);
         int cw = tw(21, more) + 32 + 4;
         box(x, y, cw, CHIP_H, C_LINE, C_PANEL);
-        text_c(x + cw / 2, y + 13, C_MUTED, 21, "%s", more);
+        text_c(x + cw / 2, y + 13, C_LABEL, 21, "%s", more);
     }
 }
 
@@ -734,14 +744,14 @@ struct Col { int w; const char* label; bool right; };
 static int table_begin(int* y, const struct Col* cols, int ncol)
 {
     *y = HDR_BOTTOM + 12 + SLAB_H + 12;
-    text(MX + 10, *y, C_MUTED, 20, "%s", cols[0].label);
+    text(MX + 10, *y, C_LABEL, 20, "%s", cols[0].label);
     for (int i = 1; i < ncol; i++) {
         int x = MX + 10;
         for (int j = 0; j < i; j++) x += cols[j].w + 14;
         if (cols[i].right)
-            text_r(x + cols[i].w, *y, C_MUTED, 20, "%s", cols[i].label);
+            text_r(x + cols[i].w, *y, C_LABEL, 20, "%s", cols[i].label);
         else
-            text(x, *y, C_MUTED, 20, "%s", cols[i].label);
+            text(x, *y, C_LABEL, 20, "%s", cols[i].label);
     }
     hline(MX, *y + THEAD_H, W, C_LINE);
     *y += THEAD_H;
@@ -868,7 +878,7 @@ static void draw_clients(void)
             box(MX, ry, W, CLI_ROW_H, C_ACC, C_FOCUS);
 
         int x = MX + 10;
-        fill(x, ry + 27, 10, 10, c->xfer_active ? C_ACC : C_MUTED);
+        fill(x, ry + 27, 10, 10, c->xfer_active ? C_ACC : C_RAISE);
         x += 10 + 14;
         char ip[24];
         truncate(ip, sizeof(ip), c->peer, 230 - 10 - 24, 26);
@@ -893,13 +903,13 @@ static void draw_clients(void)
             break;
         }
         opftp_ui_fmt_idle(idle, sizeof(idle), idl);
-        text_r(x + 120, ry + 19, C_TEXT, 26, "%s", idle);
+        text_r(x + 120, ry + 19, C_MUTED, 26, "%s", idle);
     }
 
     draw_scrollbar(y, rows_h, g.scroll_cli, visible, total);
 
     /* note under the table */
-    text(MX, y + rows_h + 8, C_MUTED, 22,
+    text(MX, y + rows_h + 8, C_LABEL, 22,
          "Square marker: client has a transfer in progress. "
          "Idle time is mm:ss since the last command.");
 }
@@ -952,7 +962,7 @@ static void draw_settings(void)
         if (i < 4) hline(MX + 24, ry + SET_ROW_H, W - 48, C_LINE);
     }
 
-    text(MX, y + SET_ROW_H * 5 + 2 + 14, C_MUTED, 22,
+    text(MX, y + SET_ROW_H * 5 + 2 + 14, C_LABEL, 22,
          "Press X on the Root path row to change it (system keyboard). "
          "Other values are read-only.");
 }
@@ -965,7 +975,7 @@ static void overlay_panel(int* x, int* y, int* w, int* h)
     *w = 960; *h = 300;
     *x = (SCREEN_W - *w) / 2;
     *y = (SCREEN_H - *h) / 2;
-    box(*x, *y, *w, *h, C_LINE, C_PANEL);
+    box(*x, *y, *w, *h, C_RAISE, C_PANEL);    /* raised border, webui #ov */
 }
 
 static void draw_detail_hist(void)
@@ -977,7 +987,7 @@ static void draw_detail_hist(void)
     overlay_panel(&x, &y, &w, &hh);
     x += 24;
 
-    text(x, y + 20, C_MUTED, 22, "TRANSFER DETAIL");
+    text(x, y + 20, C_LABEL, 22, "TRANSFER DETAIL");
     arrow(x, y + 62, up, 22, up ? C_BLUE : C_ACC);
     text(x + 36, y + 60, C_TEXT, 28, "%s", h->op);
 
@@ -1005,7 +1015,7 @@ static void draw_detail_hist(void)
     const char* rs = h->result == OPFTP_UI_H_OK ? "OK" : h->result == OPFTP_UI_H_ABORTED ? "ABORTED" : "ERROR";
     u32 rc = h->result == OPFTP_UI_H_OK ? C_ACC : h->result == OPFTP_UI_H_ABORTED ? C_WARN : C_ERR;
     text(x, y + hh - 44, rc, 24, "RESULT: %s", rs);
-    text_r(x + w - 72, y + hh - 44, C_MUTED, 20, "\xC3\x97 Close");
+    text_r(x + w - 72, y + hh - 44, C_LABEL, 20, "\xC3\x97 Close");
 }
 
 static void draw_detail_xfer(void)
@@ -1018,7 +1028,7 @@ static void draw_detail_xfer(void)
     overlay_panel(&x, &y, &w, &hh);
     x += 24;
 
-    text(x, y + 20, C_MUTED, 22, "ACTIVE TRANSFER");
+    text(x, y + 20, C_LABEL, 22, "ACTIVE TRANSFER");
     arrow(x, y + 62, up, 22, up ? C_BLUE : C_ACC);
     text(x + 36, y + 60, C_TEXT, 28, "%s", c->xfer_op);
 
@@ -1046,7 +1056,7 @@ static void draw_detail_xfer(void)
     if (off < len) text(x, y + 110 + (int)li * 32, C_MUTED, 24, "\xE2\x80\xA6");
 
     text(x, y + hh - 44, C_MUTED, 24, "CLIENT %s", c->peer);
-    text_r(x + w - 72, y + hh - 44, C_MUTED, 20, "\xC3\x97 Close");
+    text_r(x + w - 72, y + hh - 44, C_LABEL, 20, "\xC3\x97 Close");
 }
 
 static void draw_detail_client(void)
@@ -1057,16 +1067,16 @@ static void draw_detail_client(void)
     overlay_panel(&x, &y, &w, &hh);
     x += 24;
 
-    text(x, y + 20, C_MUTED, 22, "CLIENT DETAIL");
+    text(x, y + 20, C_LABEL, 22, "CLIENT DETAIL");
     text(x, y + 60, C_TEXT, 28, "%s", c->peer);
-    text(x, y + 104, C_MUTED, 24, "USER");
+    text(x, y + 104, C_LABEL, 24, "USER");
     text(x + 80, y + 104, C_TEXT, 24, "%s", c->user[0] ? c->user : "?");
-    text(x, y + 140, C_MUTED, 24, "STATUS");
+    text(x, y + 140, C_LABEL, 24, "STATUS");
     text(x + 110, y + 140, c->xfer_active ? C_ACC : C_MUTED, 24, "%s",
          c->xfer_active ? c->xfer_op : "idle");
 
     size_t len = strlen(c->cwd), off = 0, li = 0;
-    text(x, y + 176, C_MUTED, 22, "CWD");
+    text(x, y + 176, C_LABEL, 22, "CWD");
     while (off < len && li < 2) {
         size_t take = len - off > 56 ? 56 : len - off;
         char line[128];
@@ -1076,7 +1086,7 @@ static void draw_detail_client(void)
         off += take; li++;
     }
     if (off < len) text(x, y + 200 + (int)li * 32, C_MUTED, 24, "\xE2\x80\xA6");
-    text_r(x + w - 72, y + hh - 44, C_MUTED, 20, "\xC3\x97 Close");
+    text_r(x + w - 72, y + hh - 44, C_LABEL, 20, "\xC3\x97 Close");
 }
 
 static void draw_help(void)
@@ -1085,7 +1095,7 @@ static void draw_help(void)
     overlay_panel(&x, &y, &w, &hh);
     x += 24;
 
-    text(x, y + 20, C_MUTED, 22, "HELP");
+    text(x, y + 20, C_LABEL, 22, "HELP");
 
     static const char* rows[7] = {
         "Move selection", "Switch view", "Open details",
@@ -1103,7 +1113,7 @@ static void draw_help(void)
     glyph_select(x, gy, C_TEXT);    text(x + 34, gy + 2, C_TEXT, 24, "%s", rows[5]);  gy += 40;
     glyph_start(x, gy, "START"); text(x + 74 + 14, gy + 2, C_TEXT, 24, "%s", rows[6]);
 
-    text(x, y + hh - 44, C_MUTED, 20, "\xE2\x96\xB3 Help  \xC3\x97 Select  \xE2\x97\x8B Back  START Quit");
+    text(x, y + hh - 44, C_LABEL, 20, "\xE2\x96\xB3 Help  \xC3\x97 Select  \xE2\x97\x8B Back  START Quit");
 }
 
 static void draw_detail_or_help(void)
