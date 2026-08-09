@@ -320,6 +320,19 @@ static int transfer_retr(struct opftp_server* s, struct opftp_transfer_job* j,
     return rc;
 }
 
+/* Write all bytes, honoring fs partial writes. Returns 0 or -errno. */
+static int fs_write_all(const opftp_fs_t* fs, int fd, const void* buf, size_t n)
+{
+    size_t off = 0;
+    while (off < n) {
+        ssize_t w = fs->write(fs->ctx, fd, (const char*) buf + off, n - off);
+        if (w < 0) return -errno;
+        if (w == 0) return -EIO;
+        off += (size_t) w;
+    }
+    return 0;
+}
+
 /* ---- STOR / APPE ---- */
 
 static int transfer_stor(struct opftp_server* s, struct opftp_transfer_job* j,
@@ -354,13 +367,7 @@ static int transfer_stor(struct opftp_server* s, struct opftp_transfer_job* j,
         if (n == 0) break;                 /* client closed data conn: done */
         if (n < 0) { rc = (int) n; break; }
         /* write fully (fs may do partial writes) */
-        size_t off = 0;
-        while (off < (size_t) n) {
-            ssize_t w = fs->write(fs->ctx, fd, buf + off, (size_t) n - off);
-            if (w < 0) { rc = -errno; break; }
-            if (w == 0) { rc = -EIO; break; }
-            off += (size_t) w;
-        }
+        rc = fs_write_all(fs, fd, buf, (size_t) n);
         if (rc != 0) break;
         *bytes += (uint64_t) n;
         progress_store(j, *bytes);
@@ -410,13 +417,7 @@ static int copy_file(struct opftp_server* s, struct opftp_transfer_job* j,
         ssize_t n = fs->read(fs->ctx, in, buf, TRANSFER_BUF);
         if (n < 0) { rc = -errno; break; }
         if (n == 0) break;
-        size_t off = 0;
-        while (off < (size_t) n) {
-            ssize_t w = fs->write(fs->ctx, out, buf + off, (size_t) n - off);
-            if (w < 0) { rc = -errno; break; }
-            if (w == 0) { rc = -EIO; break; }
-            off += (size_t) w;
-        }
+        rc = fs_write_all(fs, out, buf, (size_t) n);
         if (rc != 0) break;
         *bytes += (uint64_t) n;
         progress_store(j, *bytes);

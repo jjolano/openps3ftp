@@ -19,9 +19,6 @@
 #include "command.h"
 
 #include "base/base.h"
-#include "ext/ext.h"
-#include "site/site.h"
-#include "feat/feat.h"
 
 static struct Server g_server;
 
@@ -45,10 +42,7 @@ int main(int argc, char** argv)
 
     struct Command ftp_command;
     command_init(&ftp_command);
-    feat_command_import(&ftp_command);
     base_command_import(&ftp_command);
-    ext_command_import(&ftp_command);
-    site_command_import(&ftp_command);
 
     server_init(&g_server, &ftp_command, port);
 

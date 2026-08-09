@@ -579,28 +579,28 @@ static void cmd_site(struct opftp_client* c, const char* param, void* ctx)
     if (strncasecmp(param, "UTIME", 5) == 0) {
         /* SITE UTIME <path> <YYYYMMDDHHMMSS>[.frac][ GMT] — the path may
          * contain spaces; the time token is the LAST whitespace-separated
-         * token starting with 14 digits. */
+         * token. */
         const char* p = param + 5;
         while (*p == ' ') p++;
-        const char* tok = NULL;       /* start of the time token */
-        const char* path_end = NULL;  /* space before it */
+        /* find the last space-separated token */
+        const char* tok = NULL;
         const char* cur = p;
         while (*cur) {
-            while (*cur == ' ') cur++;
-            if (!*cur) break;
             const char* start = cur;
             while (*cur && *cur != ' ') cur++;
-            if ((size_t) (cur - start) >= 14) {
-                int digits = 1;
-                for (int i = 0; i < 14; i++)
-                    if (!isdigit((unsigned char) start[i])) { digits = 0; break; }
-                if (digits) { tok = start; path_end = start - 1; }
-            }
+            tok = start;
+            while (*cur == ' ') cur++;
         }
-        if (!tok || path_end <= p) {
+        if (!tok || tok <= p || (cur - tok) < 14) {
             reply(c, 501, R501);
             return;
         }
+        /* verify it is 14 digits then parse */
+        for (int i = 0; i < 14; i++)
+            if (!isdigit((unsigned char) tok[i]))
+                { reply(c, 501, R501); return; }
+        /* path is everything between p and tok (trim trailing space) */
+        const char* path_end = tok - 1;
         while (path_end > p && *path_end == ' ') path_end--;
         char pathbuf[OPFTP_MAX_PATH];
         size_t plen = (size_t) (path_end - p) + 1;
@@ -770,6 +770,43 @@ static void cmd_stat(struct opftp_client* c, const char* param, void* ctx)
 
 /* ---- data channel setup ---- */
 
+/* Bind a listener socket within a port range. addr/alen describe the
+ * socket address (sin_family, addr, port=0 already set). Tries cand from
+ * min to max; when min=0 tries ephemeral once. Falls back to ephemeral
+ * when the range is exhausted. Returns 0 and sets *bound_port on success,
+ * or -errno. */
+static int bind_listener_in_range(int fd, void* addr, socklen_t alen,
+                                  uint16_t min, uint16_t max, uint16_t* bound_port)
+{
+    unsigned lo = min, hi = max;
+    if (lo == 0 || hi < lo) { lo = hi = 0; }
+    unsigned cand = lo;
+    while (cand <= hi || (lo == 0 && cand == 0)) {
+        if (alen == sizeof(struct sockaddr_in6))
+            ((struct sockaddr_in6*) addr)->sin6_port = htons((uint16_t) cand);
+        else
+            ((struct sockaddr_in*) addr)->sin_port = htons((uint16_t) cand);
+        if (bind(fd, (struct sockaddr*) addr, alen) == 0) {
+            if (bound_port) *bound_port = (uint16_t) cand;
+            return 0;
+        }
+        if (lo == 0)
+            break;              /* ephemeral: single attempt */
+        cand++;
+        if (cand > hi) {
+            /* out of range: fall back to ephemeral rather than fail */
+            if (alen == sizeof(struct sockaddr_in6))
+                ((struct sockaddr_in6*) addr)->sin6_port = 0;
+            else
+                ((struct sockaddr_in*) addr)->sin_port = 0;
+            if (bind(fd, (struct sockaddr*) addr, alen) == 0)
+                return 0;
+            break;
+        }
+    }
+    return -errno;
+}
+
 static void cmd_pasv(struct opftp_client* c, const char* param, void* ctx)
 {
     (void) param; (void) ctx;
@@ -810,30 +847,10 @@ static void cmd_pasv(struct opftp_client* c, const char* param, void* ctx)
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = htonl(INADDR_ANY);
     addr.sin_port = 0;
-    /* configured range: try each port so a firewall/Docker mapping can
-     * predict the listener (0,0 = ephemeral, one bind attempt) */
-    unsigned lo = s->pasv_min, hi = s->pasv_max;
-    if (lo == 0 || hi < lo) { lo = hi = 0; }
-    unsigned cand = lo;
-    bool bound = false;
-    while (cand <= hi || (lo == 0 && cand == 0)) {
-        addr.sin_port = htons((uint16_t) cand);
-        if (bind(fd, (struct sockaddr*) &addr, sizeof(addr)) == 0) {
-            bound = true;
-            break;
-        }
-        if (lo == 0)
-            break;              /* ephemeral: single attempt */
-        cand++;
-        if (cand > hi) {
-            /* out of range: fall back to ephemeral rather than fail */
-            addr.sin_port = 0;
-            if (bind(fd, (struct sockaddr*) &addr, sizeof(addr)) == 0)
-                bound = true;
-            break;
-        }
-    }
-    if (!bound || listen(fd, 1) != 0) {
+    uint16_t bound_port = 0;
+    if (bind_listener_in_range(fd, &addr, sizeof(addr),
+                               s->pasv_min, s->pasv_max, &bound_port) != 0
+        || listen(fd, 1) != 0) {
         int e = errno;
         opftp_close_fd(fd);
         errno = e;
@@ -931,36 +948,10 @@ static void cmd_epsv(struct opftp_client* c, const char* param, void* ctx)
         alen = sizeof(*a4);
     }
 
-    /* configured range: try each port so a firewall/Docker mapping can
-     * predict the listener (0,0 = ephemeral, one bind attempt) */
-    unsigned lo = s->pasv_min, hi = s->pasv_max;
-    if (lo == 0 || hi < lo) { lo = hi = 0; }
-    unsigned p = lo;
-    bool bound = false;
-    while (p <= hi || (lo == 0 && p == 0)) {
-        if (v6)
-            ((struct sockaddr_in6*) &addr)->sin6_port = htons((uint16_t) p);
-        else
-            ((struct sockaddr_in*) &addr)->sin_port = htons((uint16_t) p);
-        if (bind(fd, (struct sockaddr*) &addr, alen) == 0) {
-            bound = true;
-            break;
-        }
-        if (lo == 0)
-            break;              /* ephemeral: single attempt */
-        p++;
-        if (p > hi) {
-            /* out of range: fall back to ephemeral rather than fail */
-            if (v6)
-                ((struct sockaddr_in6*) &addr)->sin6_port = 0;
-            else
-                ((struct sockaddr_in*) &addr)->sin_port = 0;
-            if (bind(fd, (struct sockaddr*) &addr, alen) == 0)
-                bound = true;
-            break;
-        }
-    }
-    if (!bound || listen(fd, 1) != 0) {
+    uint16_t bound_port = 0;
+    if (bind_listener_in_range(fd, &addr, alen,
+                               s->pasv_min, s->pasv_max, &bound_port) != 0
+        || listen(fd, 1) != 0) {
         opftp_close_fd(fd);
         reply(c, 425, R425);
         return;

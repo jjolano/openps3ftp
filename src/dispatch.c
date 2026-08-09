@@ -1,6 +1,6 @@
 /*
- * Command registry: hash map from FTP command name to handler.
- * Open addressing, fixed capacity (FTP command space is tiny).
+ * Command registry: flat array of {name, fn, ctx} + linear strcmp scan.
+ * FTP command count is ~50 (fixed, registered once in commands.c).
  */
 #include "opftp.h"
 #include <stdlib.h>
@@ -8,14 +8,6 @@
 #include <ctype.h>
 
 #define DISPATCH_CAP 64
-
-static unsigned hash_name(const char* name)
-{
-    unsigned h = 5381;
-    while (*name)
-        h = h * 33 + (unsigned char) *name++;
-    return h;
-}
 
 void opftp_dispatch_init(struct opftp_server* s)
 {
@@ -44,15 +36,13 @@ int opftp_dispatch_register(struct opftp_server* s, const char* name, opftp_cmd_
         up[i] = (char) toupper((unsigned char) name[i]);
     up[len] = '\0';
 
-    unsigned slot = hash_name(up) % s->dispatch_cap;
-    for (unsigned probe = 0; probe < s->dispatch_cap; probe++) {
-        unsigned i = (slot + probe) % s->dispatch_cap;
+    /* find existing slot for this name, or first unused slot */
+    int first_unused = -1;
+    for (unsigned i = 0; i < s->dispatch_cap; i++) {
         if (!s->dispatch_entries[i].used) {
-            memcpy(s->dispatch_entries[i].name, up, len + 1);
-            s->dispatch_entries[i].fn = fn;
-            s->dispatch_entries[i].ctx = ctx;
-            s->dispatch_entries[i].used = true;
-            return 0;
+            if (first_unused < 0)
+                first_unused = (int) i;
+            continue;
         }
         if (strcmp(s->dispatch_entries[i].name, up) == 0) {
             /* replace existing handler */
@@ -61,20 +51,23 @@ int opftp_dispatch_register(struct opftp_server* s, const char* name, opftp_cmd_
             return 0;
         }
     }
-    return -ENOSPC;
+    if (first_unused < 0)
+        return -ENOSPC;
+    memcpy(s->dispatch_entries[first_unused].name, up, len + 1);
+    s->dispatch_entries[first_unused].fn = fn;
+    s->dispatch_entries[first_unused].ctx = ctx;
+    s->dispatch_entries[first_unused].used = true;
+    return 0;
 }
-
 
 int opftp_dispatch_call(struct opftp_server* s, struct opftp_client* c,
                         const char* name, const char* param)
 {
     if (!s->dispatch_entries || !name)
         return 1;
-    unsigned slot = hash_name(name) % s->dispatch_cap;
-    for (unsigned probe = 0; probe < s->dispatch_cap; probe++) {
-        unsigned i = (slot + probe) % s->dispatch_cap;
+    for (unsigned i = 0; i < s->dispatch_cap; i++) {
         if (!s->dispatch_entries[i].used)
-            return 1;
+            continue;
         if (strcmp(s->dispatch_entries[i].name, name) == 0) {
             s->dispatch_entries[i].fn(c, param, s->dispatch_entries[i].ctx);
             return 0;

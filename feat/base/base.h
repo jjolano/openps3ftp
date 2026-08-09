@@ -51,9 +51,21 @@ void cmd_syst(struct Client* client, const char command_name[32], const char* co
 void cmd_type(struct Client* client, const char command_name[32], const char* command_params);
 void cmd_user(struct Client* client, const char command_name[32], const char* command_params);
 
+/* commands collapsed from feat/feat, feat/ext, feat/site */
+void cmd_feat(struct Client* client, const char command_name[32], const char* command_params);
+void cmd_size(struct Client* client, const char command_name[32], const char* command_params);
+void cmd_mdtm(struct Client* client, const char command_name[32], const char* command_params);
+void cmd_chmod(struct Client* client, const char command_name[32], const char* command_params);
+void cmd_stop(struct Client* client, const char command_name[32], const char* command_params);
+
 void base_connect(struct Client* client);
 void base_disconnect(struct Client* client);
 void base_command_import(struct Command* command);
+
+/* compat wrappers — same behaviour, single entry point */
+void feat_command_import(struct Command* command);
+void ext_command_import(struct Command* command);
+void site_command_import(struct Command* command);
 
 #ifdef __cplusplus
 }

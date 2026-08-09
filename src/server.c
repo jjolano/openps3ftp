@@ -78,11 +78,6 @@ void opftp_server_set_port(opftp_server_t* s, uint16_t port)
     s->port = port;
 }
 
-void opftp_server_set_fs(opftp_server_t* s, const opftp_fs_t* fs)
-{
-    if (fs) s->fs_base = fs;
-}
-
 void opftp_server_set_root(opftp_server_t* s, const char* root)
 {
     if (!root || root[0] != '/')
@@ -131,11 +126,6 @@ int opftp_server_set_tls(opftp_server_t* s, const char* cert_pem, const char* ke
 void opftp_server_set_require_tls(opftp_server_t* s, bool on)
 {
     s->require_tls = on;
-}
-
-void opftp_server_set_allow_foreign_port(opftp_server_t* s, bool on)
-{
-    s->allow_foreign_port = on;
 }
 
 void opftp_server_set_allow_stop(opftp_server_t* s, bool on)

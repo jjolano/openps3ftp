@@ -103,7 +103,6 @@ typedef struct opftp_callbacks {
  * shutdown; it never waits on itself. */
 opftp_server_t* opftp_server_create(const opftp_callbacks_t* cb);
 void opftp_server_set_port(opftp_server_t*, uint16_t port);           /* default 2121; 0 = ephemeral */
-void opftp_server_set_fs(opftp_server_t*, const opftp_fs_t* fs);      /* default posix/ps3 */
 void opftp_server_set_root(opftp_server_t*, const char* root);        /* default "/" */
 /* Change the served root while the server is running. The reactor
  * thread applies it within a poll cycle (idle: ~1s, transfer: 100ms).
@@ -113,7 +112,6 @@ void opftp_server_set_workers(opftp_server_t*, int n);                /* default
 void opftp_server_set_stop_timeout(opftp_server_t*, int seconds);     /* default 5 */
 int  opftp_server_set_tls(opftp_server_t*, const char* cert_pem, const char* key_pem);
 void opftp_server_set_require_tls(opftp_server_t*, bool);
-void opftp_server_set_allow_foreign_port(opftp_server_t*, bool);      /* default false */
 void opftp_server_set_allow_stop(opftp_server_t*, bool);              /* register STOP (remote shutdown); default false */
 void opftp_server_set_pasv_range(opftp_server_t*, uint16_t min_port, uint16_t max_port); /* PASV/EPSV listener range; 0,0 = ephemeral */
 void opftp_server_set_v4only(opftp_server_t*, bool); /* listener: AF_INET only (RPCS3 sys_net lacks AF_INET6); default false */
@@ -126,9 +124,6 @@ uint16_t opftp_server_bound_port(opftp_server_t*); /* actual port (ephemeral sup
 /* Client context. Valid inside connect/disconnect hooks and while a
  * command handler runs (reactor thread). Pointers returned are valid
  * until the hook/handler returns. */
-const struct sockaddr* opftp_client_peer(opftp_client_t*);  /* IPv4 or IPv6 */
-const char* opftp_client_user(opftp_client_t*);
-const char* opftp_client_cwd(opftp_client_t*);
 void* opftp_client_userdata(opftp_client_t*);
 void  opftp_client_userdata_set(opftp_client_t*, void*);
 void  opftp_client_send(opftp_client_t*, const char* msg);         /* raw line, CRLF added */

@@ -241,21 +241,6 @@ int opftp_client_start_tls(struct opftp_client* c)
 
 /* ---- public client accessors ---- */
 
-const struct sockaddr* opftp_client_peer(opftp_client_t* c)
-{
-    return (const struct sockaddr*) &c->peer;
-}
-
-const char* opftp_client_user(opftp_client_t* c)
-{
-    return c->user;
-}
-
-const char* opftp_client_cwd(opftp_client_t* c)
-{
-    return c->cwd;
-}
-
 void* opftp_client_userdata(opftp_client_t* c)
 {
     return c->userdata;

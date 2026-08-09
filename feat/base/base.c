@@ -1,5 +1,4 @@
 #include "base/base.h"
-#include "site/site.h"
 
 #ifdef _NTFS_SUPPORT_
 bool data_ntfs_list(struct Client* client)
@@ -968,7 +967,8 @@ void cmd_site(struct Client* client, const char command_name[32], const char* co
 
 	command_init(site_command);
 
-	site_command_import(site_command);
+	command_register(site_command, "CHMOD", cmd_chmod);
+	command_register(site_command, "STOP", cmd_stop);
 
 	char* sitecmd = strdup(command_params);
 
@@ -1243,6 +1243,183 @@ void base_disconnect(struct Client* client)
 	#endif
 }
 
+/* ---- commands collapsed from feat/feat ---- */
+
+void cmd_feat(struct Client* client, const char command_name[32], const char* command_params)
+{
+	client_send_multicode(client, 211, "Features:");
+
+	client_send_multimessage(client, "REST STREAM");
+	client_send_multimessage(client, "SIZE");
+	client_send_multimessage(client, "MDTM");
+	client_send_multimessage(client, "TVFS");
+
+	client_send_code(client, 211, "End");
+}
+
+/* ---- commands collapsed from feat/ext ---- */
+
+void cmd_size(struct Client* client, const char command_name[32], const char* command_params)
+{
+	void* cvar_cwd_ptr = client_get_cvar(client, "cwd");
+	void* cvar_auth_ptr = client_get_cvar(client, "auth");
+
+	struct Path* cwd = (struct Path*) cvar_cwd_ptr;
+	bool* auth = (bool*) cvar_auth_ptr;
+
+	if(!*auth)
+	{
+		client_send_code(client, 530, FTP_530);
+		return;
+	}
+
+	if(command_params[0] == '\0')
+	{
+		client_send_code(client, 501, FTP_501);
+		return;
+	}
+
+	char param_path[MAX_PATH];
+	strcpy(param_path, command_params);
+
+	char cwd_str[MAX_PATH];
+	get_working_directory(cwd_str, cwd);
+
+	char path[MAX_PATH];
+	get_absolute_path(path, cwd_str, param_path);
+
+	ftpstat st;
+
+	if(ftpio_stat(path, &st) == 0)
+	{
+		char buffer[32];
+		sprintf(buffer, "%" PRIu64, (uint64_t) st.st_size);
+
+		client_send_code(client, 213, buffer);
+	}
+	else
+	{
+		client_send_code(client, 550, FTP_550);
+	}
+}
+
+void cmd_mdtm(struct Client* client, const char command_name[32], const char* command_params)
+{
+	void* cvar_cwd_ptr = client_get_cvar(client, "cwd");
+	void* cvar_auth_ptr = client_get_cvar(client, "auth");
+
+	struct Path* cwd = (struct Path*) cvar_cwd_ptr;
+	bool* auth = (bool*) cvar_auth_ptr;
+
+	if(!*auth)
+	{
+		client_send_code(client, 530, FTP_530);
+		return;
+	}
+
+	if(command_params[0] == '\0')
+	{
+		client_send_code(client, 501, FTP_501);
+		return;
+	}
+
+	char param_path[MAX_PATH];
+	strcpy(param_path, command_params);
+
+	char cwd_str[MAX_PATH];
+	get_working_directory(cwd_str, cwd);
+
+	char path[MAX_PATH];
+	get_absolute_path(path, cwd_str, param_path);
+
+	ftpstat st;
+
+	if(ftpio_stat(path, &st) == 0)
+	{
+		char buffer[32];
+		strftime(buffer, BUFFER_DATA, "%Y%m%d%H%M%S", localtime(&st.st_mtime));
+
+		client_send_code(client, 213, buffer);
+	}
+	else
+	{
+		client_send_code(client, 550, FTP_550);
+	}
+}
+
+/* ---- commands collapsed from feat/site ---- */
+
+void cmd_chmod(struct Client* client, const char command_name[32], const char* command_params)
+{
+	struct Path* cwd = (struct Path*) client_get_cvar(client, "cwd");
+	bool* auth = (bool*) client_get_cvar(client, "auth");
+
+	if(!*auth)
+	{
+		client_send_code(client, 530, FTP_530);
+		return;
+	}
+
+	if(command_params[0] == '\0')
+	{
+		client_send_code(client, 501, FTP_501);
+		return;
+	}
+
+	char* params_temp = strdup(command_params);
+	char* param = strtok(params_temp, " ");
+
+	if(param == NULL)
+	{
+		client_send_code(client, 501, FTP_501);
+		return;
+	}
+
+	mode_t mode = strtoul(param, NULL, 8);
+
+	param = strtok(NULL, " ");
+
+	if(param == NULL)
+	{
+		client_send_code(client, 501, FTP_501);
+		return;
+	}
+
+	char param_path[MAX_PATH];
+	strcpy(param_path, param);
+
+	char cwd_str[MAX_PATH];
+	get_working_directory(cwd_str, cwd);
+
+	char path[MAX_PATH];
+	get_absolute_path(path, cwd_str, param_path);
+
+	if(ftpio_chmod(path, mode) == 0)
+	{
+		client_send_code(client, 200, FTP_200);
+	}
+	else
+	{
+		client_send_code(client, 550, FTP_550);
+	}
+
+	free(params_temp);
+}
+
+void cmd_stop(struct Client* client, const char command_name[32], const char* command_params)
+{
+	bool* auth = (bool*) client_get_cvar(client, "auth");
+
+	if(!*auth)
+	{
+		client_send_code(client, 530, FTP_530);
+		return;
+	}
+
+	server_stop(client->server_ptr);
+	client_send_code(client, 421, FTP_421);
+}
+
 void base_command_import(struct Command* command)
 {
 	command_register_connect(command, base_connect);
@@ -1283,5 +1460,15 @@ void base_command_import(struct Command* command)
 	command_register(command, "XMKD", cmd_mkd);
 	command_register(command, "XPWD", cmd_pwd);
 	command_register(command, "XRMD", cmd_rmd);
+
+	/* commands collapsed from feat/feat, feat/ext, feat/site */
+	command_register(command, "FEAT", cmd_feat);
+	command_register(command, "SIZE", cmd_size);
+	command_register(command, "MDTM", cmd_mdtm);
 }
+
+/* compat wrappers — delegate to the single entry point */
+void feat_command_import(struct Command* command) { base_command_import(command); }
+void ext_command_import(struct Command* command)  { base_command_import(command); }
+void site_command_import(struct Command* command) { base_command_import(command); }
 

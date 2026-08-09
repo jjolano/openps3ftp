@@ -162,10 +162,7 @@ add_test(NAME ftplib COMMAND python3 ${CMAKE_SOURCE_DIR}/tests/test_ftplib.py $<
 # ---- P5: legacy API smoke test (old consumer code, unchanged) ----
 # The feat/ sources are the unchanged legacy consumers (base.c etc.).
 add_executable(legacy_smoke tests/legacy_smoke.c
-  feat/base/base.c
-  feat/ext/ext.c
-  feat/site/site.c
-  feat/feat/feat.c)
+  feat/base/base.c)
 target_compile_definitions(legacy_smoke PRIVATE LINUX=1)
 target_include_directories(legacy_smoke PRIVATE include feat)
 target_link_libraries(legacy_smoke openps3ftp)

@@ -259,7 +259,7 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
         if (fs) opftp_fs_mem_destroy(fs);
         return 0;
     }
-    opftp_server_set_fs(s, fs);
+    s->fs_base = fs;
     opftp_server_set_port(s, 0);          /* ephemeral, no port clashes */
     opftp_server_set_root(s, "/");
     opftp_server_set_workers(s, 1);

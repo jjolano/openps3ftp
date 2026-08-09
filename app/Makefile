@@ -18,7 +18,7 @@ INCLUDE		:= -I. -I$(PORTLIBS)/include -I$(PORTLIBS)/include/freetype2 \
 		   $(LIBPSL1GHT_INC)
 
 # Source Files
-SRCS		:= main.c osd.cpp sysutil_compat.c ui.c log.c
+SRCS		:= main.c osd.cpp sysutil_compat.c ui.c log.c ../plugin/netbridge.c
 OBJS		:= $(filter %.c.ppu.o,$(SRCS:.c=.c.ppu.o)) \
 		   $(filter %.cpp.ppu.o,$(SRCS:.cpp=.cpp.ppu.o))
 
@@ -62,7 +62,8 @@ headless: headless.elf
 headless.elf: main.c
 	$(CC) $(CFLAGS) -DOPFTP_HEADLESS=1 -c main.c -o main.headless.ppu.o
 	$(CC) $(CFLAGS) -c log.c -o log.headless.ppu.o
-	$(CXX) main.headless.ppu.o log.headless.ppu.o \
+	$(CC) $(CFLAGS) -c ../plugin/netbridge.c -o netbridge.headless.ppu.o
+	$(CXX) main.headless.ppu.o log.headless.ppu.o netbridge.headless.ppu.o \
 		-s $(MACHDEP) \
 		-L$(PORTLIBS)/lib -L$(PSL1GHT)/ppu/lib \
 		-lopenps3ftp -lmbedtls -lmbedx509 -lmbedcrypto \
@@ -71,7 +72,7 @@ headless.elf: main.c
 	$(SPRX) $@
 
 clean:
-	rm -f $(TARGET) $(OBJS) EBOOT.BIN headless.elf main.headless.ppu.o log.headless.ppu.o
+	rm -f $(TARGET) $(OBJS) EBOOT.BIN headless.elf main.headless.ppu.o log.headless.ppu.o ../plugin/netbridge.c.ppu.o netbridge.headless.ppu.o
 
 $(TARGET): $(OBJS)
 	$(CXX) $^ $(LDFLAGS) -o $@
