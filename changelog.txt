@@ -1,3 +1,16 @@
+[Version 5.1 - August 8, 2026]
+- dev_blind support: press SELECT to mount/unmount the flash filesystem
+  (opt-in only, never automatic), with a persistent "dev_blind MOUNTED"
+  warning in the STATUS view and unmount on exit.
+- App log file: server + OSD events appended to /dev_hdd0/tmp/opftp.log
+  (host builds: /tmp/opftp.log).
+- New vsh plugin (SPRX) hosting the FTP core plus an embedded web console
+  (HTTP server + JSON API + app/webui) as a third renderer of the shared
+  UI model.
+- PS3 filesystem backend switched to the cellFs API instead of raw lv2
+  sysFs syscalls.
+- Fixed the TLS WANT_WRITE retry path; added auth-failure (530) coverage.
+
 [Version 5.0 - August 7, 2026]
 - New on-screen OSD status UI (NoRSX, 4 views, gamepad navigation) with
   server status, connected clients, and transfer activity.
