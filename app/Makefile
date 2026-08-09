@@ -66,7 +66,7 @@ headless.elf: main.c
 		-s $(MACHDEP) \
 		-L$(PORTLIBS)/lib -L$(PSL1GHT)/ppu/lib \
 		-lopenps3ftp -lmbedtls -lmbedx509 -lmbedcrypto \
-		-lsysfs -lnet -lsysmodule -llv2 -lrt -lm -lz \
+		-lsysfs -lfs -lfs_stub -lnet -lsysmodule -llv2 -lrt -lm -lz \
 		-o $@
 	$(SPRX) $@
 
