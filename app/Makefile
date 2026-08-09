@@ -81,7 +81,10 @@ EBOOT.BIN: $(TARGET)
 ifeq ($(UNSIGNED), 1)
 	$(call MAKE_FSELF,$<,$@)
 else
-	$(call MAKE_SELF_NPDRM,$<,$@,$(CONTENTID),04)
+	# scetool loads keys from $$PS3/keys (or ./data/keys); without them
+	# keys_load() frees the keyset list and leaves the global dangling,
+	# so the NPDRM path segfaults (use-after-free in scetool 0.2.9).
+	PS3=$(dir $(shell which scetool)) $(call MAKE_SELF_NPDRM,$<,$@,$(CONTENTID),04)
 endif
 
 %.c.ppu.o: %.c
