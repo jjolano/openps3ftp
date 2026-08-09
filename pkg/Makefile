@@ -24,7 +24,7 @@ all: $(CONTENT_ID).pkg
 
 dist: distclean
 	@echo create distribution $(DIST_TARGET)-$(GIT_VERSION) ...
-	mkdir -p dist/cex dist/rex
+	mkdir -p dist/cex dist/rex dist/lib/lib dist/lib/include/openps3ftp
 	-mv readme.txt dist/readme.txt
 	-mv changelog.txt dist/changelog.txt
 	$(MAKE) RETAIL_PKG=0 clean all
@@ -32,6 +32,10 @@ dist: distclean
 	$(MAKE) RETAIL_PKG=1 clean all
 	cp $(CONTENT_ID).pkg dist/cex/
 	$(MAKE) clean
+	# static lib + headers (portlibs layout) for dev consumers
+	cp $(PORTLIBS)/lib/libopenps3ftp.a $(PORTLIBS)/lib/libopenps3ftp_psl1ght.a dist/lib/lib/
+	cp ../include/openps3ftp/openps3ftp.h dist/lib/include/openps3ftp/
+	cp ../include/*.h dist/lib/include/
 	zip -r9ql $(DIST_TARGET)-$(GIT_VERSION).zip dist
 
 clean:
