@@ -9,7 +9,7 @@ TARGET		:= ftp.elf
 # Libraries
 LIBPATHS	:= -L$(PORTLIBS)/lib -L$(PSL1GHT)/ppu/lib
 LIBS		:= -lopenps3ftp -lmbedtls -lmbedx509 -lmbedcrypto \
-		   -lsysfs -lnet -lnetctl -lsysmodule \
+		   -lsysfs -lfs_stub -lnet -lnetctl -lsysmodule \
 		   -lNoRSX -lfreetype -lpng -lgcm_sys -lrsx -lsysutil -lio \
 		   -llv2 -lrt -lm -lz
 
