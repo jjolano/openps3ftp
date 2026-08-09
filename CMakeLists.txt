@@ -55,6 +55,12 @@ endif()
 
 add_library(openps3ftp STATIC ${OPFTP_SRCS} ${OPFTP_LEGACY_SRCS})
 target_include_directories(openps3ftp PUBLIC include PRIVATE src legacy/src)
+if(OPFTP_PS3)
+  # cell/fs headers aren't in the stock ps3dev SDK; vendor the two
+  # self-contained headers so the lib builds against stock PSL1GHT too.
+  target_include_directories(openps3ftp SYSTEM PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/ps3dk)
+endif()
 target_link_libraries(openps3ftp PUBLIC Threads::Threads)
 
 # P5: legacy consumers link -lopenps3ftp_psl1ght; emit the same objects
