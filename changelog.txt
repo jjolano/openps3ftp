@@ -1,3 +1,11 @@
+[Version 5.4 - August 9, 2026]
+- Fixed the RPCS3 test harness build: the headless app link line lost
+  -lfs/-lfs_stub in the netbridge drop, breaking `make headless`
+  (undefined cellFs* symbols); restored, so the emulator probe works.
+- Full UI design pass across the web console, Linux TUI, and PS3 OSD.
+- Dist zip now ships the static lib + headers (portlibs layout) for
+  developers, alongside the rex/cex PKGs.
+
 [Version 5.3 - August 9, 2026]
 - Use the real libfs / libnet from the updated PS3DK (raw LV2 cellFs
   + sys_net syscall wrappers) instead of import stubs; deleted the
